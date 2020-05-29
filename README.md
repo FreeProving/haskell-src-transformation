@@ -39,7 +39,7 @@ The repository is structured as follows.
     + `src/test` contains modules that have been translated to test certain features.
 
  - `example` contains some examples that have been transformed by hand using Wadler's algorithm. \
-    Additionally, it contains some special examples that were used to test the [Free Compiler](free-compiler).
+  Additionally, it contains some special examples that were used to test the [Free Compiler](free-compiler).
 
  - `tool` contains Bash scripts that are used during development and for testing.
 
