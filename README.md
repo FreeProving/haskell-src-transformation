@@ -22,7 +22,7 @@ This tool was implemented as part of a bachelor thesis (by Malte Clement at Kiel
 
 This is a tool to translate different language features of Haskell into simpler expressions.
 
- - It translates pattern matching on left-hand sides into explicit pattern matching on right-hand sides using Wadler's Algorithm for compiling pattern matching.
+ - It translates pattern matching on left-hand sides into explicit pattern matching on right-hand sides using Wadler's algorithm for compiling pattern matching.
 
  - Guards are transformed into `case` expressions using their semantics as described in the Haskell report.
 
