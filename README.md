@@ -4,7 +4,7 @@
 ![CI Pipeline](https://github.com/FreeProving/haskell-src-transformations/workflows/CI%20Pipeline/badge.svg)
 
 <!-- Short description -->
-This tool was implemented as part of a bachelor thesis (by Malte Clement at Kiel University) and should be considered as a __alpha version of a prototype__.
+This tool was implemented as part of a bachelor thesis (by Malte Clement at Kiel University) and should be considered as an __alpha version of a prototype__.
 
 ## Table of Contents
 
@@ -22,9 +22,9 @@ This tool was implemented as part of a bachelor thesis (by Malte Clement at Kiel
 
 This is a tool to translate different language features of Haskell into simpler expressions.
 
- - It translates pattern matching on left hand sides into explicit pattern matching on right sides using Wadlers Algorithm for compiling pattern matching.
+ - It translates pattern matching on left-hand sides into explicit pattern matching on right-hand sides using Wadler's algorithm for compiling pattern matching.
 
- - Guards are transformed into `case`-expression using their semantics as described in the Haskell-report.
+ - Guards are transformed into `case` expressions using their semantics as described in the Haskell report.
 
  - Partially defined functions are completed by inserting alternatives whose right-hand side is `undefined` such that pattern matching failures are handled explicitly.
 
