@@ -292,10 +292,16 @@ compareCons (PInfixApp _ _ qn1 _) (PInfixApp _ _ qn2 _) = qn1 == qn2
 compareCons (PApp _ qn1 _       ) (PInfixApp _ _ qn2 _) = qn1 == qn2
 compareCons (PInfixApp _ _ qn1 _) (PApp _ qn2 _       ) = qn1 == qn2
 compareCons (PParen _ p1        ) p2                    = compareCons p1 p2
-compareCons p1                    (PParen _ p2   )      = compareCons p1 p2
--- TODO Special Syntax
-compareCons (PList _ ps1) (PList _ ps2) = length ps1 == length ps2
-compareCons (PWildCard _   )      (PWildCard _   )      = True
+compareCons p1                    (PParen _ p2)         = compareCons p1 p2
+-- Lists have the same constructor if both are empty or both are non empty
+compareCons (PList _ []) (PList _ [])                   = True
+compareCons (PList _ (_ : _)) (PList _ (_ : _))         = True
+compareCons (PList _ (_ : _)) (PApp _ (Special () (Cons ())) _) = True
+compareCons (PApp _ (Special () (Cons ())) _) (PList _ (_ : _)) = True
+compareCons (PList _ (_ : _)) (PInfixApp _ _ (Special () (Cons ())) _) = True
+compareCons (PInfixApp _ _ (Special () (Cons ())) _) (PList _ (_ : _)) = True
+
+compareCons (PWildCard _) (PWildCard _)                 = True
 compareCons (PTuple _ _ ps1) (PTuple _ _ ps2) = length ps1 == length ps2
 compareCons _                     _                     = False
 
