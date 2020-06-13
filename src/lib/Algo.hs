@@ -293,7 +293,9 @@ compareCons (PApp _ qn1 _       ) (PInfixApp _ _ qn2 _) = qn1 == qn2
 compareCons (PInfixApp _ _ qn1 _) (PApp _ qn2 _       ) = qn1 == qn2
 compareCons (PParen _ p1        ) p2                    = compareCons p1 p2
 compareCons p1                    (PParen _ p2)         = compareCons p1 p2
--- Lists have the same constructor if both are empty or both are non empty
+compareCons (PWildCard _) (PWildCard _)                 = True
+
+-- Lists have the same constructor if both are empty or both are non-empty.
 compareCons (PList _ []) (PList _ [])                   = True
 compareCons (PList _ (_ : _)) (PList _ (_ : _))         = True
 compareCons (PList _ (_ : _)) (PApp _ (Special () (Cons ())) _) = True
@@ -301,9 +303,14 @@ compareCons (PApp _ (Special () (Cons ())) _) (PList _ (_ : _)) = True
 compareCons (PList _ (_ : _)) (PInfixApp _ _ (Special () (Cons ())) _) = True
 compareCons (PInfixApp _ _ (Special () (Cons ())) _) (PList _ (_ : _)) = True
 
-compareCons (PWildCard _) (PWildCard _)                 = True
+-- Tuple constructers match if both have the same number of elements.
 compareCons (PTuple _ _ ps1) (PTuple _ _ ps2) = length ps1 == length ps2
-compareCons _                     _                     = False
+compareCons (PTuple _ _ ps) (PApp _ (Special () (TupleCon () Boxed arity)) _) =
+  length ps == arity
+compareCons (PApp _ (Special () (TupleCon () Boxed arity)) _) (PTuple _ _ ps) =
+  length ps == arity
+
+compareCons _ _ = False
 
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.
