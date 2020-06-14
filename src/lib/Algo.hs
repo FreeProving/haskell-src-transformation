@@ -17,6 +17,7 @@ module Algo
 where
 
 import           Data.List
+import           Data.Function
 import           FreshVars
 import           Language.Haskell.Exts
 import qualified Language.Haskell.Exts.Build   as B
@@ -289,30 +290,20 @@ select (ps, _) (qs, _) = compareCons (head ps) (head qs)
 -- | Tests whether the given patterns match the same constructor or both match
 --   the wildcard pattern.
 compareCons :: Pat () -> Pat () -> Bool
-compareCons (PApp _ qn1 _       ) (PApp _ qn2 _       ) = qn1 == qn2
-compareCons (PInfixApp _ _ qn1 _) (PInfixApp _ _ qn2 _) = qn1 == qn2
-compareCons (PApp _ qn1 _       ) (PInfixApp _ _ qn2 _) = qn1 == qn2
-compareCons (PInfixApp _ _ qn1 _) (PApp _ qn2 _       ) = qn1 == qn2
-compareCons (PParen _ p1        ) p2                    = compareCons p1 p2
-compareCons p1                    (PParen _ p2)         = compareCons p1 p2
-compareCons (PWildCard _) (PWildCard _)                 = True
+compareCons = (==) `on` consName
 
--- Lists have the same constructor if both are empty or both are non-empty.
-compareCons (PList _ []) (PList _ [])                   = True
-compareCons (PList _ (_ : _)) (PList _ (_ : _))         = True
-compareCons (PList _ (_ : _)) (PApp _ (Special () (Cons ())) _) = True
-compareCons (PApp _ (Special () (Cons ())) _) (PList _ (_ : _)) = True
-compareCons (PList _ (_ : _)) (PInfixApp _ _ (Special () (Cons ())) _) = True
-compareCons (PInfixApp _ _ (Special () (Cons ())) _) (PList _ (_ : _)) = True
-
--- Tuple constructers match if both have the same number of elements.
-compareCons (PTuple _ _ ps1) (PTuple _ _ ps2) = length ps1 == length ps2
-compareCons (PTuple _ _ ps) (PApp _ (Special () (TupleCon () Boxed arity)) _) =
-  length ps == arity
-compareCons (PApp _ (Special () (TupleCon () Boxed arity)) _) (PTuple _ _ ps) =
-  length ps == arity
-
-compareCons _ _ = False
+-- | Returns the qualified name of the constructor of the given pattern or
+--   @Nothing@ if it is a wildcard pattern.
+consName :: Pat () -> Maybe (QName ())
+consName (PApp _ qn _       ) = return qn
+consName (PInfixApp _ _ qn _) = return qn
+consName (PParen _ pat      ) = consName pat
+consName (PList  _ []       ) = return $ Special () $ ListCon ()
+consName (PList  _ (_ : _)  ) = return $ Special () $ Cons ()
+consName (PTuple _ _ ps) = return $ Special () $ TupleCon () Boxed $ length ps
+consName (PWildCard _       ) = Nothing
+consName pat =
+  error $ "consName: unsupported pattern \"" ++ prettyPrint pat ++ "\""
 
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.
