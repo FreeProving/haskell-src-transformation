@@ -62,7 +62,9 @@ test-suite haskell-src-transformations-unit-tests
   hs-source-dirs:     src/test
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
-  -- other-modules: TODO add unit tests
+  other-modules:      AlgoTests
   build-depends:      base
+                    , haskell-src-transformations
+                    , HUnit
                     , hspec
                     , QuickCheck
