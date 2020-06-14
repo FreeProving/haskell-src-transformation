@@ -9,7 +9,7 @@ import           Algo
 
 -- | Tests for the "Algo" module.
 testAlgo :: Spec
-testAlgo = context "Algo" testCompareCons
+testAlgo = describe "Algo" testCompareCons
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
@@ -48,7 +48,7 @@ shouldNotMatchCons pat1 pat2
 
 -- | Test group for 'compareCons' tests.
 testCompareCons :: Spec
-testCompareCons = describe "matching constructors of patterns" $ do
+testCompareCons = context "matching constructors of patterns" $ do
   it "should match constructors in list notation and infix list constructor"
     $ do
         pat1 <- parseTestPat "[x]"

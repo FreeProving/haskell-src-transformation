@@ -300,7 +300,7 @@ consName (PInfixApp _ _ qn _) = return qn
 consName (PParen _ pat      ) = consName pat
 consName (PList  _ []       ) = return $ Special () $ ListCon ()
 consName (PList  _ (_ : _)  ) = return $ Special () $ Cons ()
-consName (PTuple _ _ ps) = return $ Special () $ TupleCon () Boxed $ length ps
+consName (PTuple _ bxd ps) = return $ Special () $ TupleCon () bxd $ length ps
 consName (PWildCard _       ) = Nothing
 consName pat =
   error $ "consName: unsupported pattern \"" ++ prettyPrint pat ++ "\""
