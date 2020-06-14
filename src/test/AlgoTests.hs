@@ -7,7 +7,7 @@ import           Test.HUnit.Base                ( assertFailure )
 
 import           Algo
 
--- | Test group for 'Algo' tests.
+-- | Tests for the "Algo" module.
 testAlgo :: Spec
 testAlgo = context "Algo" testCompareCons
 

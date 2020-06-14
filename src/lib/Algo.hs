@@ -11,7 +11,7 @@ module Algo
   , Eqs
   , isPVar
   , isCons
-  -- * Testing interface.
+  -- * Testing interface
   , compareCons
   )
 where
