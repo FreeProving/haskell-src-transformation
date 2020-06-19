@@ -5,10 +5,25 @@ module Application
   )
 where                                      -- TODO too many variables generated
                                                                                 -- TODO only tuples supported
-import           Algo
+import           Algo                           ( match
+                                                , err
+                                                , optimize
+                                                , newVars
+                                                , isCons
+                                                )
 import qualified CaseCompletion                as CC
-import           FreshVars
+                                                ( applyCCModule )
+import           FreshVars                      ( Constructor
+                                                , PM
+                                                , addConstrMap
+                                                , opt
+                                                , gets
+                                                )
 import qualified GuardElimination              as GE
+                                                ( comp
+                                                , getMatchName
+                                                , applyGEModule
+                                                )
 import           Language.Haskell.Exts.Syntax
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in

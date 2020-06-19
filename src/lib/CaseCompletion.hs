@@ -4,8 +4,14 @@ module CaseCompletion
   )
 where
 
-import           Algo
-import           FreshVars
+import           Algo                           ( match
+                                                , err
+                                                , newVars
+                                                , newVar
+                                                , Eqs
+                                                , isPVar
+                                                )
+import           FreshVars                      ( PM )
 import qualified Language.Haskell.Exts.Build   as B
 import           Language.Haskell.Exts.Syntax
 

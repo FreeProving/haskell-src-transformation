@@ -2,7 +2,9 @@
 
 module Renaming where
 
-import           FreshVars
+import           FreshVars                      ( PM
+                                                , freshVar
+                                                )
 import           Language.Haskell.Exts.Syntax
 
 -- | A substitution (or "renaming") is a mapping of variable names to variable

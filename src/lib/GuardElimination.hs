@@ -9,8 +9,13 @@ where                                   -- TODO Apply GE to GuardedRhs in case e
                                                                                     -- not false by semantics
 
 import qualified Algo                          as A
+                                                ( err
+                                                , translatePVar
+                                                , newVars
+                                                , newVar
+                                                )
 import           Control.Monad
-import           FreshVars
+import           FreshVars                      ( PM )
 import qualified Language.Haskell.Exts.Build   as B
 import           Language.Haskell.Exts.Syntax
 

@@ -18,10 +18,23 @@ where
 
 import           Data.List
 import           Data.Function
-import           FreshVars
+import           FreshVars                      ( PM
+                                                , Constructor
+                                                , getConstrName
+                                                , constrMap
+                                                , matchedPat
+                                                , trivialCC
+                                                , freshVar
+                                                , modify
+                                                , gets
+                                                )
 import           Language.Haskell.Exts
 import qualified Language.Haskell.Exts.Build   as B
-import           Renaming
+import           Renaming                       ( subst
+                                                , tSubst
+                                                , substitute
+                                                , rename
+                                                )
 
 -- | A type that represents a single equation of a function declaration.
 --

@@ -8,11 +8,18 @@ where
 
 import           Control.Monad                  ( void )
 
-import           Application
-import           FreshVars
+import           Application                    ( processModule
+                                                , specialCons
+                                                )
+import           FreshVars                      ( PMState
+                                                , PM
+                                                , evalPM
+                                                )
 import           Language.Haskell.Exts
-import           System.Console.GetOpt
-import           System.Environment
+import           System.Console.GetOpt          ( getOpt
+                                                , usageInfo
+                                                )
+import           System.Environment             ( getArgs )
 
 -- | A data type that contains the parsed command line options.
 data Options = Options
