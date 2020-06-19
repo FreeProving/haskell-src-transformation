@@ -214,7 +214,7 @@ getQName (HSE.Alt _ p _ _) = getQNamePat p
 
 -- | Gets the name of a constructor pattern.
 --
---   Returns the 'Special' names for special patterns such as lists and tuples.
+--   Returns the 'HSE.Special' names for special patterns such as lists and tuples.
 getQNamePat :: HSE.Pat () -> HSE.QName ()
 getQNamePat (HSE.PApp _ qn _       ) = qn
 getQNamePat (HSE.PInfixApp _ _ qn _) = qn
@@ -521,8 +521,8 @@ renameAndOpt pat alts =
           res <- renameAll (zip p2 p1) e  -- Fixes the renaming bug -> was p1 p2 before
           optimize res
 
--- | Compares the given 'QName's ignoring the distinction between 'Ident's
---   and 'Symbol's, i.e. @Ident "+:"@ amd @Symbol "+:"@ are equal.
+-- | Compares the given 'HSE.QName's ignoring the distinction between 'HSE.Ident's
+--   and 'HSE.Symbol's, i.e. @HSE.Ident "+:"@ amd @HSE.Symbol "+:"@ are equal.
 cheatEq :: HSE.QName () -> HSE.QName () -> Bool
 cheatEq (HSE.UnQual () (HSE.Symbol () s1)) (HSE.UnQual () (HSE.Ident () s2)) =
   s1 == s2
