@@ -29,38 +29,32 @@ jobs:
   # Compilation                                                               #
   #############################################################################
 
-  # Builds the library, command line interface, unit tests and dependencies
-  # using Cabal.
+  # Builds the library, executable, unit tests and dependencies using Cabal.
   #
   # Compiled modules are cached for subsequent jobs or pipeline runs.
-  # Unfortunately, the entire code of this job that handled the setup of
+  # Unfortunately, the entire code of this job that handles the setup of
   # the cache (steps between `SETUP CACHE` and `END SETUP CACHE`) needs to
   # be replicated to restore the caches in all jobs that use Cabal.
   #
-  # We cache `~/.cabal/packages`, `~/.cabal/store` and `dist-newstyle`
-  # separately. The cache keys contain the hash of the `.cabal` and
-  # `cabal.project` file as well as the hash of the `01-index.cache` file
-  # from `~/.cabal/packages`.
+  # We cache `~/.cabal/packages`, `~/.cabal/store` and `dist-newstyle`.
+  # The cache keys have the following format
   #
-  #   * If the Cabal files in this repository change, a previous version
-  #     of the cache is restored and the updated dependencies are installed.
-  #     We assume this to happen only infrequently.
+  #     <os>-cabal-<branch>-<cabal-index-hash>-<cabal-hash>-<source-hash>
   #
-  #   * Before the caches are populated, the latest Cabal package list is
-  #     downloaded. Therefore, a change of `01-index.cache` occurs frequently.
-  #     Whenever the package list is updated, a lot of dependencies have
-  #     to be rebuild. If the hash of the index wouldn't be part of the
-  #     cache keys, the rebuild would be triggered on every push until the
-  #     Cabal files are changed. By including the indexes hash, the rebuilt
-  #     dependencies are cached until the next change of the package list.
+  # where
   #
-  # The cache key for `dist-newsyle` additionally contains the hash of all
-  # Haskell files in `src`. This avoids recompilation of modules defined in
-  # this repository.
+  #  * `<os>` is the name of the operating system.
+  #  * `<branch>` is the slug of the of the branch that was pushed to or the
+  #    base branch of the pull request that triggered the workflow.
+  #  * `cabal-hash` is the SHA-256 hash of the `cabal.project` and
+  #    `haskell-src-transformations.cabal` files.
+  #  * `cabal-index-hash` is the SHA-256 hash of the `01-index.cache` from
+  #    the `~/.cabal/packages` directory.
+  #  * `source-hash` is the SHA-256 hash of all Haskell source files in `src`.
   #
-  # We install dependencies on all supported platforms separately. The
-  # operating system is part of the cache key. Caches are never restored
-  # from other platforms.
+  # If there is no matching cache entry for the current key, the files are
+  # restored from the cache with the longest matching prefix.
+  # Caches from other operating systems are never restored.
   cabal-build:
     name: Cabal Build
     runs-on: ${{ matrix.os }}
