@@ -145,7 +145,8 @@ processModule m = do
 
 -- | 'specialCons' is a map for the sugared data types in Haskell, since they
 --   can not be defined in a module by hand.
---   This map is the default 'constrMap' for the PMState used in Main.hs
+--   This map is the default 'FreshVars.constrMap' for the 'FreshVars.PMState'
+--   used in @Main.hs@
 specialCons :: [(String, [Constructor])]
 specialCons =
   [ ("unit", [(HSE.Special () (HSE.UnitCon ()), 0, False)])
