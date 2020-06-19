@@ -20,7 +20,7 @@ import           FreshVars                      ( PMState(PMState)
                                                 , debugOutput
                                                 , evalPM
                                                 )
-import           Language.Haskell.Exts
+import qualified Language.Haskell.Exts          as HSE
 import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , ArgDescr(NoArg, ReqArg)
                                                 , ArgOrder(Permute)
@@ -124,7 +124,7 @@ main = do
     then do
       let state = transformOptions opts
       input <- readFile $ inputFile opts
-      let x = fromParseResult (parseModule input)
+      let x = HSE.fromParseResult (HSE.parseModule input)
           m = evalPM (processModule (void x)) state
       case outputDir opts of
         Just out -> do
@@ -145,7 +145,7 @@ printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
                  otherwise = return ()
 
 -- | Pretty prints the given Haskell module.
-pPrint :: Module () -> String
-pPrint = prettyPrintStyleMode
-  (Style { mode = PageMode, lineLength = 120, ribbonsPerLine = 1.5 })
-  defaultMode
+pPrint :: HSE.Module () -> String
+pPrint = HSE.prettyPrintStyleMode
+  (HSE.Style { HSE.mode = HSE.PageMode, HSE.lineLength = 120, HSE.ribbonsPerLine = 1.5 })
+  HSE.defaultMode
