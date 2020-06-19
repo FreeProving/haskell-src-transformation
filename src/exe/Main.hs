@@ -11,12 +11,20 @@ import           Control.Monad                  ( void )
 import           Application                    ( processModule
                                                 , specialCons
                                                 )
-import           FreshVars                      ( PMState
-                                                , PM
+import           FreshVars                      ( PMState(PMState)
+                                                , nextId
+                                                , constrMap
+                                                , matchedPat
+                                                , trivialCC
+                                                , opt
+                                                , debugOutput
                                                 , evalPM
                                                 )
 import           Language.Haskell.Exts
-import           System.Console.GetOpt          ( getOpt
+import           System.Console.GetOpt          ( OptDescr(Option)
+                                                , ArgDescr(NoArg,ReqArg)
+                                                , ArgOrder(Permute)
+                                                , getOpt
                                                 , usageInfo
                                                 )
 import           System.Environment             ( getArgs )
@@ -31,8 +39,8 @@ data Options = Options
     -- ^ The name of the output file or @Nothing@ if output should be printed
     --   to the console.
   , enableDebug  :: Bool
-    -- ^ Flag that indicates whether to print debugging messages to the console.
   , trivialCase  :: Bool
+  -- ^ Flag that indicates whether to print debugging messages to the console.
     -- ^ Flag that indicates whether to enable trivial case completion or not.
   , optimizeCase :: Bool
     -- ^ Flag that indicates whether optimization for case expressions is
