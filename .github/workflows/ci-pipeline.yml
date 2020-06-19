@@ -70,7 +70,7 @@ jobs:
     steps:
     ### SETUP CACHE ###########################################################
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
       with:
@@ -160,7 +160,7 @@ jobs:
     steps:
     ### SETUP CACHE ###########################################################
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
       with:
@@ -221,7 +221,7 @@ jobs:
     steps:
     ### SETUP CACHE ###########################################################
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
     - name: Setup Haskell
       uses: actions/setup-haskell@v1
       with:
@@ -287,7 +287,7 @@ jobs:
     container: just95/hlint:3.1.1
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
     - name: Check code style using HLint
       run: hlint src
 
@@ -298,6 +298,6 @@ jobs:
     container: just95/brittany:0.12.1.1
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
     - name: Check code style using Brittany
       run: ./tool/check-formatting.sh
