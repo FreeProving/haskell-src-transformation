@@ -22,7 +22,7 @@ import           FreshVars                      ( PMState(PMState)
                                                 )
 import           Language.Haskell.Exts
 import           System.Console.GetOpt          ( OptDescr(Option)
-                                                , ArgDescr(NoArg,ReqArg)
+                                                , ArgDescr(NoArg, ReqArg)
                                                 , ArgOrder(Permute)
                                                 , getOpt
                                                 , usageInfo
