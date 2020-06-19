@@ -24,7 +24,7 @@ import qualified GuardElimination              as GE
                                                 , getMatchName
                                                 , applyGEModule
                                                 )
-import qualified Language.Haskell.Exts.Syntax   as HSE
+import qualified Language.Haskell.Exts.Syntax  as HSE
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in
 --   the module.
@@ -85,7 +85,7 @@ useAlgo ms = do
  where
   selectExp :: HSE.Rhs () -> HSE.Exp ()
   selectExp (HSE.UnGuardedRhs _ e) = e
-  selectExp _                  = error "no UnGuardedRhs in selectExp"
+  selectExp _                      = error "no UnGuardedRhs in selectExp"
 
 -- a general version of add
 addG :: (a -> PM ()) -> Maybe a -> PM ()
@@ -123,7 +123,8 @@ getDataCons :: HSE.QualConDecl () -> Constructor
 getDataCons (HSE.QualConDecl _ _ _ cdecl) = getDataCons' cdecl
  where
   getDataCons' :: HSE.ConDecl () -> Constructor
-  getDataCons' (HSE.ConDecl _ cname types) = (HSE.UnQual () cname, length types, False)
+  getDataCons' (HSE.ConDecl _ cname types) =
+    (HSE.UnQual () cname, length types, False)
   getDataCons' (HSE.InfixConDecl _ _ cname _) = (HSE.UnQual () cname, 2, True)
   getDataCons' (HSE.RecDecl _ _ _) = error "record notation is not supported"
 
@@ -149,7 +150,9 @@ specialCons :: [(String, [Constructor])]
 specialCons =
   [ ("unit", [(HSE.Special () (HSE.UnitCon ()), 0, False)])
   , ( "list"
-    , [(HSE.Special () (HSE.ListCon ()), 0, False), (HSE.Special () (HSE.Cons ()), 2, True)]
+    , [ (HSE.Special () (HSE.ListCon ()), 0, False)
+      , (HSE.Special () (HSE.Cons ())   , 2, True)
+      ]
     )
   , ("fun", [(HSE.Special () (HSE.FunCon ()), 2, True)])
   , ( "pair"

@@ -20,7 +20,7 @@ import           FreshVars                      ( PMState(PMState)
                                                 , debugOutput
                                                 , evalPM
                                                 )
-import qualified Language.Haskell.Exts          as HSE
+import qualified Language.Haskell.Exts         as HSE
 import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , ArgDescr(NoArg, ReqArg)
                                                 , ArgOrder(Permute)
@@ -147,5 +147,9 @@ printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
 -- | Pretty prints the given Haskell module.
 pPrint :: HSE.Module () -> String
 pPrint = HSE.prettyPrintStyleMode
-  (HSE.Style { HSE.mode = HSE.PageMode, HSE.lineLength = 120, HSE.ribbonsPerLine = 1.5 })
+  (HSE.Style { HSE.mode           = HSE.PageMode
+             , HSE.lineLength     = 120
+             , HSE.ribbonsPerLine = 1.5
+             }
+  )
   HSE.defaultMode

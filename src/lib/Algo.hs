@@ -118,7 +118,7 @@ groupPat = groupBy ordPats
 --   What's the difference to @isVar@?
 isPVar :: HSE.Pat () -> Bool
 isPVar (HSE.PVar _ _) = True
-isPVar _          = False
+isPVar _              = False
 
 -- | Applies 'match' to every group of equations where the error expression
 --   is the 'match' result of the next group.
@@ -220,8 +220,9 @@ getQNamePat (HSE.PApp _ qn _       ) = qn
 getQNamePat (HSE.PInfixApp _ _ qn _) = qn
 getQNamePat (HSE.PList _ _         ) = HSE.Special () (HSE.ListCon ())
 getQNamePat (HSE.PWildCard _       ) = HSE.Special () (HSE.ExprHole ()) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
-getQNamePat (HSE.PTuple _ bxd ps   ) = HSE.Special () (HSE.TupleCon () bxd (length ps))
-getQNamePat _                    = error "getQNamePat unsuported Pattern"
+getQNamePat (HSE.PTuple _ bxd ps) =
+  HSE.Special () (HSE.TupleCon () bxd (length ps))
+getQNamePat _ = error "getQNamePat unsuported Pattern"
 
 -- TODO refactor with smartcons
 
@@ -234,7 +235,8 @@ createAltsFromConstr
   -> PM [HSE.Alt ()]
 createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
  where
-  createAltFromConstr :: HSE.Pat () -> HSE.Exp () -> Constructor -> PM (HSE.Alt ())
+  createAltFromConstr
+    :: HSE.Pat () -> HSE.Exp () -> Constructor -> PM (HSE.Alt ())
   createAltFromConstr pat e (qn, ar, b) = do
     nvars <- newVars ar
     let p | b         = HSE.PInfixApp () (head nvars) qn (nvars !! 1)
@@ -313,8 +315,9 @@ consName (HSE.PInfixApp _ _ qn _) = return qn
 consName (HSE.PParen _ pat      ) = consName pat
 consName (HSE.PList  _ []       ) = return $ HSE.Special () $ HSE.ListCon ()
 consName (HSE.PList  _ (_ : _)  ) = return $ HSE.Special () $ HSE.Cons ()
-consName (HSE.PTuple _ bxd ps) = return $ HSE.Special () $ HSE.TupleCon () bxd $ length ps
-consName (HSE.PWildCard _       ) = Nothing
+consName (HSE.PTuple _ bxd ps) =
+  return $ HSE.Special () $ HSE.TupleCon () bxd $ length ps
+consName (HSE.PWildCard _) = Nothing
 consName pat =
   error $ "consName: unsupported pattern \"" ++ HSE.prettyPrint pat ++ "\""
 
@@ -390,7 +393,7 @@ getConst (HSE.PTuple _ bxd ps) = do
   return (HSE.PTuple () bxd nvars, nvars, ps)
 -- wildcards no longer needed as cons
 getConst (HSE.PWildCard _) = return (HSE.PWildCard (), [], [])
-getConst _             = error "wrong Pattern in getConst"
+getConst _                 = error "wrong Pattern in getConst"
 
 -- | Tests whether the pattern lists of all given equations starts with a
 --   variable pattern.
@@ -405,7 +408,7 @@ firstPat = head . fst
 isVar :: HSE.Pat () -> Bool
 isVar (HSE.PVar _ _   ) = True
 isVar (HSE.PWildCard _) = True
-isVar _             = False
+isVar _                 = False
 
 -- | Tests whether the pattern lists of all given equations starts with a
 --   constructor pattern.
@@ -424,7 +427,7 @@ isCons p = case p of
   HSE.PList  _ _        -> True
   HSE.PTuple _ _ _      -> True
   HSE.PWildCard _       -> False -- Wildcards are now treated as variables
-  _                 -> False
+  _                     -> False
 
 -------------------------------------------------------------------------------
 -- Optimization                                                              --
@@ -488,7 +491,7 @@ optimizeCase e alts
 -- | Tests whether the given expression is a variable expression.
 isVarExp :: HSE.Exp () -> Bool
 isVarExp (HSE.Var _ _) = True
-isVarExp _         = False
+isVarExp _             = False
 
 -- TODO generalise
 
@@ -521,9 +524,11 @@ renameAndOpt pat alts =
 -- | Compares the given 'QName's ignoring the distinction between 'Ident's
 --   and 'Symbol's, i.e. @Ident "+:"@ amd @Symbol "+:"@ are equal.
 cheatEq :: HSE.QName () -> HSE.QName () -> Bool
-cheatEq (HSE.UnQual () (HSE.Symbol () s1)) (HSE.UnQual () (HSE.Ident  () s2)) = s1 == s2
-cheatEq (HSE.UnQual () (HSE.Ident  () s1)) (HSE.UnQual () (HSE.Symbol () s2)) = s1 == s2
-cheatEq q1                         q2                         = q1 == q2
+cheatEq (HSE.UnQual () (HSE.Symbol () s1)) (HSE.UnQual () (HSE.Ident () s2)) =
+  s1 == s2
+cheatEq (HSE.UnQual () (HSE.Ident () s1)) (HSE.UnQual () (HSE.Symbol () s2)) =
+  s1 == s2
+cheatEq q1 q2 = q1 == q2
 
 -- | Gets the argument patterns of the given constructor pattern.
 selectPats :: HSE.Pat () -> [HSE.Pat ()]
@@ -534,7 +539,7 @@ selectPats p = error $ "selectPat: not definied for " ++ show p
 -- | Gets the actual expression of the given right-hand side without guard.
 selectExp :: HSE.Rhs () -> HSE.Exp ()
 selectExp (HSE.UnGuardedRhs _ e) = e
-selectExp _                  = error "selectExp: only unguarded rhs"
+selectExp _                      = error "selectExp: only unguarded rhs"
 
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.

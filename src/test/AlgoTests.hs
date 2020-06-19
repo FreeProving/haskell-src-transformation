@@ -1,7 +1,7 @@
 module AlgoTests where
 
 import           Control.Monad                  ( void )
-import qualified Language.Haskell.Exts as HSE
+import qualified Language.Haskell.Exts         as HSE
 import           Test.Hspec
 import           Test.HUnit.Base                ( assertFailure )
 

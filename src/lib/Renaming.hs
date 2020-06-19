@@ -5,7 +5,7 @@ module Renaming where
 import           FreshVars                      ( PM
                                                 , freshVar
                                                 )
-import qualified Language.Haskell.Exts.Syntax as HSE
+import qualified Language.Haskell.Exts.Syntax  as HSE
 
 -- | A substitution (or "renaming") is a mapping of variable names to variable
 --   names.
@@ -41,20 +41,22 @@ class TermSubst c where
 -- | 'TermSubst' instance for expressions.
 instance TermSubst HSE.Exp where
   substitute s expr = case expr of
-    HSE.Var l qname          -> s (HSE.Var l qname)
-    HSE.Con l qname          -> HSE.Con l qname
-    HSE.Lit l literal        -> HSE.Lit l literal
-    HSE.InfixApp l e1 qop e2 -> HSE.InfixApp l (substitute s e1) qop (substitute s e2)
-    HSE.App    l e1 e2       -> HSE.App l (substitute s e1) (substitute s e2)
-    HSE.Lambda l ps e        -> HSE.Lambda l ps (substitute s e)
-    HSE.Let    l b  e        -> HSE.Let l b $ substitute s e
-    HSE.If l e1 e2 e3 -> HSE.If l (substitute s e1) (substitute s e2) (substitute s e3)
-    HSE.Case  l e   as       -> HSE.Case l e (map (substitute s) as)   -- no subst for debugging (substitute s e)
-    HSE.Tuple l bxd es       -> HSE.Tuple l bxd (map (substitute s) es)
-    HSE.List  l es           -> HSE.List l (map (substitute s) es)
-    HSE.Paren l e            -> HSE.Paren l (substitute s e)
-    HSE.ListComp   _ _ _     -> error "TermSubst: List comp is not supported"
-    HSE.ExpTypeSig l e t     -> HSE.ExpTypeSig l (substitute s e) t
+    HSE.Var l qname   -> s (HSE.Var l qname)
+    HSE.Con l qname   -> HSE.Con l qname
+    HSE.Lit l literal -> HSE.Lit l literal
+    HSE.InfixApp l e1 qop e2 ->
+      HSE.InfixApp l (substitute s e1) qop (substitute s e2)
+    HSE.App    l e1 e2 -> HSE.App l (substitute s e1) (substitute s e2)
+    HSE.Lambda l ps e  -> HSE.Lambda l ps (substitute s e)
+    HSE.Let    l b  e  -> HSE.Let l b $ substitute s e
+    HSE.If l e1 e2 e3 ->
+      HSE.If l (substitute s e1) (substitute s e2) (substitute s e3)
+    HSE.Case  l e   as   -> HSE.Case l e (map (substitute s) as)   -- no subst for debugging (substitute s e)
+    HSE.Tuple l bxd es   -> HSE.Tuple l bxd (map (substitute s) es)
+    HSE.List  l es       -> HSE.List l (map (substitute s) es)
+    HSE.Paren l e        -> HSE.Paren l (substitute s e)
+    HSE.ListComp   _ _ _ -> error "TermSubst: List comp is not supported"
+    HSE.ExpTypeSig l e t -> HSE.ExpTypeSig l (substitute s e) t
     _                    -> error "TermSubst: Exp caused an error"
 
 -- | 'TermSubst' instance for @case@ expression alternatives.
@@ -88,14 +90,14 @@ instance Rename HSE.Exp where
     HSE.App    l e1 e2       -> HSE.App l (rename s e1) (rename s e2)
     HSE.Lambda l ps e        -> HSE.Lambda l (map (rename s) ps) (rename s e)
     HSE.Let    l b  e        -> HSE.Let l b $ rename s e
-    HSE.If l e1 e2 e3        -> HSE.If l (rename s e1) (rename s e2) (rename s e3)
+    HSE.If l e1 e2 e3 -> HSE.If l (rename s e1) (rename s e2) (rename s e3)
     HSE.Case  l e   as       -> HSE.Case l (rename s e) (map (rename s) as)
     HSE.Tuple l bxd es       -> HSE.Tuple l bxd (map (rename s) es)
     HSE.List  l es           -> HSE.List l (map (rename s) es)
     HSE.Paren l e            -> HSE.Paren l (rename s e)
     HSE.ListComp   _ _ _     -> error "Rename: List comp is not supported"
     HSE.ExpTypeSig l e t     -> HSE.ExpTypeSig l (rename s e) t
-    _                    -> error "Rename: Exp caused an error"
+    _                        -> error "Rename: Exp caused an error"
 
 -- | 'Rename' instance for optionally qualified variable names.
 instance Rename HSE.QName where
@@ -129,7 +131,7 @@ instance Rename HSE.Pat where
     HSE.PList  l ps       -> HSE.PList l (map (rename s) ps)
     HSE.PParen l p        -> HSE.PParen l $ rename s p
     HSE.PWildCard l       -> HSE.PWildCard l
-    _                 -> error "Rename: Pat caused an error"
+    _                     -> error "Rename: Pat caused an error"
 
 -- | 'Rename' instance for right-hand sides.
 --

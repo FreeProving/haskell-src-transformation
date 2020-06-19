@@ -102,10 +102,11 @@ extract (HSE.GuardedRhs _ [s] e) = applyGEExp e
  where
   fromQualifier :: HSE.Stmt () -> HSE.Exp ()
   fromQualifier (HSE.Qualifier () qe) = qe
-  fromQualifier _                 = error "fromQualifier: no Qualifier"
+  fromQualifier _                     = error "fromQualifier: no Qualifier"
 -- TODO
-extract (HSE.GuardedRhs _ (_ : _) _) = error "Currently only one guard exp allowed"
-extract (HSE.GuardedRhs _ []      _) = error "GuardedRhss with no guards"
+extract (HSE.GuardedRhs _ (_ : _) _) =
+  error "Currently only one guard exp allowed"
+extract (HSE.GuardedRhs _ [] _) = error "GuardedRhss with no guards"
 
 -- Applies guard elimination on an expression converting guarded rhs in cases
 -- into unguarded exps
@@ -142,7 +143,7 @@ applyGEExp e = case e of
     return $ HSE.List () es'
   HSE.ListComp _ _ _ -> error "applyGEExp: ListComp not yet supported"
   -- can cause problems if a exp is missing in this case
-  x              -> return x
+  x                  -> return x
 
 -- Applies guard elimination on alts by using eliminateL
 applyGEAlts :: [HSE.Alt ()] -> PM [HSE.Alt ()]
@@ -232,16 +233,19 @@ isGuardedRhs (HSE.UnGuardedRhs _ e) = containsGuardedRhsExp e
 -- TODO decide if guard is in matches or in matches
 containsGuardedRhsExp :: HSE.Exp () -> Bool
 containsGuardedRhsExp e = case e of
-  HSE.InfixApp _ e1 _ e2 -> containsGuardedRhsExp e1 || containsGuardedRhsExp e2
-  HSE.App    _ e1 e2     -> containsGuardedRhsExp e1 || containsGuardedRhsExp e2
-  HSE.Lambda _ _  e'     -> containsGuardedRhsExp e'
-  HSE.Let    _ _  e'     -> containsGuardedRhsExp e'
-  HSE.If _ e1 e2 e3      -> any containsGuardedRhsExp [e1, e2, e3]
-  HSE.Case _ e' alts -> containsGuardedRhsExp e' || any containsGuardedRhsAlt alts
-  HSE.Tuple _ _  es      -> any containsGuardedRhsExp es
-  HSE.List _ es          -> any containsGuardedRhsExp es
-  HSE.ListComp _ _ _ -> error "containsGuardedRhsExp: ListComp not yet supported"
-  _                  -> False
+  HSE.InfixApp _ e1 _ e2 ->
+    containsGuardedRhsExp e1 || containsGuardedRhsExp e2
+  HSE.App    _ e1 e2 -> containsGuardedRhsExp e1 || containsGuardedRhsExp e2
+  HSE.Lambda _ _  e' -> containsGuardedRhsExp e'
+  HSE.Let    _ _  e' -> containsGuardedRhsExp e'
+  HSE.If _ e1 e2 e3  -> any containsGuardedRhsExp [e1, e2, e3]
+  HSE.Case _ e' alts ->
+    containsGuardedRhsExp e' || any containsGuardedRhsAlt alts
+  HSE.Tuple _ _ es -> any containsGuardedRhsExp es
+  HSE.List _ es    -> any containsGuardedRhsExp es
+  HSE.ListComp _ _ _ ->
+    error "containsGuardedRhsExp: ListComp not yet supported"
+  _ -> False
 
 containsGuardedRhsAlt :: HSE.Alt () -> Bool
 containsGuardedRhsAlt (HSE.Alt _ _ rhs _) = isGuardedRhs rhs
