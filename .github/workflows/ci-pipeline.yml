@@ -10,8 +10,17 @@ name: CI Pipeline
 # branch triggers another run of the CI pipeline. This is necessary because
 # there could be changes to the master branch that are not compatible with the
 # pull request but don't prevent fast-forward merging.
+#
+# Most jobs below are disabled in draft pull requests. When such a draft
+# pull request becomes ready for review, the CI pipeline is triggered again
+# such that the remaining jobs run as well.
 on:
   pull_request:
+    types:
+    - opened
+    - reopened
+    - synchronize
+    - ready_for_review
     paths:
     - 'haskell-src-transformations.cabal'
     - 'src/**'
@@ -55,12 +64,15 @@ jobs:
   # If there is no matching cache entry for the current key, the files are
   # restored from the cache with the longest matching prefix.
   # Caches from other operating systems are never restored.
+  #
+  # This job does not run in draft pull requests.
   cabal-build:
     name: Cabal Build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: ["ubuntu-latest"] # "macos-latest", "windows-latest"
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     steps:
     ### SETUP CACHE ###########################################################
     - name: Checkout
@@ -137,6 +149,9 @@ jobs:
   #############################################################################
 
   # Run the unit tests against all supported platforms.
+  #
+  # This job does not run on draft pull requests because its dependencies are
+  # skipped in drafts.
   unit-tests:
     name: Unit tests
     needs: [cabal-build]
@@ -191,6 +206,9 @@ jobs:
   # We build the documentation on Ubuntu only. The goal of this job is not to
   # generate documentation for deployment but to test whether everything is
   # documented and the documentation can be built without a problem.
+  #
+  # This job does not run on draft pull requests because its dependencies are
+  # skipped in drafts.
   build-docs:
     name: Build Haddock documentation
     needs: [cabal-build]
@@ -254,6 +272,9 @@ jobs:
 
   # All HLint suggestions should be followed or explicitly ignored
   # in `.hlint.yaml`.
+  #
+  # This job also runs in draft pull requests. It is relatively cheap to run
+  # and all commits should be formatted according to the styleguide anyway.
   hlint:
     name: Run HLint
     runs-on: ubuntu-latest
@@ -265,6 +286,9 @@ jobs:
       run: hlint src
 
   # All Haskell source files should be formatted using Brittany.
+  #
+  # This job also runs in draft pull requests. It is relatively cheap to run
+  # and all commits should be formatted according to the styleguide anyway.
   brittany:
     name: Run Brittany
     runs-on: ubuntu-latest
