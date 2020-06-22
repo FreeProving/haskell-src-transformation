@@ -49,9 +49,9 @@ foldGEqs vs = foldM (\(decls, p) geq -> createDecl vs (decls, p) geq)
 
 -- Generates a varbinding and a new variable for the next var binding
 createDecl
-  :: [HSE.Pat ()]            -- generated varibles
-  -> ([HSE.Decl ()], HSE.Pat ()) -- (current decls , variable for let binding)
-  -> GExp                -- pairs of pattern to match against and a guarded Rhs
+  :: [HSE.Pat ()]                   -- generated varibles
+  -> ([HSE.Decl ()], HSE.Pat ())    -- (current decls , variable for let binding)
+  -> GExp                           -- pairs of pattern to match against and a guarded Rhs
   -> PM ([HSE.Decl ()], HSE.Pat ()) -- var bindings , variable for next match
 createDecl vs (decl, p) (ps, rhs) = do
   nVar <- A.newVar
