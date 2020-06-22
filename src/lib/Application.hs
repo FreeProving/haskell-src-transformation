@@ -7,7 +7,6 @@ where                                      -- TODO too many variables generated
                                                                                 -- TODO only tuples supported
 import           Algo                           ( match
                                                 , err
-                                                , optimize
                                                 , newVars
                                                 , isCons
                                                 )
@@ -24,6 +23,8 @@ import qualified GuardElimination              as GE
                                                 , getMatchName
                                                 , applyGEModule
                                                 )
+import           Optimization                   ( optimize )
+
 import qualified Language.Haskell.Exts.Syntax  as HSE
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in

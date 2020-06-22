@@ -39,6 +39,7 @@ library
                     , GuardElimination
                     , CaseCompletion
                     , FreshVars
+                    , Optimization
   other-modules:      Renaming
 
   build-depends:      mtl               >= 2.2 && < 2.3
