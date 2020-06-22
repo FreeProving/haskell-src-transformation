@@ -14,7 +14,7 @@ import qualified Algo                          as A
                                                 , newVars
                                                 , newVar
                                                 )
-import           Control.Monad
+import           Control.Monad                  ( foldM )
 import           FreshVars                      ( PM )
 import qualified Language.Haskell.Exts.Build   as B
 import qualified Language.Haskell.Exts.Syntax  as HSE
@@ -40,11 +40,11 @@ toDecl p e = HSE.PatBind () p (HSE.UnGuardedRhs () e) B.noBinds
 
 -- Folds the list of GExps to declarations.
 foldGEqs
-  :: [HSE.Pat ()]               -- fresh variables for the case exps
+  :: [HSE.Pat ()]                   -- fresh variables for the case exps
   -> ([HSE.Decl ()], HSE.Pat ())    -- startcase ([], first generated Pattern)
-  -> [GExp]                 -- list of pattern + rhs pair
+  -> [GExp]                         -- list of pattern + rhs pair
   -> PM ([HSE.Decl ()], HSE.Pat ()) -- a list of declarations for the let binding and a
-                            -- free Variable for the error case
+                                    -- free Variable for the error case
 foldGEqs vs = foldM (\(decls, p) geq -> createDecl vs (decls, p) geq)
 
 -- Generates a varbinding and a new variable for the next var binding

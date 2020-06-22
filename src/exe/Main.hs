@@ -39,8 +39,8 @@ data Options = Options
     -- ^ The name of the output file or @Nothing@ if output should be printed
     --   to the console.
   , enableDebug  :: Bool
+    -- ^ Flag that indicates whether to print debugging messages to the console.
   , trivialCase  :: Bool
-  -- ^ Flag that indicates whether to print debugging messages to the console.
     -- ^ Flag that indicates whether to enable trivial case completion or not.
   , optimizeCase :: Bool
     -- ^ Flag that indicates whether optimization for case expressions is

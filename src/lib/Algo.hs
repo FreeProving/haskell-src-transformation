@@ -16,8 +16,10 @@ module Algo
   )
 where
 
-import           Data.List
-import           Data.Function
+import           Data.List                      ( partition
+                                                , groupBy
+                                                )
+import           Data.Function                  ( on )
 import           FreshVars                      ( PM
                                                 , Constructor
                                                 , getConstrName
@@ -54,7 +56,7 @@ err = HSE.Var () (HSE.UnQual () (HSE.Ident () "undefined"))
 --   of fresh variable patterns.
 match
   :: [HSE.Pat ()] -- ^ Fresh variable patterns.
-  -> [Eqs]    -- ^ The equations of the function declaration.
+  -> [Eqs]    --     ^ The equations of the function declaration.
   -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
   -> PM (HSE.Exp ())
 match [] (([], e) : _) _  = return e  -- Rule 3a: All patterns matched.
@@ -125,7 +127,7 @@ isPVar _              = False
 createRekMatch
   :: [HSE.Pat ()] -- ^ Fresh variable patterns.
   -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> [[Eqs]]  -- ^ Groups of equations (see 'groupPat').
+  -> [[Eqs]]      -- ^ Groups of equations (see 'groupPat').
   -> PM (HSE.Exp ())
 createRekMatch vars er =
   foldr (\eqs mrhs -> mrhs >>= match vars eqs) (return er)
@@ -135,7 +137,7 @@ createRekMatch vars er =
 makeRhs
   :: HSE.Pat ()   -- ^ The fresh variable pattern to match.
   -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
-  -> [Eqs]    -- ^ The equations.
+  -> [Eqs]        -- ^ The equations.
   -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
   -> PM (HSE.Exp ())
 makeRhs x xs eqs er = do
@@ -159,7 +161,7 @@ translatePVar p =
 computeAlts
   :: HSE.Pat ()   -- ^ The variable pattern that binds the matched variable.
   -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
-  -> [Eqs]    -- ^ The equations to generate alternatives for.
+  -> [Eqs]        -- ^ The equations to generate alternatives for.
   -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
   -> PM [HSE.Alt ()]
 computeAlts x xs eqs er = do
@@ -230,7 +232,7 @@ getQNamePat _ = error "getQNamePat unsuported Pattern"
 --   constructors.
 createAltsFromConstr
   :: HSE.Pat ()        -- ^ The fresh variable matched by the @case@ expression.
-  -> [Constructor] -- ^ The missing constructors to generate alternatives for.
+  -> [Constructor]     -- ^ The missing constructors to generate alternatives for.
   -> HSE.Exp ()        -- ^ The error expression for pattern-matching failures.
   -> PM [HSE.Alt ()]
 createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
@@ -335,7 +337,7 @@ computeAlt
   :: HSE.Pat ()   -- ^ The variable pattern that binds the matched variable.
   -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
   -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> [Eqs]    -- ^ A group of equations (see 'groupByCons').
+  -> [Eqs]        -- ^ A group of equations (see 'groupByCons').
   -> PM (HSE.Alt ())
 computeAlt _   _    _  []           = error "computeAlt: no equations"
 computeAlt pat pats er prps@(p : _) = do
