@@ -8,11 +8,26 @@ where
 
 import           Control.Monad                  ( void )
 
-import           Application
-import           FreshVars
-import           Language.Haskell.Exts
-import           System.Console.GetOpt
-import           System.Environment
+import           Application                    ( processModule
+                                                , specialCons
+                                                )
+import           FreshVars                      ( PMState(PMState)
+                                                , nextId
+                                                , constrMap
+                                                , matchedPat
+                                                , trivialCC
+                                                , opt
+                                                , debugOutput
+                                                , evalPM
+                                                )
+import qualified Language.Haskell.Exts         as HSE
+import           System.Console.GetOpt          ( OptDescr(Option)
+                                                , ArgDescr(NoArg, ReqArg)
+                                                , ArgOrder(Permute)
+                                                , getOpt
+                                                , usageInfo
+                                                )
+import           System.Environment             ( getArgs )
 
 -- | A data type that contains the parsed command line options.
 data Options = Options
@@ -109,7 +124,7 @@ main = do
     then do
       let state = transformOptions opts
       input <- readFile $ inputFile opts
-      let x = fromParseResult (parseModule input)
+      let x = HSE.fromParseResult (HSE.parseModule input)
           m = evalPM (processModule (void x)) state
       case outputDir opts of
         Just out -> do
@@ -130,7 +145,11 @@ printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
                  otherwise = return ()
 
 -- | Pretty prints the given Haskell module.
-pPrint :: Module () -> String
-pPrint = prettyPrintStyleMode
-  (Style { mode = PageMode, lineLength = 120, ribbonsPerLine = 1.5 })
-  defaultMode
+pPrint :: HSE.Module () -> String
+pPrint = HSE.prettyPrintStyleMode
+  (HSE.Style { HSE.mode           = HSE.PageMode
+             , HSE.lineLength     = 120
+             , HSE.ribbonsPerLine = 1.5
+             }
+  )
+  HSE.defaultMode

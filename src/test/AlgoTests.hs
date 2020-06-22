@@ -1,8 +1,13 @@
 module AlgoTests where
 
 import           Control.Monad                  ( void )
-import           Language.Haskell.Exts
-import           Test.Hspec
+import qualified Language.Haskell.Exts         as HSE
+import           Test.Hspec                     ( Spec
+                                                , Expectation
+                                                , context
+                                                , describe
+                                                , it
+                                                )
 import           Test.HUnit.Base                ( assertFailure )
 
 import           Algo
@@ -13,35 +18,35 @@ testAlgo = describe "Algo" testCompareCons
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
-parseTestPat :: String -> IO (Pat ())
-parseTestPat patStr = case parsePat patStr of
-  ParseOk pat          -> return $ void pat
-  ParseFailed _ errMsg -> assertFailure errMsg
+parseTestPat :: String -> IO (HSE.Pat ())
+parseTestPat patStr = case HSE.parsePat patStr of
+  HSE.ParseOk pat          -> return $ void pat
+  HSE.ParseFailed _ errMsg -> assertFailure errMsg
 
 -- | Sets the expectation that the given patterns should have matching
 --   constructors.
-shouldMatchCons :: Pat () -> Pat () -> Expectation
+shouldMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
 shouldMatchCons pat1 pat2
   | compareCons pat1 pat2
   = return ()
   | otherwise
   = assertFailure
     $  "\""
-    ++ prettyPrint pat1
+    ++ HSE.prettyPrint pat1
     ++ "\" and \""
-    ++ prettyPrint pat2
+    ++ HSE.prettyPrint pat2
     ++ "\" should match the same constructor but they do not"
 
 -- | Sets the expectation that the given patterns should not have matching
 --   constructors.
-shouldNotMatchCons :: Pat () -> Pat () -> Expectation
+shouldNotMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
 shouldNotMatchCons pat1 pat2
   | compareCons pat1 pat2
   = assertFailure
     $  "\""
-    ++ prettyPrint pat1
+    ++ HSE.prettyPrint pat1
     ++ "\" and \""
-    ++ prettyPrint pat2
+    ++ HSE.prettyPrint pat2
     ++ "\" should not match the same constructor but they do"
   | otherwise
   = return ()

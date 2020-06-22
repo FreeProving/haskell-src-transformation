@@ -16,22 +16,37 @@ module Algo
   )
 where
 
-import           Data.List
-import           Data.Function
-import           FreshVars
-import           Language.Haskell.Exts
+import           Data.List                      ( partition
+                                                , groupBy
+                                                )
+import           Data.Function                  ( on )
+import           FreshVars                      ( PM
+                                                , Constructor
+                                                , getConstrName
+                                                , constrMap
+                                                , matchedPat
+                                                , trivialCC
+                                                , freshVar
+                                                , modify
+                                                , gets
+                                                )
+import qualified Language.Haskell.Exts         as HSE
 import qualified Language.Haskell.Exts.Build   as B
-import           Renaming
+import           Renaming                       ( subst
+                                                , tSubst
+                                                , rename
+                                                , substitute
+                                                )
 
 -- | A type that represents a single equation of a function declaration.
 --
 --   An equation is characterized by the argument patterns and the right-hand
 --   side.
-type Eqs = ([Pat ()], Exp ())
+type Eqs = ([HSE.Pat ()], HSE.Exp ())
 
 -- | The default error expression to insert for pattern matching failures.
-err :: Exp ()
-err = Var () (UnQual () (Ident () "undefined"))
+err :: HSE.Exp ()
+err = HSE.Var () (HSE.UnQual () (HSE.Ident () "undefined"))
 
 -- | Compiles the given equations of a function declaration to a single
 --   expression that performs explicit pattern matching using @case@
@@ -40,10 +55,10 @@ err = Var () (UnQual () (Ident () "undefined"))
 --   All equations must have the same number of patterns as the given list
 --   of fresh variable patterns.
 match
-  :: [Pat ()] -- ^ Fresh variable patterns.
-  -> [Eqs]    -- ^ The equations of the function declaration.
-  -> Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> PM (Exp ())
+  :: [HSE.Pat ()] -- ^ Fresh variable patterns.
+  -> [Eqs]    --     ^ The equations of the function declaration.
+  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
+  -> PM (HSE.Exp ())
 match [] (([], e) : _) _  = return e  -- Rule 3a: All patterns matched.
 match [] []            er = return er -- Rule 3b: Pattern-matching failure.
 match vars@(x : xs) eqs er
@@ -65,7 +80,7 @@ match [] _ _ = error "match: equations have different number of arguments"
 --   (must be a variable or wildcard pattern) of the given equation by the
 --   fresh variable bound by the given variable pattern on the right-hand side
 --   of the equation.
-substVars :: Pat () -> Eqs -> PM Eqs
+substVars :: HSE.Pat () -> Eqs -> PM Eqs
 substVars pv (p : ps, e) = do
   s1 <- getPVarName p
   s2 <- getPVarName pv
@@ -77,12 +92,12 @@ substVars _ _ = error "substVars: expected equation with at least one pattern"
 --
 --   Returns a fresh variable for wildcard patterns.
 --   The given pattern must be a variable or wildcard pattern.
-getPVarName :: Pat () -> PM String
-getPVarName (PVar _ pname) = getNameStr pname
+getPVarName :: HSE.Pat () -> PM String
+getPVarName (HSE.PVar _ pname) = getNameStr pname
  where
-  getNameStr (Ident  _ str) = return str
-  getNameStr (Symbol _ str) = return str
-getPVarName (PWildCard _) = do
+  getNameStr (HSE.Ident  _ str) = return str
+  getNameStr (HSE.Symbol _ str) = return str
+getPVarName (HSE.PWildCard _) = do
   n <- freshVar
   return $ 'a' : show n
 getPVarName x =
@@ -103,35 +118,35 @@ groupPat = groupBy ordPats
 --
 --   TODO shouldn't this return @True@ for wildcard patterns, too?
 --   What's the difference to @isVar@?
-isPVar :: Pat () -> Bool
-isPVar (PVar _ _) = True
-isPVar _          = False
+isPVar :: HSE.Pat () -> Bool
+isPVar (HSE.PVar _ _) = True
+isPVar _              = False
 
 -- | Applies 'match' to every group of equations where the error expression
 --   is the 'match' result of the next group.
 createRekMatch
-  :: [Pat ()] -- ^ Fresh variable patterns.
-  -> Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> [[Eqs]]  -- ^ Groups of equations (see 'groupPat').
-  -> PM (Exp ())
+  :: [HSE.Pat ()] -- ^ Fresh variable patterns.
+  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
+  -> [[Eqs]]      -- ^ Groups of equations (see 'groupPat').
+  -> PM (HSE.Exp ())
 createRekMatch vars er =
   foldr (\eqs mrhs -> mrhs >>= match vars eqs) (return er)
 
 -- | Creates a case expression that performs pattern matching on the variable
 --   bound by the given variable pattern.
 makeRhs
-  :: Pat ()   -- ^ The fresh variable pattern to match.
-  -> [Pat ()] -- ^ The remaing fresh variable patterns.
-  -> [Eqs]    -- ^ The equations.
-  -> Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> PM (Exp ())
+  :: HSE.Pat ()   -- ^ The fresh variable pattern to match.
+  -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
+  -> [Eqs]        -- ^ The equations.
+  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
+  -> PM (HSE.Exp ())
 makeRhs x xs eqs er = do
   alts <- computeAlts x xs eqs er
-  return (caseE (translatePVar x) alts)
+  return (HSE.caseE (translatePVar x) alts)
 
 -- | Converts the given variable pattern to a variable expression.
-translatePVar :: Pat () -> Exp ()
-translatePVar (PVar _ vname) = B.var vname
+translatePVar :: HSE.Pat () -> HSE.Exp ()
+translatePVar (HSE.PVar _ vname) = B.var vname
 translatePVar p =
   error ("translatePVar: expected variable pattern, got" ++ show p)
 
@@ -144,11 +159,11 @@ translatePVar p =
 --   If trivial case completion is not enabled, one alternative is added for
 --   every missing constructor.
 computeAlts
-  :: Pat ()   -- ^ The variable pattern that binds the matched variable.
-  -> [Pat ()] -- ^ The remaing fresh variable patterns.
-  -> [Eqs]    -- ^ The equations to generate alternatives for.
-  -> Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> PM [Alt ()]
+  :: HSE.Pat ()   -- ^ The variable pattern that binds the matched variable.
+  -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
+  -> [Eqs]        -- ^ The equations to generate alternatives for.
+  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
+  -> PM [HSE.Alt ()]
 computeAlts x xs eqs er = do
   alts <- mapM (computeAlt x xs er) (groupByCons eqs)
   mxs  <- getMissingConstrs alts
@@ -166,7 +181,7 @@ computeAlts x xs eqs er = do
 
 -- | Looks up the constructors of the data type that is matched by the given
 --   @case@ expression alternatives for which there are no alternatives already.
-getMissingConstrs :: [Alt ()] -> PM [Constructor]
+getMissingConstrs :: [HSE.Alt ()] -> PM [Constructor]
 getMissingConstrs []   = error "getMissingConstrs: empty list"
 getMissingConstrs alts = do
   cmap <- gets constrMap -- [(datantype, (constructor,arity))]
@@ -177,14 +192,14 @@ getMissingConstrs alts = do
 -- | Removes the 'Constructor's with the given names from the given list.
 findCons
   :: [Constructor]  -- TODO rename // complement
-  -> [QName ()]
+  -> [HSE.QName ()]
   -> [Constructor]
 findCons cons usedcons =
   filter (\con -> getConstrName con `notElem` usedcons) cons
 
 -- | Looks up the data type for the given constructor in the given map.
 findDataType
-  :: QName ()                   -- Constructor name
+  :: HSE.QName ()                   -- Constructor name
   -> [(String, [Constructor])]  -- [(Datatype, [(Konstruktor,Arität)])]
   -> (String, [Constructor])     -- Datatype
 findDataType cname = foldr
@@ -195,37 +210,39 @@ findDataType cname = foldr
 
 -- | Gets the name of the constructor matched by the given @case@ expression
 --   alternative.
-getQName :: Alt () -> QName ()
-getQName (Alt _ p _ _) = getQNamePat p
+getQName :: HSE.Alt () -> HSE.QName ()
+getQName (HSE.Alt _ p _ _) = getQNamePat p
 -- getQName  _             = error "getQName: expected an Alt"
 
 -- | Gets the name of a constructor pattern.
 --
---   Returns the 'Special' names for special patterns such as lists and tuples.
-getQNamePat :: Pat () -> QName ()
-getQNamePat (PApp _ qn _       ) = qn
-getQNamePat (PInfixApp _ _ qn _) = qn
-getQNamePat (PList _ _         ) = Special () (ListCon ())
-getQNamePat (PWildCard _       ) = Special () (ExprHole ()) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
-getQNamePat (PTuple _ bxd ps   ) = Special () (TupleCon () bxd (length ps))
-getQNamePat _                    = error "getQNamePat unsuported Pattern"
+--   Returns the 'HSE.Special' names for special patterns such as lists and tuples.
+getQNamePat :: HSE.Pat () -> HSE.QName ()
+getQNamePat (HSE.PApp _ qn _       ) = qn
+getQNamePat (HSE.PInfixApp _ _ qn _) = qn
+getQNamePat (HSE.PList _ _         ) = HSE.Special () (HSE.ListCon ())
+getQNamePat (HSE.PWildCard _       ) = HSE.Special () (HSE.ExprHole ()) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
+getQNamePat (HSE.PTuple _ bxd ps) =
+  HSE.Special () (HSE.TupleCon () bxd (length ps))
+getQNamePat _ = error "getQNamePat unsuported Pattern"
 
 -- TODO refactor with smartcons
 
 -- | Creates new @case@ expression alternatives for the given missing
 --   constructors.
 createAltsFromConstr
-  :: Pat ()        -- ^ The fresh variable matched by the @case@ expression.
-  -> [Constructor] -- ^ The missing constructors to generate alternatives for.
-  -> Exp ()        -- ^ The error expression for pattern-matching failures.
-  -> PM [Alt ()]
+  :: HSE.Pat ()        -- ^ The fresh variable matched by the @case@ expression.
+  -> [Constructor]     -- ^ The missing constructors to generate alternatives for.
+  -> HSE.Exp ()        -- ^ The error expression for pattern-matching failures.
+  -> PM [HSE.Alt ()]
 createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
  where
-  createAltFromConstr :: Pat () -> Exp () -> Constructor -> PM (Alt ())
+  createAltFromConstr
+    :: HSE.Pat () -> HSE.Exp () -> Constructor -> PM (HSE.Alt ())
   createAltFromConstr pat e (qn, ar, b) = do
     nvars <- newVars ar
-    let p | b         = PInfixApp () (head nvars) qn (nvars !! 1)
-          | otherwise = PApp () qn nvars
+    let p | b         = HSE.PInfixApp () (head nvars) qn (nvars !! 1)
+          | otherwise = HSE.PApp () qn nvars
         p'   = translateApp p
         pat' = translatePVar pat
         e'   = substitute (tSubst pat' p') e
@@ -234,7 +251,7 @@ createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
 -- | Generates the given number of fresh variables.
 --
 --   The generated variables use IDs from the state.
-newVars :: Int -> PM [Pat ()]
+newVars :: Int -> PM [HSE.Pat ()]
 newVars 0 = return []
 newVars n = do
   nvar <- newVar
@@ -242,11 +259,11 @@ newVars n = do
   return (nvar : vs)
 
 -- | Generates a single fresh variable with an ID from the state.
-newVar :: PM (Pat ())
+newVar :: PM (HSE.Pat ())
 newVar = do
   nv <- freshVar
   let v = 'a' : show nv
-  return (B.pvar (name v))
+  return (B.pvar (HSE.name v))
 
 -- | Groups the given equations based on the constructor matched by their
 --   first pattern.
@@ -289,21 +306,22 @@ select (ps, _) (qs, _) = compareCons (head ps) (head qs)
 
 -- | Tests whether the given patterns match the same constructor or both match
 --   the wildcard pattern.
-compareCons :: Pat () -> Pat () -> Bool
+compareCons :: HSE.Pat () -> HSE.Pat () -> Bool
 compareCons = (==) `on` consName
 
 -- | Returns the qualified name of the constructor of the given pattern or
 --   @Nothing@ if it is a wildcard pattern.
-consName :: Pat () -> Maybe (QName ())
-consName (PApp _ qn _       ) = return qn
-consName (PInfixApp _ _ qn _) = return qn
-consName (PParen _ pat      ) = consName pat
-consName (PList  _ []       ) = return $ Special () $ ListCon ()
-consName (PList  _ (_ : _)  ) = return $ Special () $ Cons ()
-consName (PTuple _ bxd ps) = return $ Special () $ TupleCon () bxd $ length ps
-consName (PWildCard _       ) = Nothing
+consName :: HSE.Pat () -> Maybe (HSE.QName ())
+consName (HSE.PApp _ qn _       ) = return qn
+consName (HSE.PInfixApp _ _ qn _) = return qn
+consName (HSE.PParen _ pat      ) = consName pat
+consName (HSE.PList  _ []       ) = return $ HSE.Special () $ HSE.ListCon ()
+consName (HSE.PList  _ (_ : _)  ) = return $ HSE.Special () $ HSE.Cons ()
+consName (HSE.PTuple _ bxd ps) =
+  return $ HSE.Special () $ HSE.TupleCon () bxd $ length ps
+consName (HSE.PWildCard _) = Nothing
 consName pat =
-  error $ "consName: unsupported pattern \"" ++ prettyPrint pat ++ "\""
+  error $ "consName: unsupported pattern \"" ++ HSE.prettyPrint pat ++ "\""
 
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.
@@ -316,11 +334,11 @@ consName pat =
 --   termination check of the free-compiler and can probably be removed
 --   once sharing is implemented.
 computeAlt
-  :: Pat ()   -- ^ The variable pattern that binds the matched variable.
-  -> [Pat ()] -- ^ The remaing fresh variable patterns.
-  -> Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> [Eqs]    -- ^ A group of equations (see 'groupByCons').
-  -> PM (Alt ())
+  :: HSE.Pat ()   -- ^ The variable pattern that binds the matched variable.
+  -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
+  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
+  -> [Eqs]        -- ^ A group of equations (see 'groupByCons').
+  -> PM (HSE.Alt ())
 computeAlt _   _    _  []           = error "computeAlt: no equations"
 computeAlt pat pats er prps@(p : _) = do
   -- oldpats need to be computed for each pattern
@@ -339,13 +357,13 @@ computeAlt pat pats er prps@(p : _) = do
 
 -- | Converts a constructor application pattern (where the argument patterns
 --   are variable or wildcard patterns) to an expression.
-translateApp :: Pat () -> Exp ()
-translateApp (PApp _ qn ps) =
-  foldl (\acc x -> App () acc (translatePVar x)) (Con () qn) ps
-translateApp (PInfixApp _ p1 qn p2) =
-  InfixApp () (translatePVar p1) (QConOp () qn) (translatePVar p2)
-translateApp (PTuple _ bxd ps) = Tuple () bxd $ map translatePVar ps
-translateApp (PList _ ps) = List () $ map translatePVar ps
+translateApp :: HSE.Pat () -> HSE.Exp ()
+translateApp (HSE.PApp _ qn ps) =
+  foldl (\acc x -> HSE.App () acc (translatePVar x)) (HSE.Con () qn) ps
+translateApp (HSE.PInfixApp _ p1 qn p2) =
+  HSE.InfixApp () (translatePVar p1) (HSE.QConOp () qn) (translatePVar p2)
+translateApp (HSE.PTuple _ bxd ps) = HSE.Tuple () bxd $ map translatePVar ps
+translateApp (HSE.PList _ ps) = HSE.List () $ map translatePVar ps
 translateApp pat = error ("translateApp does not support: " ++ show pat)
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
@@ -356,28 +374,28 @@ translateApp pat = error ("translateApp does not support: " ++ show pat)
 --
 --   Returns the constructor with replaced child patterns and a list of
 --   new and old variable patterns.
-getConst :: Pat () -> PM (Pat (), [Pat ()], [Pat ()])
-getConst (PApp _ qname ps) = do
+getConst :: HSE.Pat () -> PM (HSE.Pat (), [HSE.Pat ()], [HSE.Pat ()])
+getConst (HSE.PApp _ qname ps) = do
   nvars <- newVars (length ps)
-  return (PApp () qname nvars, nvars, ps)
-getConst (PInfixApp _ p1 qname p2) = do
+  return (HSE.PApp () qname nvars, nvars, ps)
+getConst (HSE.PInfixApp _ p1 qname p2) = do
   nvars <- newVars 2
   let [nv1, nv2] = nvars
       ps         = [p1, p2]
-  return (PInfixApp () nv1 qname nv2, nvars, ps)
-getConst (PParen _ p) = getConst p
-getConst (PList _ ps)
-  | null ps = return (PList () [], [], [])
+  return (HSE.PInfixApp () nv1 qname nv2, nvars, ps)
+getConst (HSE.PParen _ p) = getConst p
+getConst (HSE.PList _ ps)
+  | null ps = return (HSE.PList () [], [], [])
   | otherwise = do
     let (n : nv) = ps
-        listCon  = Special () $ Cons ()
-    getConst (PInfixApp () n listCon (PList () nv))
-getConst (PTuple _ bxd ps) = do
+        listCon  = HSE.Special () $ HSE.Cons ()
+    getConst (HSE.PInfixApp () n listCon (HSE.PList () nv))
+getConst (HSE.PTuple _ bxd ps) = do
   nvars <- newVars (length ps)
-  return (PTuple () bxd nvars, nvars, ps)
+  return (HSE.PTuple () bxd nvars, nvars, ps)
 -- wildcards no longer needed as cons
-getConst (PWildCard _) = return (PWildCard (), [], [])
-getConst _             = error "wrong Pattern in getConst"
+getConst (HSE.PWildCard _) = return (HSE.PWildCard (), [], [])
+getConst _                 = error "wrong Pattern in getConst"
 
 -- | Tests whether the pattern lists of all given equations starts with a
 --   variable pattern.
@@ -385,14 +403,14 @@ allVars :: [Eqs] -> Bool
 allVars = all (isVar . firstPat)
 
 -- | Gets the first pattern of the pattern list of the given equation.
-firstPat :: Eqs -> Pat ()
+firstPat :: Eqs -> HSE.Pat ()
 firstPat = head . fst
 
 -- | Tests whether the given pattern is a variable or wildcard pattern.
-isVar :: Pat () -> Bool
-isVar (PVar _ _   ) = True
-isVar (PWildCard _) = True
-isVar _             = False
+isVar :: HSE.Pat () -> Bool
+isVar (HSE.PVar _ _   ) = True
+isVar (HSE.PWildCard _) = True
+isVar _                 = False
 
 -- | Tests whether the pattern lists of all given equations starts with a
 --   constructor pattern.
@@ -403,15 +421,15 @@ allCons = all (isCons . firstPat)
 --
 --   Special patterns for lists and tuples are also considered constructor
 --   patterns.
-isCons :: Pat () -> Bool
+isCons :: HSE.Pat () -> Bool
 isCons p = case p of
-  PApp _ _ _        -> True
-  PInfixApp _ _ _ _ -> True
-  PParen _ p'       -> isCons p'
-  PList  _ _        -> True
-  PTuple _ _ _      -> True
-  PWildCard _       -> False -- Wildcards are now treated as variables
-  _                 -> False
+  HSE.PApp _ _ _        -> True
+  HSE.PInfixApp _ _ _ _ -> True
+  HSE.PParen _ p'       -> isCons p'
+  HSE.PList  _ _        -> True
+  HSE.PTuple _ _ _      -> True
+  HSE.PWildCard _       -> False -- Wildcards are now treated as variables
+  _                     -> False
 
 -------------------------------------------------------------------------------
 -- Optimization                                                              --
@@ -419,38 +437,38 @@ isCons p = case p of
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
-optimize :: Exp () -> PM (Exp ())
+optimize :: HSE.Exp () -> PM (HSE.Exp ())
 optimize ex = case ex of
-  InfixApp _ e1 qop e2 -> do
+  HSE.InfixApp _ e1 qop e2 -> do
     e1' <- optimize e1
     e2' <- optimize e2
-    return $ InfixApp () e1' qop e2'
-  App _ e1 e2 -> do
+    return $ HSE.InfixApp () e1' qop e2'
+  HSE.App _ e1 e2 -> do
     e1' <- optimize e1
     e2' <- optimize e2
-    return $ App () e1' e2'
-  Lambda _ ps e -> do
+    return $ HSE.App () e1' e2'
+  HSE.Lambda _ ps e -> do
     e' <- optimize e
-    return $ Lambda () ps e'
-  Let _ b e -> do
+    return $ HSE.Lambda () ps e'
+  HSE.Let _ b e -> do
     e' <- optimize e
-    return $ Let () b e'
-  If _ e1 e2 e3 -> do
+    return $ HSE.Let () b e'
+  HSE.If _ e1 e2 e3 -> do
     e1' <- optimize e1
     e2' <- optimize e2
     e3' <- optimize e3
-    return $ If () e1' e2' e3'
-  Case _ e alts  -> optimizeCase e alts
-  Do _ _         -> error "optimize : do is not supported"
-  Tuple _ bxd es -> do
+    return $ HSE.If () e1' e2' e3'
+  HSE.Case _ e alts  -> optimizeCase e alts
+  HSE.Do _ _         -> error "optimize : do is not supported"
+  HSE.Tuple _ bxd es -> do
     es' <- mapM optimize es
-    return $ Tuple () bxd es'
-  List _ es -> do
+    return $ HSE.Tuple () bxd es'
+  HSE.List _ es -> do
     es' <- mapM optimize es
-    return $ List () es'
-  Paren _ e -> do
+    return $ HSE.List () es'
+  HSE.Paren _ e -> do
     e' <- optimize e
-    return $ Paren () e'
+    return $ HSE.Paren () e'
   c -> return c
 
 -- | Tests whether the given scrutinee of a @case@ expression is a variable
@@ -459,7 +477,7 @@ optimize ex = case ex of
 --   If the scrutinee is a variable that has been matched already, the
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
-optimizeCase :: Exp () -> [Alt ()] -> PM (Exp ())
+optimizeCase :: HSE.Exp () -> [HSE.Alt ()] -> PM (HSE.Exp ())
 optimizeCase e alts
   | isVarExp e = do
     mpats <- gets matchedPat
@@ -470,12 +488,12 @@ optimizeCase e alts
     otherwise = do
     e'    <- optimize e
     alts' <- optimizeAlts alts
-    return $ Case () e' alts'
+    return $ HSE.Case () e' alts'
 
 -- | Tests whether the given expression is a variable expression.
-isVarExp :: Exp () -> Bool
-isVarExp (Var _ _) = True
-isVarExp _         = False
+isVarExp :: HSE.Exp () -> Bool
+isVarExp (HSE.Var _ _) = True
+isVarExp _             = False
 
 -- TODO generalise
 
@@ -484,11 +502,11 @@ isVarExp _         = False
 --   alternative to the names of the corresponding variable patterns of the
 --   given pattern and applies 'optimize'.
 renameAndOpt
-  :: Pat () -- ^ A pattern of a parent @case@ expression on the same scrutinee.
-  -> [Alt ()] -- ^ The alternatives of the current @case@ expression.
-  -> PM (Exp ())
+  :: HSE.Pat () -- ^ A pattern of a parent @case@ expression on the same scrutinee.
+  -> [HSE.Alt ()] -- ^ The alternatives of the current @case@ expression.
+  -> PM (HSE.Exp ())
 renameAndOpt pat alts =
-  let aPaR     = map (\(Alt _ p r _) -> (p, r)) alts
+  let aPaR     = map (\(HSE.Alt _ p r _) -> (p, r)) alts
       patQ     = getQNamePat pat
       sameCons = filter (\(p, _) -> cheatEq (getQNamePat p) patQ) aPaR
   in  case sameCons of
@@ -505,27 +523,29 @@ renameAndOpt pat alts =
           res <- renameAll (zip p2 p1) e  -- Fixes the renaming bug -> was p1 p2 before
           optimize res
 
--- | Compares the given 'QName's ignoring the distinction between 'Ident's
---   and 'Symbol's, i.e. @Ident "+:"@ amd @Symbol "+:"@ are equal.
-cheatEq :: QName () -> QName () -> Bool
-cheatEq (UnQual () (Symbol () s1)) (UnQual () (Ident  () s2)) = s1 == s2
-cheatEq (UnQual () (Ident  () s1)) (UnQual () (Symbol () s2)) = s1 == s2
-cheatEq q1                         q2                         = q1 == q2
+-- | Compares the given 'HSE.QName's ignoring the distinction between 'HSE.Ident's
+--   and 'HSE.Symbol's, i.e. @HSE.Ident "+:"@ amd @HSE.Symbol "+:"@ are equal.
+cheatEq :: HSE.QName () -> HSE.QName () -> Bool
+cheatEq (HSE.UnQual () (HSE.Symbol () s1)) (HSE.UnQual () (HSE.Ident () s2)) =
+  s1 == s2
+cheatEq (HSE.UnQual () (HSE.Ident () s1)) (HSE.UnQual () (HSE.Symbol () s2)) =
+  s1 == s2
+cheatEq q1 q2 = q1 == q2
 
 -- | Gets the argument patterns of the given constructor pattern.
-selectPats :: Pat () -> [Pat ()]
-selectPats (PApp _ _ pats) = pats
-selectPats (PInfixApp _ p1 _ p2) = [p1, p2]
+selectPats :: HSE.Pat () -> [HSE.Pat ()]
+selectPats (HSE.PApp _ _ pats) = pats
+selectPats (HSE.PInfixApp _ p1 _ p2) = [p1, p2]
 selectPats p = error $ "selectPat: not definied for " ++ show p
 
 -- | Gets the actual expression of the given right-hand side without guard.
-selectExp :: Rhs () -> Exp ()
-selectExp (UnGuardedRhs _ e) = e
-selectExp _                  = error "selectExp: only unguarded rhs"
+selectExp :: HSE.Rhs () -> HSE.Exp ()
+selectExp (HSE.UnGuardedRhs _ e) = e
+selectExp _                      = error "selectExp: only unguarded rhs"
 
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.
-renameAll :: [(Pat (), Pat ())] -> Exp () -> PM (Exp ())
+renameAll :: [(HSE.Pat (), HSE.Pat ())] -> HSE.Exp () -> PM (HSE.Exp ())
 -- TODO refactor higher order foldr
 -- TODO generate one Subst and apply only once
 renameAll []               e = return e
@@ -540,14 +560,14 @@ renameAll ((from, to) : r) e = do
 --
 --   While an alternative is optimized, the state contains a 'matchedPat'
 --   entry for the current pair of scrutinee and pattern.
-addAndOpt :: Exp () -> [Alt ()] -> PM (Exp ())
+addAndOpt :: HSE.Exp () -> [HSE.Alt ()] -> PM (HSE.Exp ())
 addAndOpt e alts = do
   alts' <- mapM (bindAndOpt e) alts
-  return $ Case () e alts'
+  return $ HSE.Case () e alts'
  where
   -- uses the list of Exp Pat as a stack
-  bindAndOpt :: Exp () -> Alt () -> PM (Alt ())
-  bindAndOpt v a@(Alt _ p _ _) = do
+  bindAndOpt :: HSE.Exp () -> HSE.Alt () -> PM (HSE.Alt ())
+  bindAndOpt v a@(HSE.Alt _ p _ _) = do
     stack <- gets matchedPat
     modify $ \state -> state { matchedPat = (v, p) : stack }
     alt' <- optimizeAlt a
@@ -555,12 +575,12 @@ addAndOpt e alts = do
     return alt'
 
 -- | Applies 'optimizeAlt' to all given @case@ expression alternatives.
-optimizeAlts :: [Alt ()] -> PM [Alt ()]
+optimizeAlts :: [HSE.Alt ()] -> PM [HSE.Alt ()]
 optimizeAlts = mapM optimizeAlt
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
-optimizeAlt :: Alt () -> PM (Alt ())
-optimizeAlt (Alt _ p rhs _) = do
-  let (UnGuardedRhs _ e) = rhs
+optimizeAlt :: HSE.Alt () -> PM (HSE.Alt ())
+optimizeAlt (HSE.Alt _ p rhs _) = do
+  let (HSE.UnGuardedRhs _ e) = rhs
   e' <- optimize e
-  return $ Alt () p (UnGuardedRhs () e') B.noBinds
+  return $ HSE.Alt () p (HSE.UnGuardedRhs () e') B.noBinds

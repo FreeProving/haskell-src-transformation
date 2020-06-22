@@ -5,30 +5,45 @@ module Application
   )
 where                                      -- TODO too many variables generated
                                                                                 -- TODO only tuples supported
-import           Algo
+import           Algo                           ( match
+                                                , err
+                                                , optimize
+                                                , newVars
+                                                , isCons
+                                                )
 import qualified CaseCompletion                as CC
-import           FreshVars
+                                                ( applyCCModule )
+import           FreshVars                      ( Constructor
+                                                , PM
+                                                , addConstrMap
+                                                , opt
+                                                , gets
+                                                )
 import qualified GuardElimination              as GE
-import           Language.Haskell.Exts.Syntax
+                                                ( comp
+                                                , getMatchName
+                                                , applyGEModule
+                                                )
+import qualified Language.Haskell.Exts.Syntax  as HSE
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in
 --   the module.
-useAlgoModule :: Module () -> PM (Module ())
-useAlgoModule (Module _ mmh mps ids ds) = do
+useAlgoModule :: HSE.Module () -> PM (HSE.Module ())
+useAlgoModule (HSE.Module _ mmh mps ids ds) = do
   dcls <- mapM useAlgoDecl ds
-  return $ Module () mmh mps ids dcls
+  return $ HSE.Module () mmh mps ids dcls
 useAlgoModule _ = error "useAlgoModule: not on module"
 
 -- | The function 'useAlgoDecl' applies the algorithm on the the FunBinds
-useAlgoDecl :: Decl () -> PM (Decl ())
-useAlgoDecl (FunBind _ ms) = do
+useAlgoDecl :: HSE.Decl () -> PM (HSE.Decl ())
+useAlgoDecl (HSE.FunBind _ ms) = do
   nms <- useAlgoMatches ms
-  return (FunBind () nms)
+  return (HSE.FunBind () nms)
 useAlgoDecl v = return v
 
 -- TODO maybe refactor to fun decl or check if oneFun stuff is needed or
 -- always true
-useAlgoMatches :: [Match ()] -> PM [Match ()]
+useAlgoMatches :: [HSE.Match ()] -> PM [HSE.Match ()]
 useAlgoMatches []       = return []
 useAlgoMatches (m : ms) = do
   let (oneFun, r) = span (GE.comp m) ms
@@ -44,20 +59,20 @@ useAlgoMatches (m : ms) = do
 -- | Checks a given list of Matches for constructor pattern.
 --   Returns True if the list contains more than one Match or if any of the
 --   pattern is a constructor pattern.
-hasCons :: [Match ()] -> Bool
+hasCons :: [HSE.Match ()] -> Bool
 hasCons [m] = case m of
-  Match _ _ ps _ _         -> any isCons ps
-  InfixMatch _ p1 _ ps _ _ -> any isCons (p1 : ps)
+  HSE.Match _ _ ps _ _         -> any isCons ps
+  HSE.InfixMatch _ p1 _ ps _ _ -> any isCons (p1 : ps)
 hasCons _ = True -- False?
 
 -- | The function 'useAlgo' applies the match function to a list of matches
 --   returning a single Match.
 useAlgo
-  :: [Match ()]    -- all matches for one function name
-  -> PM (Match ()) -- contains one match
+  :: [HSE.Match ()]    -- all matches for one function name
+  -> PM (HSE.Match ()) -- contains one match
 useAlgo ms = do
   let mname    = GE.getMatchName ms
-  let eqs = map (\(Match _ _ pats rhs _) -> (pats, selectExp rhs)) ms
+  let eqs = map (\(HSE.Match _ _ pats rhs _) -> (pats, selectExp rhs)) ms
   let funArity = (length . fst . head) eqs
   nVars <- newVars funArity
   nExp  <- match nVars eqs err
@@ -65,12 +80,12 @@ useAlgo ms = do
   if b
     then do
       oExp <- optimize nExp
-      return $ Match () mname nVars (UnGuardedRhs () oExp) Nothing
-    else return $ Match () mname nVars (UnGuardedRhs () nExp) Nothing
+      return $ HSE.Match () mname nVars (HSE.UnGuardedRhs () oExp) Nothing
+    else return $ HSE.Match () mname nVars (HSE.UnGuardedRhs () nExp) Nothing
  where
-  selectExp :: Rhs () -> Exp ()
-  selectExp (UnGuardedRhs _ e) = e
-  selectExp _                  = error "no UnGuardedRhs in selectExp"
+  selectExp :: HSE.Rhs () -> HSE.Exp ()
+  selectExp (HSE.UnGuardedRhs _ e) = e
+  selectExp _                      = error "no UnGuardedRhs in selectExp"
 
 -- a general version of add
 addG :: (a -> PM ()) -> Maybe a -> PM ()
@@ -79,8 +94,8 @@ addG = maybe (return ())
 
 -- | The function 'collectDataInfo' takes a module and writes all datatype
 --   declarations into the State with their name and constructors.
-collectDataInfo :: Module () -> PM ()
-collectDataInfo (Module _ _ _ _ decls) = do
+collectDataInfo :: HSE.Module () -> PM ()
+collectDataInfo (HSE.Module _ _ _ _ decls) = do
   mas <- mapM collectDataDecl decls
   mapM_ (addG addConstrMap) mas
 collectDataInfo _ = return ()
@@ -88,39 +103,40 @@ collectDataInfo _ = return ()
 -- | The function 'collectDataDecl' takes a Declaration and returns a pair of
 --   a datatype name and a list of cunstructors if the declaration was a
 --   DataDecl. Returns Nothing otherwise.
-collectDataDecl :: Decl () -> PM (Maybe (String, [Constructor]))
-collectDataDecl (DataDecl _ (DataType _) _ dhead qcdecls _) =
+collectDataDecl :: HSE.Decl () -> PM (Maybe (String, [Constructor]))
+collectDataDecl (HSE.DataDecl _ (HSE.DataType _) _ dhead qcdecls _) =
   return $ Just (getDataName dhead, map getDataCons qcdecls)
 collectDataDecl _ = return Nothing
 
 -- | The function 'getDataName' takes a DeclHead and returns a string with the
 --   name of the data type.
-getDataName :: DeclHead () -> String -- add symbols?
-getDataName (DHead _ dname ) = fromName dname
-getDataName (DHApp _ decl _) = getDataName decl
-getDataName (DHParen _ decl) = getDataName decl
+getDataName :: HSE.DeclHead () -> String -- add symbols?
+getDataName (HSE.DHead _ dname ) = fromName dname
+getDataName (HSE.DHApp _ decl _) = getDataName decl
+getDataName (HSE.DHParen _ decl) = getDataName decl
 -- TODO Test symbols and infix
 getDataName _ = error "getDataName: Symbol or infix in declaration"
 
 -- | The function 'getDataName' takes a QualConDecl and returns the contained
 --   constructor.
-getDataCons :: QualConDecl () -> Constructor
-getDataCons (QualConDecl _ _ _ cdecl) = getDataCons' cdecl
+getDataCons :: HSE.QualConDecl () -> Constructor
+getDataCons (HSE.QualConDecl _ _ _ cdecl) = getDataCons' cdecl
  where
-  getDataCons' :: ConDecl () -> Constructor
-  getDataCons' (ConDecl _ cname types) = (UnQual () cname, length types, False)
-  getDataCons' (InfixConDecl _ _ cname _) = (UnQual () cname, 2, True)
-  getDataCons' (RecDecl _ _ _) = error "record notation is not supported"
+  getDataCons' :: HSE.ConDecl () -> Constructor
+  getDataCons' (HSE.ConDecl _ cname types) =
+    (HSE.UnQual () cname, length types, False)
+  getDataCons' (HSE.InfixConDecl _ _ cname _) = (HSE.UnQual () cname, 2, True)
+  getDataCons' (HSE.RecDecl _ _ _) = error "record notation is not supported"
 
 -- |The function 'fromName' takes a Name and returns its String.
-fromName :: Name () -> String
-fromName (Ident  _ str) = str
-fromName (Symbol _ str) = str
+fromName :: HSE.Name () -> String
+fromName (HSE.Ident  _ str) = str
+fromName (HSE.Symbol _ str) = str
 
 -- | The function 'processModule' sequentially applies the different
 --   transformations to the given module after collecting the data types.
 --   Returns a new module with the transformed functions.
-processModule :: Module () -> PM (Module ())
+processModule :: HSE.Module () -> PM (HSE.Module ())
 processModule m = do
   collectDataInfo m -- TODO  maybe unused
   eliminatedM    <- GE.applyGEModule m
@@ -129,16 +145,19 @@ processModule m = do
 
 -- | 'specialCons' is a map for the sugared data types in Haskell, since they
 --   can not be defined in a module by hand.
---   This map is the default 'constrMap' for the PMState used in Main.hs
+--   This map is the default 'FreshVars.constrMap' for the 'FreshVars.PMState'
+--   used in @Main.hs@
 specialCons :: [(String, [Constructor])]
 specialCons =
-  [ ("unit", [(Special () (UnitCon ()), 0, False)])
+  [ ("unit", [(HSE.Special () (HSE.UnitCon ()), 0, False)])
   , ( "list"
-    , [(Special () (ListCon ()), 0, False), (Special () (Cons ()), 2, True)]
+    , [ (HSE.Special () (HSE.ListCon ()), 0, False)
+      , (HSE.Special () (HSE.Cons ())   , 2, True)
+      ]
     )
-  , ("fun", [(Special () (FunCon ()), 2, True)])
+  , ("fun", [(HSE.Special () (HSE.FunCon ()), 2, True)])
   , ( "pair"
-    , [(Special () (TupleCon () Boxed 2), 2, False)]
+    , [(HSE.Special () (HSE.TupleCon () HSE.Boxed 2), 2, False)]
     )    -- TODO Tuples
-  , ("wildcard", [(Special () (ExprHole ()), 0, False)])
+  , ("wildcard", [(HSE.Special () (HSE.ExprHole ()), 0, False)])
   ]
