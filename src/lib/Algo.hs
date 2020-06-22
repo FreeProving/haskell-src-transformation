@@ -5,8 +5,6 @@ module Algo
   ( match
   , err
   , translatePVar
-  , newVars
-  , newVar
   , Eqs
   , isPVar
   , isCons
@@ -27,6 +25,7 @@ import           FreshVars                      ( PM
                                                 , constrMap
                                                 , trivialCC
                                                 , freshVar
+                                                , newVars
                                                 , gets
                                                 )
 import qualified Language.Haskell.Exts         as HSE
@@ -246,23 +245,6 @@ createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
         pat' = translatePVar pat
         e'   = substitute (tSubst pat' p') e
     return (B.alt p e')
-
--- | Generates the given number of fresh variables.
---
---   The generated variables use IDs from the state.
-newVars :: Int -> PM [HSE.Pat ()]
-newVars 0 = return []
-newVars n = do
-  nvar <- newVar
-  vs   <- newVars (n - 1)
-  return (nvar : vs)
-
--- | Generates a single fresh variable with an ID from the state.
-newVar :: PM (HSE.Pat ())
-newVar = do
-  nv <- freshVar
-  let v = 'a' : show nv
-  return (B.pvar (HSE.name v))
 
 -- | Groups the given equations based on the constructor matched by their
 --   first pattern.

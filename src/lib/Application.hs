@@ -7,7 +7,6 @@ where                                      -- TODO too many variables generated
                                                                                 -- TODO only tuples supported
 import           Algo                           ( match
                                                 , err
-                                                , newVars
                                                 , isCons
                                                 )
 import qualified CaseCompletion                as CC
@@ -17,6 +16,7 @@ import           FreshVars                      ( Constructor
                                                 , addConstrMap
                                                 , opt
                                                 , gets
+                                                , newVars
                                                 )
 import qualified GuardElimination              as GE
                                                 ( comp

@@ -6,12 +6,13 @@ where
 
 import           Algo                           ( match
                                                 , err
-                                                , newVars
-                                                , newVar
                                                 , Eqs
                                                 , isPVar
                                                 )
-import           FreshVars                      ( PM )
+import           FreshVars                      ( PM
+                                                , newVars
+                                                , newVar
+                                                )
 import qualified Language.Haskell.Exts.Build   as B
 import qualified Language.Haskell.Exts.Syntax  as HSE
 
