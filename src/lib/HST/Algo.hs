@@ -34,8 +34,9 @@ import           HST.Environment.Renaming       ( subst
                                                 , substitute
                                                 )
 
-import qualified Language.Haskell.Exts         as HSE
+import qualified Language.Haskell.Exts.Syntax  as HSE
 import qualified Language.Haskell.Exts.Build   as B
+import qualified Language.Haskell.Exts.Pretty  as P
 
 
 -- | A type that represents a single equation of a function declaration.
@@ -142,7 +143,7 @@ makeRhs
   -> PM (HSE.Exp ())
 makeRhs x xs eqs er = do
   alts <- computeAlts x xs eqs er
-  return (HSE.caseE (translatePVar x) alts)
+  return (B.caseE (translatePVar x) alts)
 
 -- | Converts the given variable pattern to a variable expression.
 translatePVar :: HSE.Pat () -> HSE.Exp ()
@@ -304,7 +305,7 @@ consName (HSE.PTuple _ bxd ps) =
   return $ HSE.Special () $ HSE.TupleCon () bxd $ length ps
 consName (HSE.PWildCard _) = Nothing
 consName pat =
-  error $ "consName: unsupported pattern \"" ++ HSE.prettyPrint pat ++ "\""
+  error $ "consName: unsupported pattern \"" ++ P.prettyPrint pat ++ "\""
 
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.
