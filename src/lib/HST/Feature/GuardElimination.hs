@@ -1,3 +1,5 @@
+-- | This module contains methods for eliminating guards in modules.
+
 module HST.Feature.GuardElimination
   ( eliminateL
   , applyGEModule

@@ -1,5 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+-- | This module contains methods for generating fresh variable identifiers.
+--   It also contains the @Constructor@ type, including accessing functions,
+--   and the @PMState@ data type, including run and evaluation functions.
+
 module HST.Environment.FreshVars
   ( module HST.Environment.FreshVars
   , State.gets

@@ -1,5 +1,5 @@
--- | This module contains the actual implementation of the pattern-matching
---   compilation algorithm.
+-- | This module contains methods for optimizing expressions by removing
+--   unnecessary nested case expressions.
 
 module HST.Feature.Optimization
   ( optimize

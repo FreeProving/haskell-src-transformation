@@ -1,3 +1,6 @@
+-- | This module applies the main pattern-matching compilation algorithm and
+--   the different features to a Haskell module.
+
 module HST.Application
   ( processModule
   , specialCons

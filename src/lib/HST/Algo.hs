@@ -33,7 +33,7 @@ import           HST.Environment.Renaming       ( subst
                                                 , rename
                                                 , substitute
                                                 )
-                                                
+
 import qualified Language.Haskell.Exts         as HSE
 import qualified Language.Haskell.Exts.Build   as B
 
