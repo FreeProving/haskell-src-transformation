@@ -1,18 +1,19 @@
-module CaseCompletion
+module HST.Feature.CaseCompletion
   ( completeCase
   , applyCCModule
   )
 where
 
-import           Algo                           ( match
+import           HST.Algo                       ( match
                                                 , err
                                                 , Eqs
                                                 , isPVar
                                                 )
-import           FreshVars                      ( PM
+import           HST.Environment.FreshVars      ( PM
                                                 , newVars
                                                 , newVar
                                                 )
+                                                
 import qualified Language.Haskell.Exts.Build   as B
 import qualified Language.Haskell.Exts.Syntax  as HSE
 

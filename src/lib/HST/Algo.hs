@@ -1,7 +1,7 @@
 -- | This module contains the actual implementation of the pattern-matching
 --   compilation algorithm.
 
-module Algo
+module HST.Algo
   ( match
   , err
   , translatePVar
@@ -19,7 +19,7 @@ import           Data.List                      ( partition
                                                 , groupBy
                                                 )
 import           Data.Function                  ( on )
-import           FreshVars                      ( PM
+import           HST.Environment.FreshVars      ( PM
                                                 , Constructor
                                                 , getConstrName
                                                 , constrMap
@@ -28,13 +28,15 @@ import           FreshVars                      ( PM
                                                 , newVars
                                                 , gets
                                                 )
-import qualified Language.Haskell.Exts         as HSE
-import qualified Language.Haskell.Exts.Build   as B
-import           Renaming                       ( subst
+import           HST.Environment.Renaming       ( subst
                                                 , tSubst
                                                 , rename
                                                 , substitute
                                                 )
+                                                
+import qualified Language.Haskell.Exts         as HSE
+import qualified Language.Haskell.Exts.Build   as B
+
 
 -- | A type that represents a single equation of a function declaration.
 --

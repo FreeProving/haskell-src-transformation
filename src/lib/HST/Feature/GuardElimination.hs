@@ -1,4 +1,4 @@
-module GuardElimination
+module HST.Feature.GuardElimination
   ( eliminateL
   , applyGEModule
   , comp
@@ -8,15 +8,16 @@ where                                   -- TODO Apply GE to GuardedRhs in case e
                                                                                 -- TODO only apply to the parts with guards (not on matches if in case)
                                                                                     -- not false by semantics
 
-import qualified Algo                          as A
+import qualified HST.Algo                      as A
                                                 ( err
                                                 , translatePVar
                                                 )
 import           Control.Monad                  ( foldM )
-import           FreshVars                      ( PM
+import           HST.Environment.FreshVars      ( PM
                                                 , newVars
                                                 , newVar
                                                 )
+
 import qualified Language.Haskell.Exts.Build   as B
 import qualified Language.Haskell.Exts.Syntax  as HSE
 

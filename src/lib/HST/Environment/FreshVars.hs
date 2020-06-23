@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module FreshVars
-  ( module FreshVars
+module HST.Environment.FreshVars
+  ( module HST.Environment.FreshVars
   , State.gets
   , State.modify
   )

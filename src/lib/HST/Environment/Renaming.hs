@@ -1,8 +1,8 @@
 -- | This module contains definitions for substitutions of variables.
 
-module Renaming where
+module HST.Environment.Renaming where
 
-import           FreshVars                      ( PM
+import           HST.Environment.FreshVars      ( PM
                                                 , freshVar
                                                 )
 import qualified Language.Haskell.Exts.Syntax  as HSE

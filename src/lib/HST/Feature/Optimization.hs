@@ -1,20 +1,20 @@
 -- | This module contains the actual implementation of the pattern-matching
 --   compilation algorithm.
 
-module Optimization
+module HST.Feature.Optimization
   ( optimize
   )
 where
 
-import           Algo                           ( getPVarName
+import           HST.Algo                       ( getPVarName
                                                 , getQNamePat
                                                 )
-import           FreshVars                      ( PM
+import           HST.Environment.FreshVars      ( PM
                                                 , matchedPat
                                                 , modify
                                                 , gets
                                                 )
-import           Renaming                       ( subst
+import           HST.Environment.Renaming       ( subst
                                                 , rename
                                                 )
 
