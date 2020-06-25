@@ -89,7 +89,7 @@ isVarExp _             = False
 --   alternative to the names of the corresponding variable patterns of the
 --   given pattern and applies 'optimize'.
 renameAndOpt
-  :: HSE.Pat () -- ^ A pattern of a parent @case@ expression on the same scrutinee.
+  :: HSE.Pat ()   -- ^ A pattern of a parent @case@ expression on the same scrutinee.
   -> [HSE.Alt ()] -- ^ The alternatives of the current @case@ expression.
   -> PM (HSE.Exp ())
 renameAndOpt pat alts =
