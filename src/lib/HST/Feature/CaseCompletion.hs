@@ -1,17 +1,22 @@
-module CaseCompletion
+-- | This module contains methods for completing case expressions both in
+--   expressions and entire modules.
+
+module HST.Feature.CaseCompletion
   ( completeCase
   , applyCCModule
   )
 where
 
-import           Algo                           ( match
+import           HST.CoreAlgorithm              ( match
                                                 , err
-                                                , newVars
-                                                , newVar
                                                 , Eqs
                                                 , isPVar
                                                 )
-import           FreshVars                      ( PM )
+import           HST.Environment.FreshVars      ( PM
+                                                , newVars
+                                                , newVar
+                                                )
+
 import qualified Language.Haskell.Exts.Build   as B
 import qualified Language.Haskell.Exts.Syntax  as HSE
 

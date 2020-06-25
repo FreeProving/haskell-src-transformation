@@ -8,10 +8,10 @@ where
 
 import           Control.Monad                  ( void )
 
-import           Application                    ( processModule
+import           HST.Application                ( processModule
                                                 , specialCons
                                                 )
-import           FreshVars                      ( PMState(PMState)
+import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , nextId
                                                 , constrMap
                                                 , matchedPat

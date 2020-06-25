@@ -1,29 +1,33 @@
-module Application
+-- | This module applies the main pattern-matching compilation algorithm and
+--   the different features to a Haskell module.
+
+module HST.Application
   ( processModule
   , specialCons
   , useAlgoModule
   )
 where                                      -- TODO too many variables generated
                                                                                 -- TODO only tuples supported
-import           Algo                           ( match
+import           HST.CoreAlgorithm              ( match
                                                 , err
-                                                , optimize
-                                                , newVars
                                                 , isCons
                                                 )
-import qualified CaseCompletion                as CC
+import qualified HST.Feature.CaseCompletion    as CC
                                                 ( applyCCModule )
-import           FreshVars                      ( Constructor
+import           HST.Environment.FreshVars      ( Constructor
                                                 , PM
                                                 , addConstrMap
                                                 , opt
                                                 , gets
+                                                , newVars
                                                 )
-import qualified GuardElimination              as GE
+import qualified HST.Feature.GuardElimination  as GE
                                                 ( comp
                                                 , getMatchName
                                                 , applyGEModule
                                                 )
+import           HST.Feature.Optimization       ( optimize )
+
 import qualified Language.Haskell.Exts.Syntax  as HSE
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in

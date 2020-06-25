@@ -1,4 +1,6 @@
-module GuardElimination
+-- | This module contains methods for eliminating guards in modules.
+
+module HST.Feature.GuardElimination
   ( eliminateL
   , applyGEModule
   , comp
@@ -8,14 +10,16 @@ where                                   -- TODO Apply GE to GuardedRhs in case e
                                                                                 -- TODO only apply to the parts with guards (not on matches if in case)
                                                                                     -- not false by semantics
 
-import qualified Algo                          as A
+import qualified HST.CoreAlgorithm             as A
                                                 ( err
                                                 , translatePVar
+                                                )
+import           Control.Monad                  ( foldM )
+import           HST.Environment.FreshVars      ( PM
                                                 , newVars
                                                 , newVar
                                                 )
-import           Control.Monad                  ( foldM )
-import           FreshVars                      ( PM )
+
 import qualified Language.Haskell.Exts.Build   as B
 import qualified Language.Haskell.Exts.Syntax  as HSE
 
@@ -30,7 +34,7 @@ eliminateL
   -> [GExp]     -- pairs of pattern and guarded rhs
   -> PM (HSE.Exp ())
 eliminateL vs err eqs = do
-  startVar         <- A.newVar
+  startVar         <- newVar
   (decls, lastPat) <- foldGEqs vs ([], startVar) eqs
   let errDecl = toDecl lastPat err -- error has to be bound to last new var
   return $ HSE.Let () (B.binds (errDecl : decls)) (A.translatePVar startVar)
@@ -54,7 +58,7 @@ createDecl
   -> GExp                           -- pairs of pattern to match against and a guarded Rhs
   -> PM ([HSE.Decl ()], HSE.Pat ()) -- var bindings , variable for next match
 createDecl vs (decl, p) (ps, rhs) = do
-  nVar <- A.newVar
+  nVar <- newVar
   let varExp = A.translatePVar nVar
   iexp <- rhsToIf rhs varExp
   let cexp  = createCase iexp varExp (zip vs ps)
@@ -150,9 +154,9 @@ applyGEAlts :: [HSE.Alt ()] -> PM [HSE.Alt ()]
 applyGEAlts as = if any (\(HSE.Alt _ _ rhs _) -> isGuardedRhs rhs) as
   then do
     let gexps = map (\(HSE.Alt _ p rhs _) -> ([p], rhs)) as
-    newVar   <- A.newVar
-    e        <- eliminateL [newVar] A.err gexps
-    matchVar <- A.newVar
+    newVar'  <- newVar
+    e        <- eliminateL [newVar'] A.err gexps
+    matchVar <- newVar
     return [HSE.Alt () matchVar (HSE.UnGuardedRhs () e) B.noBinds]
   else return as
 
@@ -194,7 +198,7 @@ applyGE ms = do
   let mname    = getMatchName ms
       geqs     = map (\(HSE.Match _ _ pats rhs _) -> (pats, rhs)) ms
       funArity = (length . fst . head) geqs
-  nVars <- A.newVars funArity
+  nVars <- newVars funArity
   nExp  <- eliminateL nVars A.err geqs
   return $ HSE.Match () mname nVars (HSE.UnGuardedRhs () nExp) Nothing
 

@@ -1,7 +1,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module FreshVars
-  ( module FreshVars
+-- | This module contains methods for generating fresh variable identifiers.
+--   It also contains the @Constructor@ type, including accessing functions,
+--   and the @PMState@ data type, including run and evaluation functions.
+
+module HST.Environment.FreshVars
+  ( module HST.Environment.FreshVars
   , State.gets
   , State.modify
   )
@@ -14,7 +18,9 @@ import           Control.Monad.State            ( State
                                                 , MonadState
                                                 )
 import qualified Control.Monad.State           as State
+
 import qualified Language.Haskell.Exts.Syntax  as S
+import qualified Language.Haskell.Exts.Build   as B
 
 -- QName instead of String to support special Syntax
 -- Bool isInfix
@@ -57,6 +63,23 @@ freshVar = do
   --debug <- gets debugOutput
   --modify $ \state -> state {debugOutput = "Generated"++ show i ++", "++debug}
   return i
+
+-- | Generates the given number of fresh variables.
+--
+--   The generated variables use IDs from the state.
+newVars :: Int -> PM [S.Pat ()]
+newVars 0 = return []
+newVars n = do
+  nvar <- newVar
+  vs   <- newVars (n - 1)
+  return (nvar : vs)
+
+-- | Generates a single fresh variable with an ID from the state.
+newVar :: PM (S.Pat ())
+newVar = do
+  nv <- freshVar
+  let v = 'a' : show nv
+  return (B.pvar (B.name v))
 
 addConstrMap :: (String, [Constructor]) -> PM ()
 addConstrMap cs = do
