@@ -10,7 +10,7 @@ where                                   -- TODO Apply GE to GuardedRhs in case e
                                                                                 -- TODO only apply to the parts with guards (not on matches if in case)
                                                                                     -- not false by semantics
 
-import qualified HST.Algo                      as A
+import qualified HST.CoreAlgorithm             as A
                                                 ( err
                                                 , translatePVar
                                                 )

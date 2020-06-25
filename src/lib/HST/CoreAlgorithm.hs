@@ -1,7 +1,7 @@
 -- | This module contains the actual implementation of the pattern-matching
 --   compilation algorithm.
 
-module HST.Algo
+module HST.CoreAlgorithm
   ( match
   , err
   , translatePVar

@@ -8,7 +8,7 @@ module HST.Application
   )
 where                                      -- TODO too many variables generated
                                                                                 -- TODO only tuples supported
-import           HST.Algo                       ( match
+import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , isCons
                                                 )

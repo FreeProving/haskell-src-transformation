@@ -1,4 +1,4 @@
-module HST.AlgoTests where
+module HST.CoreAlgorithmTests where
 
 import           Control.Monad                  ( void )
 import qualified Language.Haskell.Exts         as HSE
@@ -10,7 +10,7 @@ import           Test.Hspec                     ( Spec
                                                 )
 import           Test.HUnit.Base                ( assertFailure )
 
-import           HST.Algo
+import           HST.CoreAlgorithm
 
 -- | Tests for the "Algo" module.
 testAlgo :: Spec

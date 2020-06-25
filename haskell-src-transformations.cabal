@@ -35,7 +35,7 @@ library
 
   hs-source-dirs:     src/lib
   exposed-modules:    HST.Application
-                    , HST.Algo
+                    , HST.CoreAlgorithm
                     , HST.Feature.GuardElimination
                     , HST.Feature.CaseCompletion
                     , HST.Environment.FreshVars
@@ -63,7 +63,7 @@ test-suite haskell-src-transformations-unit-tests
   hs-source-dirs:     src/test
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
-  other-modules:      HST.AlgoTests
+  other-modules:      HST.CoreAlgorithmTests
   build-depends:      base
                     , haskell-src-transformations
                     , HUnit

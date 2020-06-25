@@ -7,7 +7,7 @@ module HST.Feature.CaseCompletion
   )
 where
 
-import           HST.Algo                       ( match
+import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , Eqs
                                                 , isPVar

@@ -6,7 +6,7 @@ module HST.Feature.Optimization
   )
 where
 
-import           HST.Algo                       ( getPVarName
+import           HST.CoreAlgorithm              ( getPVarName
                                                 , getQNamePat
                                                 )
 import           HST.Environment.FreshVars      ( PM
