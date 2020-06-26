@@ -63,8 +63,10 @@ test-suite haskell-src-transformations-unit-tests
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
   other-modules:      AlgoTests
+                    , BasicTests
   build-depends:      base
                     , haskell-src-transformations
                     , HUnit
                     , hspec
+                    , mtl
                     , QuickCheck
