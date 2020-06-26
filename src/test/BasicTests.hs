@@ -1,3 +1,4 @@
+-- | This module contains basic tests for 'haskell-source-transformations' 
 module BasicTests
   ( basicTests
   )
@@ -9,6 +10,7 @@ import           Test.Hspec                     ( Spec
                                                 , it
                                                 , shouldBe
                                                 )
+import           Test.HUnit.Base                ( assertFailure )
 
 import           Control.Monad                  ( void )
 
@@ -19,23 +21,26 @@ import           Language.Haskell.Exts          ( Module
 import           Language.Haskell.Exts.Pretty   ( Pretty
                                                 , prettyPrint
                                                 )
-import           Test.HUnit.Base                ( assertFailure )
 
-import           FreshVars                      ( PMState(..)
-                                                , evalPM
-                                                )
 import           Application                    ( processModule
                                                 , specialCons
                                                 )
+import           FreshVars                      ( PMState(..)
+                                                , evalPM
+                                                )
+
 
 basicTests :: Spec
 basicTests = describe "Basic unit tests" tests
 
+-- | Parses a given string to a module and fails if parsing is not
+--   successful.
 parseTestModule :: String -> IO (Module ())
 parseTestModule modStr = case parseModule modStr of
   ParseOk modul        -> return $ void modul
   ParseFailed _ errMsg -> assertFailure errMsg
 
+-- | The default state used for pattern matching.
 defaultState :: PMState
 defaultState = PMState { nextId      = 0
                        , constrMap   = specialCons
@@ -45,7 +50,7 @@ defaultState = PMState { nextId      = 0
                        , debugOutput = ""
                        }
 
-
+-- | Test cases for 'processModule'.
 tests :: Spec
 tests = do
   it "should accept a simple function" $ do
