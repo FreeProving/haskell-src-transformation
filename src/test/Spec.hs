@@ -1,8 +1,8 @@
 module Spec where
 
-import           Test.Hspec
+import           Test.Hspec                     ( hspec )
 
-import           AlgoTests
+import           HST.CoreAlgorithmTests         ( testAlgo )
 
 main :: IO ()
 main = hspec testAlgo

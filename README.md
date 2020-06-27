@@ -103,7 +103,7 @@ The Free Compiler is licensed under The 3-Clause BSD License.
 See the [LICENSE][haskell-src-transformations/LICENSE] file for details.
 
 [haskell-src-transformations/LICENSE]:
-  https://github.com/FreeProving/haskell-src-transformations/blob/master/LICENSE
+  https://github.com/FreeProving/haskell-src-transformations/blob/main/LICENSE
   "haskell-src-transformations — The 3-Clause BSD License"
 
 [free-compiler]:
@@ -111,7 +111,7 @@ See the [LICENSE][haskell-src-transformations/LICENSE] file for details.
   "Free Compiler"
 
 [guidelines/CONTRIBUTING]:
-  https://github.com/FreeProving/guidelines/blob/master/CONTRIBUTING.md
+  https://github.com/FreeProving/guidelines/blob/main/CONTRIBUTING.md
   "Contributing Guidelines of the FreeProving project"
 
 [software/ghc]:
