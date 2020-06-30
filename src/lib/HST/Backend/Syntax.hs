@@ -48,10 +48,10 @@ data Exp s l t = Var s (QName s)
                | ExpTypeSig s (Exp s l t) t
   deriving (Eq, Show)
 
-data Stmt s l t = Generator s (Exp s l t)
+data Stmt s l t = Generator s (Pat s l) (Exp s l t)
                 | Qualifier s (Exp s l t)
                 | LetStmt s (Binds s l t)
-                | RectStmt s [Stmt s l t]
+                | RecStmt s [Stmt s l t]
   deriving (Eq, Show)
 
 -- Extensions are missing
