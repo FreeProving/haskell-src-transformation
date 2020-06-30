@@ -80,6 +80,7 @@ test-suite haskell-src-transformations-unit-tests
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
   other-modules:      HST.CoreAlgorithmTests
+                    , HST.Effect.CancelTests
   build-depends:      base
                     , haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
