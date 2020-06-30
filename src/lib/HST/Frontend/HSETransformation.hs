@@ -1,7 +1,7 @@
-module HST.Backend.HSETransformation where
+module HST.Frontend.HSETransformation where
 
 import qualified Language.Haskell.Exts.Syntax  as HSE
-import qualified HST.Backend.Syntax            as HST
+import qualified HST.Frontend.Syntax           as HST
 
 
 tfHSEtoHSTModule :: HSE.Module s -> HST.Module s (HSE.Literal s) (HSE.Type s)

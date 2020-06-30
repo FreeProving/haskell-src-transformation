@@ -40,8 +40,8 @@ library
                     , HST.Feature.CaseCompletion
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
-                    , HST.Backend.Syntax
-                    , HST.Backend.HSETransformation
+                    , HST.Frontend.Syntax
+                    , HST.Frontend.HSETransformation
   other-modules:      HST.Environment.Renaming
 
   build-depends:      mtl               >= 2.2 && < 2.3

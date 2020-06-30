@@ -1,4 +1,4 @@
-module HST.Backend.Syntax where
+module HST.Frontend.Syntax where
 
 -- Is the Src Span needed everywhere?
 data Module s l t = Module [Decl s l t]
