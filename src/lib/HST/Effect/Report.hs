@@ -22,11 +22,15 @@ module HST.Effect.Report
   , runReport
   , reportToOutputOrCancel
   , reportToHandleOrCancel
+  , filterReportedMessages
   )
 where
 
-import           Polysemy                       ( Members
+import           Control.Monad                  ( when )
+import           Polysemy                       ( Member
+                                                , Members
                                                 , Sem
+                                                , intercept
                                                 , interpret
                                                 , makeSem
                                                 , raiseUnder2
@@ -87,8 +91,7 @@ makeSem ''Report
 --   If a fatal message is reported, @Nothing@ is returned and only the
 --   messages up to the fatal message are collected.
 runReport :: Sem (Report ': r) a -> Sem r ([Message], Maybe a)
-runReport =
-  runOutputList . runCancel . reportToOutputOrCancel . raiseUnder2
+runReport = runOutputList . runCancel . reportToOutputOrCancel . raiseUnder2
 
 -- | Handles the 'Reporter' effect by 'output'ing all reported messages.
 --
@@ -114,3 +117,11 @@ reportToHandleOrCancel h = interpret \case
   -- | Prints the given message to the file handle given to the effect handler.
   hPutMessage :: Message -> IO ()
   hPutMessage = hPutStrLn h . showPrettyMessage
+
+-- | Intercepts all non-fatal messages reported by the given computation and
+--   forwards them only if they satisfy the given predicate.
+filterReportedMessages
+  :: Member Report r => (Message -> Bool) -> Sem r a -> Sem r a
+filterReportedMessages p = intercept \case
+  Report      msg -> when (p msg) (report msg)
+  ReportFatal msg -> reportFatal msg
