@@ -22,7 +22,9 @@ import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , getOpt
                                                 , usageInfo
                                                 )
-import           System.Environment             ( getArgs )
+import           System.Environment             ( getProgName
+                                                , getArgs
+                                                )
 import           System.IO                      ( stderr )
 
 import           HST.Application                ( processModule
@@ -126,6 +128,24 @@ parseArgs args
   errors :: [String]
   (optSetters, nonOpts, errors) = getOpt Permute options args
 
+-- | The header of the help message.
+--
+--   This text is added before the description of the command line arguments.
+usageHeader :: FilePath -> String
+usageHeader progName =
+  "Usage: "
+    ++ progName
+    ++ " [options...] <input-files...>\n\n"
+    ++ "Command line options:"
+
+-- | Prints the help message for the command line interface.
+--
+--   The help message is displayed when the user specifies the @--help@ option.
+putUsageInfo :: IO ()
+putUsageInfo = do
+  progName <- getProgName
+  putStrLn (usageInfo (usageHeader progName) options)
+
 -- | Creates the initial 'PMState' from the given command line options.
 transformOptions :: Options -> PMState
 transformOptions opts = PMState { nextId      = 0
@@ -152,8 +172,11 @@ application :: Members '[Report, Embed IO] r => Sem r ()
 application = do
   args      <- embed getArgs
   (opts, _) <- parseArgs args
-  embed $ if not (showHelp opts)
-    then do
+
+  -- Show usage information when the @--help@ flag is specified.
+  if showHelp opts
+    then embed putUsageInfo
+    else embed $ do
       let state = transformOptions opts
       input <- readFile $ inputFile opts
       let x = HSE.fromParseResult (HSE.parseModule input)
@@ -167,7 +190,6 @@ application = do
         Nothing -> do
           putStr $ pPrint m
           printDebug (enableDebug opts) state
-    else putStr (usageInfo "" options)
 
 -- | Prints the 'debugOutput' from the given 'PMState' to the console if
 --   the first argument is set to @True@.
