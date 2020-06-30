@@ -7,10 +7,30 @@ module Main
 where
 
 import           Control.Monad                  ( void )
+import qualified Language.Haskell.Exts         as HSE
+import           Polysemy                       ( Members
+                                                , Sem
+                                                , runM
+                                                )
+import           Polysemy                       ( Embed
+                                                , embed
+                                                )
+import           System.Console.GetOpt          ( OptDescr(Option)
+                                                , ArgDescr(NoArg, ReqArg)
+                                                , ArgOrder(Permute)
+                                                , getOpt
+                                                , usageInfo
+                                                )
+import           System.Environment             ( getArgs )
+import           System.IO                      ( stderr )
 
 import           HST.Application                ( processModule
                                                 , specialCons
                                                 )
+import           HST.Effect.Report              ( Report
+                                                , reportToHandleOrCancel
+                                                )
+import           HST.Effect.Cancel              ( cancelToExit )
 import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , nextId
                                                 , constrMap
@@ -20,14 +40,6 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , debugOutput
                                                 , evalPM
                                                 )
-import qualified Language.Haskell.Exts         as HSE
-import           System.Console.GetOpt          ( OptDescr(Option)
-                                                , ArgDescr(NoArg, ReqArg)
-                                                , ArgOrder(Permute)
-                                                , getOpt
-                                                , usageInfo
-                                                )
-import           System.Environment             ( getArgs )
 
 -- | A data type that contains the parsed command line options.
 data Options = Options
@@ -112,12 +124,18 @@ transformOptions opts = PMState { nextId      = 0
 
 -- | The main function of the command line interface.
 --
+--   Runs the 'application' and interprets all unhandled effects.
+main :: IO ()
+main = runM . cancelToExit . reportToHandleOrCancel stderr $ application
+
+-- | The main computation of the command line interface.
+--
 --   Parses the command line arguments and input file. The transformation is
 --   applied on the parsed input module and a state constructed from the
 --   command line arguments. The output is either printed to the console
 --   or a file.
-main :: IO ()
-main = do
+application :: Members '[Report, Embed IO] r => Sem r ()
+application = embed $ do
   args      <- getArgs
   (opts, _) <- compilerOpts args
   if not (showHelp opts)
@@ -137,7 +155,7 @@ main = do
           printDebug (enableDebug opts) state
     else putStr (usageInfo "" options)
 
--- | Prints the 'debugOutput' from the given 'PMState' to the consolve if
+-- | Prints the 'debugOutput' from the given 'PMState' to the console if
 --   the first argument is set to @True@.
 printDebug :: Bool -> PMState -> IO ()
 printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
