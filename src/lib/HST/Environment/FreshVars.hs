@@ -41,7 +41,6 @@ data PMState = PMState
   , matchedPat  :: [(S.Exp (), S.Pat () )] -- Variable and binded Cons
   , trivialCC   :: Bool
   , opt         :: Bool -- optimize case exps
-  , debugOutput :: String
   }
 
 newtype PM a = PM { unwrapPM :: State PMState a }
@@ -60,8 +59,6 @@ freshVar :: PM Int
 freshVar = do
   i <- State.gets nextId
   State.modify $ \state -> state { nextId = i + 1 }
-  --debug <- gets debugOutput
-  --modify $ \state -> state {debugOutput = "Generated"++ show i ++", "++debug}
   return i
 
 -- | Generates the given number of fresh variables.
@@ -96,8 +93,3 @@ processProg :: Prog -> Prog
 processProg p = evalPM (renameProg p) 0
 
 -}
-
-addDebug :: String -> PM ()
-addDebug s = do
-  debug <- State.gets debugOutput
-  State.modify $ \state -> state { debugOutput = s ++ debug }

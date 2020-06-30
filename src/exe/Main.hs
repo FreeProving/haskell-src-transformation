@@ -44,7 +44,6 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , matchedPat
                                                 , trivialCC
                                                 , opt
-                                                , debugOutput
                                                 , evalPM
                                                 )
 
@@ -153,7 +152,6 @@ transformOptions opts = PMState { nextId      = 0
                                 , matchedPat  = []
                                 , trivialCC   = trivialCase opts
                                 , opt         = optimizeCase opts
-                                , debugOutput = ""
                                 }
 
 -- | The main function of the command line interface.
@@ -173,30 +171,21 @@ application = do
   args      <- embed getArgs
   (opts, _) <- parseArgs args
 
+  -- TODO Filter reported message based on @--debug@ flag.
+
   -- Show usage information when the @--help@ flag is specified.
   if showHelp opts
     then embed putUsageInfo
-    else embed $ do
-      let state = transformOptions opts
-      input <- readFile $ inputFile opts
-      let x = HSE.fromParseResult (HSE.parseModule input)
-          m = evalPM (processModule (void x)) state
+    else do
+      input <- embed $ readFile (inputFile opts)
+      let state        = transformOptions opts
+          inputModule  = HSE.fromParseResult (HSE.parseModule input)
+          outputModule = evalPM (processModule (void inputModule)) state
       case outputDir opts of
-        Just out -> do
-          -- TODO this looks to me as if 'outputDir' is named incorrectly.
-          -- It is not an output directory but the name of the output file.
-          writeFile out (pPrint m)
-          printDebug (enableDebug opts) state
-        Nothing -> do
-          putStr $ pPrint m
-          printDebug (enableDebug opts) state
-
--- | Prints the 'debugOutput' from the given 'PMState' to the console if
---   the first argument is set to @True@.
-printDebug :: Bool -> PMState -> IO ()
-printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
-               | -- TODO pretty debug
-                 otherwise = return ()
+        -- TODO this looks to me as if 'outputDir' is named incorrectly.
+        -- It is not an output directory but the name of the output file.
+        Just out -> embed $ writeFile out (pPrint outputModule)
+        Nothing  -> embed $ putStrLn (pPrint outputModule)
 
 -- | Pretty prints the given Haskell module.
 pPrint :: HSE.Module () -> String
