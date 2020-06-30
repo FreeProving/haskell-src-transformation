@@ -30,7 +30,18 @@ common deps
                      , polysemy-plugin  >= 0.2.5 && < 0.2.6
 
   -- Base language which the package is written in.
+  --
+  -- Polysemy needs a lot of langauge extensions. The language extensions
+  -- which are required in every computation that uses Polysemy effects
+  -- are enabled globally. Language extensions such as `TemplateHaskell`
+  -- which are needed for the definition of custom effects only are enabled
+  -- for individual files.
   default-language:    Haskell2010
+  extensions:          DataKinds
+                     , FlexibleContexts
+                     , GADTs
+                     , PolyKinds
+                     , TypeOperators
   ghc-options:         -Wall
                        -fplugin=Polysemy.Plugin
 

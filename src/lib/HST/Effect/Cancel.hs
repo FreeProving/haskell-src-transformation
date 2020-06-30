@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase, BlockArguments #-}
-{-# LANGUAGE GADTs, FlexibleContexts, TypeOperators, DataKinds, PolyKinds #-}
 
 -- | This module defines an effect for computations that can be canceled
 --   prematurely without returning a value or throwing a particular error.

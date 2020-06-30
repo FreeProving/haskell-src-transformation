@@ -1,6 +1,5 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase, BlockArguments #-}
-{-# LANGUAGE GADTs, FlexibleContexts, TypeOperators, DataKinds, PolyKinds #-}
 
 -- | This module defines an effect for computations that can report 'Messages'
 --   such as errors and warnings at runtime.
