@@ -57,6 +57,7 @@ tfHSEtoHSTBoxed HSE.Unboxed = HST.Unboxed
 tfHSEtoHSTExp :: HSE.Exp s -> HST.Exp s (HSE.Literal s) (HSE.Type s)
 tfHSEtoHSTExp (HSE.Var srcS qName) = HST.Var srcS (tfHSEtoHSTQName qName)
 tfHSEtoHSTExp (HSE.Con srcS qName) = HST.Con srcS (tfHSEtoHSTQName qName)
+tfHSEtoHSTExp (HSE.Lit srcS lit  ) = (HST.Lit srcS lit)
 tfHSEtoHSTExp (HSE.InfixApp srcS e1 qOp e2) =
   HST.InfixApp srcS (tfHSEtoHSTExp e1) (tfHSEtoHSTQOp qOp) (tfHSEtoHSTExp e2)
 tfHSEtoHSTExp (HSE.App srcS e1 e2) =
@@ -162,3 +163,166 @@ tfHSEtoHSTSpecialCon (HSE.TupleCon srcS bxd n) =
 tfHSEtoHSTSpecialCon (HSE.Cons             srcS) = HST.Cons srcS
 tfHSEtoHSTSpecialCon (HSE.UnboxedSingleCon srcS) = HST.UnboxedSingleCon srcS
 tfHSEtoHSTSpecialCon (HSE.ExprHole         srcS) = HST.ExprHole srcS
+
+tfHSTtoHSEModule
+  :: HSE.Module s -> HST.Module s (HSE.Literal s) (HSE.Type s) -> HSE.Module s
+tfHSTtoHSEModule (HSE.Module srcS mmh pragmas impDecls oDecls) (HST.Module aDecls)
+  = HSE.Module srcS
+               mmh
+               pragmas
+               impDecls
+               (combineDecls oDecls (map tfHSTtoHSEDecl aDecls))
+ where
+  combineDecls ((HSE.FunBind _ _) : oDecls') (aDecl : aDecls') =
+    aDecl : combineDecls oDecls' aDecls'
+  combineDecls (oDecl : oDecls') aDecls' = oDecl : combineDecls oDecls' aDecls'
+  combineDecls []                aDecls' = aDecls'
+tfHSTtoHSEModule _ _ = error "Unsupported Module type"
+
+
+tfHSTtoHSEDecl :: HST.Decl s (HSE.Literal s) (HSE.Type s) -> HSE.Decl s
+tfHSTtoHSEDecl (HST.FunBind srcS matches) =
+  HSE.FunBind srcS (map tfHSTtoHSEMatch matches)
+tfHSTtoHSEDecl (HST.TypeSig srcS names typ) =
+  HSE.TypeSig srcS (map tfHSTtoHSEName names) typ
+
+tfHSTtoHSEBinds :: HST.Binds s (HSE.Literal s) (HSE.Type s) -> HSE.Binds s
+tfHSTtoHSEBinds (HST.BDecls srcS decls) =
+  HSE.BDecls srcS (map tfHSTtoHSEDecl decls)
+
+tfHSTtoHSEMatch :: HST.Match s (HSE.Literal s) (HSE.Type s) -> HSE.Match s
+tfHSTtoHSEMatch (HST.Match srcS name pats rhs mBinds) = HSE.Match
+  srcS
+  (tfHSTtoHSEName name)
+  (map tfHSTtoHSEPat pats)
+  (tfHSTtoHSERhs rhs)
+  (fmap tfHSTtoHSEBinds mBinds)
+tfHSTtoHSEMatch (HST.InfixMatch srcS pat name pats rhs mBinds) = HSE.InfixMatch
+  srcS
+  (tfHSTtoHSEPat pat)
+  (tfHSTtoHSEName name)
+  (map tfHSTtoHSEPat pats)
+  (tfHSTtoHSERhs rhs)
+  (fmap tfHSTtoHSEBinds mBinds)
+
+tfHSTtoHSERhs :: HST.Rhs s (HSE.Literal s) (HSE.Type s) -> HSE.Rhs s
+tfHSTtoHSERhs (HST.UnGuardedRhs srcS e) =
+  HSE.UnGuardedRhs srcS (tfHSTtoHSEExp e)
+tfHSTtoHSERhs (HST.GuardedRhss srcS grhss) =
+  HSE.GuardedRhss srcS (map tfHSTtoHSEGuardedRhs grhss)
+
+tfHSTtoHSEGuardedRhs
+  :: HST.GuardedRhs s (HSE.Literal s) (HSE.Type s) -> HSE.GuardedRhs s
+tfHSTtoHSEGuardedRhs (HST.GuardedRhs srcS stmts e) =
+  HSE.GuardedRhs srcS (map tfHSTtoHSEStmt stmts) (tfHSTtoHSEExp e)
+
+tfHSTtoHSEBoxed :: HST.Boxed -> HSE.Boxed
+tfHSTtoHSEBoxed HST.Boxed   = HSE.Boxed
+tfHSTtoHSEBoxed HST.Unboxed = HSE.Unboxed
+
+tfHSTtoHSEExp :: HST.Exp s (HSE.Literal s) (HSE.Type s) -> HSE.Exp s
+tfHSTtoHSEExp (HST.Var srcS qName) = HSE.Var srcS (tfHSTtoHSEQName qName)
+tfHSTtoHSEExp (HST.Con srcS qName) = HSE.Con srcS (tfHSTtoHSEQName qName)
+tfHSTtoHSEExp (HST.Lit srcS lit  ) = (HSE.Lit srcS lit)
+tfHSTtoHSEExp (HST.InfixApp srcS e1 qOp e2) =
+  HSE.InfixApp srcS (tfHSTtoHSEExp e1) (tfHSTtoHSEQOp qOp) (tfHSTtoHSEExp e2)
+tfHSTtoHSEExp (HST.App srcS e1 e2) =
+  HSE.App srcS (tfHSTtoHSEExp e1) (tfHSTtoHSEExp e2)
+tfHSTtoHSEExp (HST.NegApp srcS e) = HSE.NegApp srcS (tfHSTtoHSEExp e)
+tfHSTtoHSEExp (HST.Lambda srcS pats e) =
+  HSE.Lambda srcS (map tfHSTtoHSEPat pats) (tfHSTtoHSEExp e)
+tfHSTtoHSEExp (HST.Let srcS binds e) =
+  HSE.Let srcS (tfHSTtoHSEBinds binds) (tfHSTtoHSEExp e)
+tfHSTtoHSEExp (HST.If srcS e1 e2 e3) =
+  HSE.If srcS (tfHSTtoHSEExp e1) (tfHSTtoHSEExp e2) (tfHSTtoHSEExp e3)
+tfHSTtoHSEExp (HST.Case srcS e alts) =
+  HSE.Case srcS (tfHSTtoHSEExp e) (map tfHSTtoHSEAlt alts)
+tfHSTtoHSEExp (HST.Do srcS stmts) = HSE.Do srcS (map tfHSTtoHSEStmt stmts)
+tfHSTtoHSEExp (HST.Tuple srcS bxd es) =
+  HSE.Tuple srcS (tfHSTtoHSEBoxed bxd) (map tfHSTtoHSEExp es)
+tfHSTtoHSEExp (HST.List     srcS es) = HSE.List srcS (map tfHSTtoHSEExp es)
+tfHSTtoHSEExp (HST.Paren    srcS e ) = HSE.Paren srcS (tfHSTtoHSEExp e)
+tfHSTtoHSEExp (HST.EnumFrom srcS e ) = HSE.EnumFrom srcS (tfHSTtoHSEExp e)
+tfHSTtoHSEExp (HST.EnumFromTo srcS e1 e2) =
+  HSE.EnumFromTo srcS (tfHSTtoHSEExp e1) (tfHSTtoHSEExp e2)
+tfHSTtoHSEExp (HST.EnumFromThen srcS e1 e2) =
+  HSE.EnumFromThen srcS (tfHSTtoHSEExp e1) (tfHSTtoHSEExp e2)
+tfHSTtoHSEExp (HST.EnumFromThenTo srcS e1 e2 e3) = HSE.EnumFromThenTo
+  srcS
+  (tfHSTtoHSEExp e1)
+  (tfHSTtoHSEExp e2)
+  (tfHSTtoHSEExp e3)
+tfHSTtoHSEExp (HST.ListComp srcS e qStmts) =
+  HSE.ListComp srcS (tfHSTtoHSEExp e) (map tfHSTtoHSEQualStmt qStmts)
+tfHSTtoHSEExp (HST.ExpTypeSig srcS e typ) =
+  HSE.ExpTypeSig srcS (tfHSTtoHSEExp e) typ
+
+tfHSTtoHSEStmt :: HST.Stmt s (HSE.Literal s) (HSE.Type s) -> HSE.Stmt s
+tfHSTtoHSEStmt (HST.Generator srcS pat e) =
+  HSE.Generator srcS (tfHSTtoHSEPat pat) (tfHSTtoHSEExp e)
+tfHSTtoHSEStmt (HST.Qualifier srcS e) = HSE.Qualifier srcS (tfHSTtoHSEExp e)
+tfHSTtoHSEStmt (HST.LetStmt srcS binds) =
+  HSE.LetStmt srcS (tfHSTtoHSEBinds binds)
+tfHSTtoHSEStmt (HST.RecStmt srcS stmts) =
+  HSE.RecStmt srcS (map tfHSTtoHSEStmt stmts)
+
+tfHSTtoHSEQualStmt
+  :: HST.QualStmt s (HSE.Literal s) (HSE.Type s) -> HSE.QualStmt s
+tfHSTtoHSEQualStmt (HST.QualStmt srcS stmt) =
+  HSE.QualStmt srcS (tfHSTtoHSEStmt stmt)
+
+tfHSTtoHSEAlt :: HST.Alt s (HSE.Literal s) (HSE.Type s) -> HSE.Alt s
+tfHSTtoHSEAlt (HST.Alt srcS pat rhs mBinds) = HSE.Alt
+  srcS
+  (tfHSTtoHSEPat pat)
+  (tfHSTtoHSERhs rhs)
+  (fmap tfHSTtoHSEBinds mBinds)
+
+tfHSTtoHSEPat :: HST.Pat s (HSE.Literal s) -> HSE.Pat s
+tfHSTtoHSEPat (HST.PVar srcS name) = HSE.PVar srcS (tfHSTtoHSEName name)
+tfHSTtoHSEPat (HST.PLit srcS sign lit) =
+  HSE.PLit srcS (tfHSTtoHSESign sign) lit
+tfHSTtoHSEPat (HST.PInfixApp srcS pat1 qName pat2) = HSE.PInfixApp
+  srcS
+  (tfHSTtoHSEPat pat1)
+  (tfHSTtoHSEQName qName)
+  (tfHSTtoHSEPat pat2)
+tfHSTtoHSEPat (HST.PApp srcS qName pats) =
+  HSE.PApp srcS (tfHSTtoHSEQName qName) (map tfHSTtoHSEPat pats)
+tfHSTtoHSEPat (HST.PTuple srcS bxd pats) =
+  HSE.PTuple srcS (tfHSTtoHSEBoxed bxd) (map tfHSTtoHSEPat pats)
+tfHSTtoHSEPat (HST.PParen srcS pat ) = HSE.PParen srcS (tfHSTtoHSEPat pat)
+tfHSTtoHSEPat (HST.PList  srcS pats) = HSE.PList srcS (map tfHSTtoHSEPat pats)
+tfHSTtoHSEPat (HST.PWildCard srcS  ) = HSE.PWildCard srcS
+
+tfHSTtoHSESign :: HST.Sign s -> HSE.Sign s
+tfHSTtoHSESign (HST.Signless srcS) = HSE.Signless srcS
+tfHSTtoHSESign (HST.Negative srcS) = HSE.Negative srcS
+
+tfHSTtoHSEModuleName :: HST.ModuleName s -> HSE.ModuleName s
+tfHSTtoHSEModuleName (HST.ModuleName srcS name) = HSE.ModuleName srcS name
+
+tfHSTtoHSEQName :: HST.QName s -> HSE.QName s
+tfHSTtoHSEQName (HST.Qual srcS modName name) =
+  HSE.Qual srcS (tfHSTtoHSEModuleName modName) (tfHSTtoHSEName name)
+tfHSTtoHSEQName (HST.UnQual srcS name) = HSE.UnQual srcS (tfHSTtoHSEName name)
+tfHSTtoHSEQName (HST.Special srcS spCon) =
+  HSE.Special srcS (tfHSTtoHSESpecialCon spCon)
+
+tfHSTtoHSEName :: HST.Name s -> HSE.Name s
+tfHSTtoHSEName (HST.Ident  srcS name) = HSE.Ident srcS name
+tfHSTtoHSEName (HST.Symbol srcS name) = HSE.Symbol srcS name
+
+tfHSTtoHSEQOp :: HST.QOp s -> HSE.QOp s
+tfHSTtoHSEQOp (HST.QVarOp srcS qName) = HSE.QVarOp srcS (tfHSTtoHSEQName qName)
+tfHSTtoHSEQOp (HST.QConOp srcS qName) = HSE.QConOp srcS (tfHSTtoHSEQName qName)
+
+tfHSTtoHSESpecialCon :: HST.SpecialCon s -> HSE.SpecialCon s
+tfHSTtoHSESpecialCon (HST.UnitCon srcS) = HSE.UnitCon srcS
+tfHSTtoHSESpecialCon (HST.ListCon srcS) = HSE.ListCon srcS
+tfHSTtoHSESpecialCon (HST.FunCon  srcS) = HSE.FunCon srcS
+tfHSTtoHSESpecialCon (HST.TupleCon srcS bxd n) =
+  HSE.TupleCon srcS (tfHSTtoHSEBoxed bxd) n
+tfHSTtoHSESpecialCon (HST.Cons             srcS) = HSE.Cons srcS
+tfHSTtoHSESpecialCon (HST.UnboxedSingleCon srcS) = HSE.UnboxedSingleCon srcS
+tfHSTtoHSESpecialCon (HST.ExprHole         srcS) = HSE.ExprHole srcS
