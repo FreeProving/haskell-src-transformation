@@ -81,7 +81,7 @@ testCancelToExit = context "cancelToExit" $ do
     let comp :: Member Cancel r => Sem r ()
         comp = cancel >> return ()
     shouldExit $ runM (cancelToExit comp)
-  it "cancels the computation prematurely" $ do
+  it "cancels the embedded IO action prematurely" $ do
     ref <- newIORef (0 :: Int)
     let inc :: Member (Embed IO) r => Sem r ()
         inc = embed (modifyIORef ref (+ 1))
@@ -89,3 +89,9 @@ testCancelToExit = context "cancelToExit" $ do
         comp = inc >> cancel >> inc >> return ()
     shouldExit $ runM (cancelToExit comp)
     readIORef ref `shouldReturn` 1
+  it "cancels the computation prematurely" $ do
+    -- This test tests whether 'runM' runs the embedded IO action before
+    -- 'runWriter' interprets the 'tell' effect.
+    let comp :: Members '[Cancel, Embed IO, Writer [Bool]] r => Sem r ()
+        comp = cancel >> tell undefined >> return ()
+    shouldExit $ runM (runWriter (cancelToExit comp))
