@@ -8,7 +8,8 @@ where
 
 import           Control.Monad                  ( void )
 import qualified Language.Haskell.Exts         as HSE
-import           Polysemy                       ( Members
+import           Polysemy                       ( Member
+                                                , Members
                                                 , Sem
                                                 , runM
                                                 )
@@ -27,7 +28,11 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule
                                                 , specialCons
                                                 )
-import           HST.Effect.Report              ( Report
+import           HST.Effect.Report              ( Message(Message)
+                                                , Report
+                                                , Severity(Error)
+                                                , report
+                                                , reportFatal
                                                 , reportToHandleOrCancel
                                                 )
 import           HST.Effect.Cancel              ( cancelToExit )
@@ -103,14 +108,23 @@ options =
 
 -- | Parses the given command line arguments.
 --
---   Returns the recognized 'Optionns' and a list of non-options (i.e., input
+--   Returns the recognized 'Options' and a list of non-options (i.e., input
 --   file names). The 'non-options' are not actually used by the command line
 --   interface. Input file names are specified using the @--Input@ option.
-compilerOpts :: [String] -> IO (Options, [String])
-compilerOpts args = case getOpt Permute options args of
-  (o, n, []  ) -> return (foldl (flip id) defaultOptions o, n)
-  (_, _, errs) -> ioError (userError (concat errs ++ usageInfo header options))
-  where header = "" -- TODO meaningfull header
+parseArgs :: Member Report r => [String] -> Sem r (Options, [String])
+parseArgs args
+  | null errors = return (foldr ($) defaultOptions optSetters, nonOpts)
+  | otherwise = do
+    mapM_ (report . Message Error) errors
+    reportFatal
+      $  Message Error
+      $  "Failed to parse command line arguments.\n"
+      ++ "Use '--help' for usage information."
+ where
+  optSetters :: [Options -> Options]
+  nonOpts :: [String]
+  errors :: [String]
+  (optSetters, nonOpts, errors) = getOpt Permute options args
 
 -- | Creates the initial 'PMState' from the given command line options.
 transformOptions :: Options -> PMState
@@ -135,10 +149,10 @@ main = runM . cancelToExit . reportToHandleOrCancel stderr $ application
 --   command line arguments. The output is either printed to the console
 --   or a file.
 application :: Members '[Report, Embed IO] r => Sem r ()
-application = embed $ do
-  args      <- getArgs
-  (opts, _) <- compilerOpts args
-  if not (showHelp opts)
+application = do
+  args      <- embed getArgs
+  (opts, _) <- parseArgs args
+  embed $ if not (showHelp opts)
     then do
       let state = transformOptions opts
       input <- readFile $ inputFile opts
