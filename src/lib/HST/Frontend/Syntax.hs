@@ -3,8 +3,20 @@ module HST.Frontend.Syntax where
 data Module s l t = Module [Decl s l t]
   deriving (Eq, Show)
 
-data Decl s l t = TypeSig (SrcSpan s) [Name s] t
+data Decl s l t = DataDecl (DeclHead s) [ConDecl s t]
+                | TypeSig (SrcSpan s) [Name s] t
                 | FunBind (SrcSpan s) [Match s l t]
+  deriving (Eq, Show)
+
+data DeclHead s = DHead (Name s)
+                | DHInfix (Name s)
+                | DHParen (DeclHead s)
+                | DHApp (DeclHead s)
+  deriving (Eq, Show)
+
+data ConDecl s t = ConDecl (Name s) [t]
+                 | InfixConDecl t (Name s) t
+                 | RecDecl (Name s)
   deriving (Eq, Show)
 
 data Binds s l t = BDecls (SrcSpan s) [Decl s l t]
