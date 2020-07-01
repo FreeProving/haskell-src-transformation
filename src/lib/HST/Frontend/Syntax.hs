@@ -1,101 +1,104 @@
 module HST.Frontend.Syntax where
 
--- Is the Src Span needed everywhere?
 data Module s l t = Module [Decl s l t]
   deriving (Eq, Show)
 
-data Decl s l t = TypeSig s [Name s] t
-                | FunBind s [Match s l t]
+data Decl s l t = TypeSig (SrcSpan s) [Name s] t
+                | FunBind (SrcSpan s) [Match s l t]
   deriving (Eq, Show)
 
-data Binds s l t = BDecls s [Decl s l t]
+data Binds s l t = BDecls (SrcSpan s) [Decl s l t]
   deriving (Eq, Show)
 
-data Match s l t = Match s (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
-                 | InfixMatch s (Pat s l) (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
+data Match s l t = Match (SrcSpan s) (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
+                 | InfixMatch (SrcSpan s) (Pat s l) (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
   deriving (Eq, Show)
 
-data Rhs s l t = UnGuardedRhs s (Exp s l t)
-               | GuardedRhss s [GuardedRhs s l t]
+data Rhs s l t = UnGuardedRhs (SrcSpan s) (Exp s l t)
+               | GuardedRhss (SrcSpan s) [GuardedRhs s l t]
   deriving (Eq, Show)
 
-data GuardedRhs s l t = GuardedRhs s [Stmt s l t] (Exp s l t)
+data GuardedRhs s l t = GuardedRhs (SrcSpan s) [Stmt s l t] (Exp s l t)
   deriving (Eq, Show)
 
 data Boxed = Boxed
            | Unboxed
   deriving (Eq, Show)
 
-data Exp s l t = Var s (QName s)
-               | Con s (QName s)
-               | Lit s l
-               | InfixApp s (Exp s l t) (QOp s) (Exp s l t)
-               | App s (Exp s l t) (Exp s l t)
-               | NegApp s (Exp s l t)
-               | Lambda s [Pat s l] (Exp s l t)
-               | Let s (Binds s l t) (Exp s l t)
-               | If s (Exp s l t) (Exp s l t) (Exp s l t)
-               | Case s (Exp s l t) [Alt s l t]
-               | Do s [Stmt s l t]
-               | Tuple s Boxed [Exp s l t]
-               | List s [Exp s l t]
-               | Paren s (Exp s l t)
-               | EnumFrom s (Exp s l t)
-               | EnumFromTo s (Exp s l t) (Exp s l t)
-               | EnumFromThen s (Exp s l t) (Exp s l t)
-               | EnumFromThenTo s (Exp s l t) (Exp s l t) (Exp s l t)
-               | ListComp s (Exp s l t) [QualStmt s l t]
-               | ExpTypeSig s (Exp s l t) t
+data Exp s l t = Var (SrcSpan s) (QName s)
+               | Con (SrcSpan s) (QName s)
+               | Lit (SrcSpan s) l
+               | InfixApp (SrcSpan s) (Exp s l t) (QOp s) (Exp s l t)
+               | App (SrcSpan s) (Exp s l t) (Exp s l t)
+               | NegApp (SrcSpan s) (Exp s l t)
+               | Lambda (SrcSpan s) [Pat s l] (Exp s l t)
+               | Let (SrcSpan s) (Binds s l t) (Exp s l t)
+               | If (SrcSpan s) (Exp s l t) (Exp s l t) (Exp s l t)
+               | Case (SrcSpan s) (Exp s l t) [Alt s l t]
+               | Do (SrcSpan s) [Stmt s l t]
+               | Tuple (SrcSpan s) Boxed [Exp s l t]
+               | List (SrcSpan s) [Exp s l t]
+               | Paren (SrcSpan s) (Exp s l t)
+               | EnumFrom (SrcSpan s) (Exp s l t)
+               | EnumFromTo (SrcSpan s) (Exp s l t) (Exp s l t)
+               | EnumFromThen (SrcSpan s) (Exp s l t) (Exp s l t)
+               | EnumFromThenTo (SrcSpan s) (Exp s l t) (Exp s l t) (Exp s l t)
+               | ListComp (SrcSpan s) (Exp s l t) [QualStmt s l t]
+               | ExpTypeSig (SrcSpan s) (Exp s l t) t
   deriving (Eq, Show)
 
-data Stmt s l t = Generator s (Pat s l) (Exp s l t)
-                | Qualifier s (Exp s l t)
-                | LetStmt s (Binds s l t)
-                | RecStmt s [Stmt s l t]
+data Stmt s l t = Generator (SrcSpan s) (Pat s l) (Exp s l t)
+                | Qualifier (SrcSpan s) (Exp s l t)
+                | LetStmt (SrcSpan s) (Binds s l t)
+                | RecStmt (SrcSpan s) [Stmt s l t]
   deriving (Eq, Show)
 
 -- Extensions are missing
-data QualStmt s l t = QualStmt s (Stmt s l t)
+data QualStmt s l t = QualStmt (SrcSpan s) (Stmt s l t)
   deriving (Eq, Show)
 
-data Alt s l t = Alt s (Pat s l) (Rhs s l t) (Maybe (Binds s l t))
+data Alt s l t = Alt (SrcSpan s) (Pat s l) (Rhs s l t) (Maybe (Binds s l t))
   deriving (Eq, Show)
 
-data Pat s l = PVar s (Name s)
-             | PLit s (Sign s) l
-             | PInfixApp s (Pat s l) (QName s) (Pat s l)
-             | PApp s (QName s) [Pat s l]
-             | PTuple s Boxed [Pat s l]
-             | PParen s (Pat s l)
-             | PList s [Pat s l]
-             | PWildCard s
+data Pat s l = PVar (SrcSpan s) (Name s)
+             | PLit (SrcSpan s) (Sign s) l
+             | PInfixApp (SrcSpan s) (Pat s l) (QName s) (Pat s l)
+             | PApp (SrcSpan s) (QName s) [Pat s l]
+             | PTuple (SrcSpan s) Boxed [Pat s l]
+             | PParen (SrcSpan s) (Pat s l)
+             | PList (SrcSpan s) [Pat s l]
+             | PWildCard (SrcSpan s)
   deriving (Eq, Show)
 
-data Sign s = Signless s
-            | Negative s
+data Sign s = Signless (SrcSpan s)
+            | Negative (SrcSpan s)
   deriving (Eq, Show)
 
-data ModuleName s = ModuleName s String
+data ModuleName s = ModuleName (SrcSpan s) String
   deriving (Eq, Show)
 
-data QName s = Qual s (ModuleName s) (Name s)
-             | UnQual s (Name s)
-             | Special s (SpecialCon s)
+data QName s = Qual (SrcSpan s) (ModuleName s) (Name s)
+             | UnQual (SrcSpan s) (Name s)
+             | Special (SrcSpan s) (SpecialCon s)
   deriving (Eq, Show)
 
-data Name s = Ident s String
-            | Symbol s String
+data Name s = Ident (SrcSpan s) String
+            | Symbol (SrcSpan s) String
   deriving (Eq, Show)
 
-data QOp s = QVarOp s (QName s)
-           | QConOp s (QName s)
+data QOp s = QVarOp (SrcSpan s) (QName s)
+           | QConOp (SrcSpan s) (QName s)
   deriving (Eq, Show)
 
-data SpecialCon s = UnitCon s
-                  | ListCon s
-                  | FunCon s
-                  | TupleCon s Boxed Int
-                  | Cons s
-                  | UnboxedSingleCon s
-                  | ExprHole s
+data SpecialCon s = UnitCon (SrcSpan s)
+                  | ListCon (SrcSpan s)
+                  | FunCon (SrcSpan s)
+                  | TupleCon (SrcSpan s) Boxed Int
+                  | Cons (SrcSpan s)
+                  | UnboxedSingleCon (SrcSpan s)
+                  | ExprHole (SrcSpan s)
+  deriving (Eq, Show)
+
+data SrcSpan s = SrcSpan s
+               | NoSrcSpan
   deriving (Eq, Show)

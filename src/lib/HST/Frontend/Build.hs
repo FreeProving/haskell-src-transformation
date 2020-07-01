@@ -2,26 +2,32 @@ module HST.Frontend.Build where
 
 import HST.Frontend.Syntax
 
-name :: String -> Name ()
-name = Ident ()
+name :: String -> Name s
+name = Ident noSrc
 
-var :: Name () -> Exp () l t
-var n = Var () (UnQual () n)
+var :: Name s -> Exp s l t
+var n = Var noSrc (UnQual noSrc n)
 
-pvar :: Name () -> Pat () l
-pvar = PVar ()
+pvar :: Name s -> Pat s l
+pvar = PVar noSrc
 
-caseE :: Exp () l t -> [Alt () l t] -> Exp () l t
-caseE = Case ()
+caseE :: Exp s l t -> [Alt s l t] -> Exp s l t
+caseE = Case noSrc
 
-alt :: Pat () l -> Exp () l t -> Alt () l t
-alt pat e = Alt () pat (UnGuardedRhs () e) noBinds
+alt :: Pat s l -> Exp s l t -> Alt s l t
+alt pat e = Alt noSrc pat (UnGuardedRhs noSrc e) noBinds
 
-binds :: [Decl () l t] -> Binds () l t
-binds = BDecls ()
+binds :: [Decl s l t] -> Binds s l t
+binds = BDecls noSrc
 
-noBinds :: Maybe (Binds () l t)
+noBinds :: Maybe (Binds s l t)
 noBinds = Nothing
 
-wildcard :: Pat () l
-wildcard = PWildCard ()
+wildcard :: Pat s l
+wildcard = PWildCard noSrc
+
+src :: s -> SrcSpan s
+src = SrcSpan
+
+noSrc :: SrcSpan s
+noSrc = NoSrcSpan
