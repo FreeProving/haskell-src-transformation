@@ -103,8 +103,8 @@ defaultOptions = Options { optShowHelp     = False
 --
 --   The descriptors specify the name, alias and help message for the option
 --   as well as a function that adds the flag or value to the 'Options'.
-options :: [OptDescr (Options -> Options)]
-options =
+optionDescriptors :: [OptDescr (Options -> Options)]
+optionDescriptors =
   [ Option ['h', '?']
            ["help"]
            (NoArg (\opts -> opts { optShowHelp = True }))
@@ -149,7 +149,7 @@ parseArgs args
   optSetters :: [Options -> Options]
   nonOpts :: [String]
   errors :: [String]
-  (optSetters, nonOpts, errors) = getOpt Permute options args
+  (optSetters, nonOpts, errors) = getOpt Permute optionDescriptors args
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --
@@ -171,7 +171,7 @@ usageHeader progName =
 putUsageInfo :: IO ()
 putUsageInfo = do
   progName <- getProgName
-  putStrLn (usageInfo (usageHeader progName) options)
+  putStrLn (usageInfo (usageHeader progName) optionDescriptors)
 
 -------------------------------------------------------------------------------
 -- Main                                                                      --
@@ -206,12 +206,11 @@ application = do
   -- Filter reported message based on @--debug@ flag.
   filterReportedMessages
       (\msg -> optEnableDebug opts || msgSeverity msg /= Debug)
-    $ do
-    -- Show usage information when the @--help@ flag is specified or there is no
-    -- input file.
-        if optShowHelp opts || null (optInputFiles opts)
-          then embed putUsageInfo
-          else mapM_ (processInputFile opts) (optInputFiles opts)
+    $ -- Show usage information when the @--help@ flag is specified or there is no
+      -- input file.
+      if optShowHelp opts || null (optInputFiles opts)
+        then embed putUsageInfo
+        else mapM_ (processInputFile opts) (optInputFiles opts)
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -228,7 +227,7 @@ processInputFile
   :: Members '[Report, Embed IO] r => Options -> FilePath -> Sem r ()
 processInputFile opts inputFile = do
   input <- embed $ readFile inputFile
-  let state        = transformOptions opts
+  let state        = initPMState opts
       inputModule  = HSE.fromParseResult (HSE.parseModule input)
       outputModule = evalPM (processModule (void inputModule)) state
   case optOutputDir opts of
@@ -239,13 +238,13 @@ processInputFile opts inputFile = do
     Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
 
 -- | Creates the initial 'PMState' from the given command line options.
-transformOptions :: Options -> PMState
-transformOptions opts = PMState { nextId     = 0
-                                , constrMap  = specialCons
-                                , matchedPat = []
-                                , trivialCC  = optTrivialCase opts
-                                , opt        = optOptimizeCase opts
-                                }
+initPMState :: Options -> PMState
+initPMState opts = PMState { nextId     = 0
+                           , constrMap  = specialCons
+                           , matchedPat = []
+                           , trivialCC  = optTrivialCase opts
+                           , opt        = optOptimizeCase opts
+                           }
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
