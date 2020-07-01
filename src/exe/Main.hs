@@ -45,10 +45,16 @@ import           HST.Application                ( processModule
                                                 )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Internal, Error)
+                                                , Severity
+                                                  ( Internal
+                                                  , Error
+                                                  , Debug
+                                                  )
+                                                , msgSeverity
                                                 , report
                                                 , reportFatal
                                                 , reportToHandleOrCancel
+                                                , filterReportedMessages
                                                 , exceptionToReport
                                                 )
 import           HST.Effect.Cancel              ( cancelToExit )
@@ -197,13 +203,15 @@ application = do
   args <- embed getArgs
   opts <- parseArgs args
 
-  -- TODO Filter reported message based on @--debug@ flag.
-
-  -- Show usage information when the @--help@ flag is specified or there is no
-  -- input file.
-  if optShowHelp opts || null (optInputFiles opts)
-    then embed putUsageInfo
-    else mapM_ (processInputFile opts) (optInputFiles opts)
+  -- Filter reported message based on @--debug@ flag.
+  filterReportedMessages
+      (\msg -> optEnableDebug opts || msgSeverity msg /= Debug)
+    $ do
+    -- Show usage information when the @--help@ flag is specified or there is no
+    -- input file.
+        if optShowHelp opts || null (optInputFiles opts)
+          then embed putUsageInfo
+          else mapM_ (processInputFile opts) (optInputFiles opts)
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -228,7 +236,7 @@ processInputFile opts inputFile = do
       let outputFile = outputDir </> makeOutputFileName inputFile inputModule
       embed $ createDirectoryIfMissing True (takeDirectory outputFile)
       embed $ writeFile outputFile (prettyPrintModule outputModule)
-    Nothing -> embed $ putStrLn (pPrint outputModule)
+    Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
 
 -- | Creates the initial 'PMState' from the given command line options.
 transformOptions :: Options -> PMState

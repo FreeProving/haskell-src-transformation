@@ -29,9 +29,7 @@ module HST.Effect.Report
   )
 where
 
-import           Control.Exception              ( Exception
-                                                , toException
-                                                )
+import           Control.Exception              ( Exception )
 import           Control.Monad                  ( (>=>)
                                                 , when
                                                 )
@@ -74,7 +72,7 @@ data Severity = Internal | Error | Warning | Info | Debug
   deriving (Show, Eq)
 
 -- | A messages that can be 'report'ed.
-data Message = Message Severity String
+data Message = Message { msgSeverity :: Severity, msgText :: String }
 
 -- TODO Add @Pretty@ instance for messages.
 showPrettyMessage :: Message -> String
