@@ -42,6 +42,7 @@ library
                     , HST.Feature.Optimization
                     , HST.Frontend.Syntax
                     , HST.Frontend.HSETransformation
+                    , HST.Frontend.Build
   other-modules:      HST.Environment.Renaming
 
   build-depends:      mtl               >= 2.2 && < 2.3
