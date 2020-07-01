@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase, BlockArguments #-}
 
--- | This module defines an effect for computations that can report 'Messages'
+-- | This module defines an effect for computations that can report 'Message's
 --   such as errors and warnings at runtime.
 --
 --   There are handlers for such computations that either collect the reported
@@ -82,7 +82,7 @@ showPrettyMessage (Message severity msg) = show severity ++ ": " ++ msg
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
 
--- | An effect capable of reporting 'Messages' (e.g., errors and warnings).
+-- | An effect capable of reporting 'Message's (e.g., errors and warnings).
 --
 --   It is distinguished between fatal and non-fatal messages. A fatal message
 --   is usually an error that cannot be recovered from.
@@ -96,8 +96,7 @@ makeSem ''Report
 -- Interpretations                                                           --
 -------------------------------------------------------------------------------
 
--- | Handles the 'Reporter' effect by collecting all reported messages in a
---   list.
+-- | Handles the 'Report' effect by collecting all reported messages in a list.
 --
 --   The return value of the handled computation is wrapped in @Maybe@.
 --   If a fatal message is reported, @Nothing@ is returned and only the
@@ -105,10 +104,10 @@ makeSem ''Report
 runReport :: Sem (Report ': r) a -> Sem r ([Message], Maybe a)
 runReport = runOutputList . runCancel . reportToOutputOrCancel . raiseUnder2
 
--- | Handles the 'Reporter' effect by 'output'ing all reported messages.
+-- | Handles the 'Report' effect by 'output'ing all reported messages.
 --
---    If a fatal message is reported, the computation is 'cancel'ed
---    prematurely.
+--   If a fatal message is reported, the computation is 'cancel'ed
+--   prematurely.
 reportToOutputOrCancel
   :: Members '[Output Message, Cancel] r => Sem (Report ': r) a -> Sem r a
 reportToOutputOrCancel = interpret \case
