@@ -72,7 +72,7 @@ haskell-src-transformations --help
 
 ### Running without Installation
 
-If you want to run the command line interface without installing the package on your machine (e.g., for debugging purposes), execute the following command in the root directory of the project instead of the `haskell-src-transformations`.
+If you want to run the command line interface without installing the package on your machine (e.g., for debugging purposes), execute the following command in the root directory of the project instead of using the `haskell-src-transformations` executable.
 
 ```bash
 cabal new-run exe:haskell-src-transformations -- [options...]
