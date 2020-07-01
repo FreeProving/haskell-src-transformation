@@ -6,15 +6,20 @@ module Main
   )
 where
 
+import           Control.Exception              ( SomeException
+                                                , displayException
+                                                )
 import           Control.Monad                  ( void )
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
                                                 , Members
                                                 , Sem
-                                                , runM
                                                 )
-import           Polysemy                       ( Embed
+import           Polysemy.Embed                 ( Embed
                                                 , embed
+                                                )
+import           Polysemy.Final                 ( embedToFinal
+                                                , runFinal
                                                 )
 import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , ArgDescr(NoArg, ReqArg)
@@ -32,10 +37,11 @@ import           HST.Application                ( processModule
                                                 )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Error)
+                                                , Severity(Internal, Error)
                                                 , report
                                                 , reportFatal
                                                 , reportToHandleOrCancel
+                                                , exceptionToReport
                                                 )
 import           HST.Effect.Cancel              ( cancelToExit )
 import           HST.Environment.FreshVars      ( PMState(PMState)
@@ -132,10 +138,7 @@ parseArgs args
 --   This text is added before the description of the command line arguments.
 usageHeader :: FilePath -> String
 usageHeader progName =
-  "Usage: "
-    ++ progName
-    ++ " [options...] <input-files...>\n\n"
-    ++ "Command line options:"
+  "Usage: " ++ progName ++ " [options...]\n\n" ++ "Command line options:"
 
 -- | Prints the help message for the command line interface.
 --
@@ -147,18 +150,27 @@ putUsageInfo = do
 
 -- | Creates the initial 'PMState' from the given command line options.
 transformOptions :: Options -> PMState
-transformOptions opts = PMState { nextId      = 0
-                                , constrMap   = specialCons
-                                , matchedPat  = []
-                                , trivialCC   = trivialCase opts
-                                , opt         = optimizeCase opts
+transformOptions opts = PMState { nextId     = 0
+                                , constrMap  = specialCons
+                                , matchedPat = []
+                                , trivialCC  = trivialCase opts
+                                , opt        = optimizeCase opts
                                 }
 
 -- | The main function of the command line interface.
 --
 --   Runs the 'application' and interprets all unhandled effects.
 main :: IO ()
-main = runM . cancelToExit . reportToHandleOrCancel stderr $ application
+main =
+  runFinal
+    . embedToFinal
+    . cancelToExit
+    . reportToHandleOrCancel stderr
+    . exceptionToReport exceptionToMessage
+    $ application
+ where
+  exceptionToMessage :: SomeException -> Message
+  exceptionToMessage e = Message Internal (displayException e)
 
 -- | The main computation of the command line interface.
 --

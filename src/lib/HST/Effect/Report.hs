@@ -23,21 +23,35 @@ module HST.Effect.Report
   , reportToOutputOrCancel
   , reportToHandleOrCancel
   , filterReportedMessages
+    -- * Interpretations for Other Effects
+  , errorToReport
+  , exceptionToReport
   )
 where
 
-import           Control.Monad                  ( when )
+import           Control.Exception              ( Exception
+                                                , toException
+                                                )
+import           Control.Monad                  ( (>=>)
+                                                , when
+                                                )
 import           Polysemy                       ( Member
                                                 , Members
                                                 , Sem
                                                 , intercept
                                                 , interpret
                                                 , makeSem
+                                                , raise
                                                 , raiseUnder2
                                                 )
 import           Polysemy.Embed                 ( Embed
                                                 , embed
                                                 )
+import           Polysemy.Error                 ( Error
+                                                , runError
+                                                , fromExceptionSem
+                                                )
+import           Polysemy.Final                 ( Final )
 import           Polysemy.Output                ( Output
                                                 , output
                                                 , runOutputList
@@ -125,3 +139,25 @@ filterReportedMessages
 filterReportedMessages p = intercept \case
   Report      msg -> when (p msg) (report msg)
   ReportFatal msg -> reportFatal msg
+
+-------------------------------------------------------------------------------
+-- Interpretations for Other Effects                                         --
+-------------------------------------------------------------------------------
+
+-- | Handles the 'Error' effect by reporting thrown errors as the message
+--   returned by the given function for the error.
+errorToReport
+  :: Member Report r => (e -> Message) -> Sem (Error e ': r) a -> Sem r a
+errorToReport errorToMessage =
+  runError >=> either (reportFatal . errorToMessage) return
+
+-- | Handles exceptions throw by IO actions embedded into the given computation
+--   by reporting the message returned by the given function for the thrown
+--   exception.
+exceptionToReport
+  :: (Exception e, Members '[Final IO, Report] r)
+  => (e -> Message)
+  -> Sem r a
+  -> Sem r a
+exceptionToReport exceptionToMessage =
+  errorToReport exceptionToMessage . fromExceptionSem . raise
