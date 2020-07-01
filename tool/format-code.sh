@@ -76,7 +76,7 @@ for file in $(find "${files[@]}" -name '*.hs' -type f); do
       continue
     fi
 
-    # Overwrite file if it has changed and clean up temporary file otherwise.
+    # Overwrite file if it has changed and clean up the temporary file otherwise.
     if [ "$unchanged" -eq "0" ]; then
       echo "${bold}UNCHANGED${reset}"
       rm "$temp_file"

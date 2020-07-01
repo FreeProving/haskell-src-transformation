@@ -78,7 +78,7 @@ If you want to run the command line interface without installing the package on 
 cabal new-run exe:haskell-src-transformations -- [options...]
 ```
 
-The two dashes are needed to separate the arguments to pass to the pattern matching compiler from Cabal’s arguments.
+The two dashes are needed to separate the arguments to pass to the pattern matching compiler from Cabal's arguments.
 Alternatively, you can use the `./tool/run.sh` bash script.
 
 ```bash
