@@ -20,6 +20,15 @@ maintainer:          jan.christiansen@hs-flensburg.de
 -- Build configuration.
 build-type:          Simple
 
+-- A flag that controls whether the Polysemy plugin should be enabled or not.
+-- The plugin is disabled by the `./tool/make-docs.sh` script since Haddock
+-- does not support plugins.
+flag PolysemyPluginEnabled {
+  Description: Enable polysemy plugin
+  Default:     True
+  Manual:      False
+}
+
 -- Common settings and dependencies that are used by all stanzas below.
 common deps
   build-depends:       base             >= 4.12  && < 4.13
@@ -43,7 +52,15 @@ common deps
                      , PolyKinds
                      , TypeOperators
   ghc-options:         -Wall
-                       -fplugin=Polysemy.Plugin
+
+  -- The Polysemy plugin is currently not supported by Haddock. Thus, the
+  -- plugin needs to be disabled when building the documentation. The
+  -- resulting type errors have to be ignored.
+  if flag(PolysemyPluginEnabled)
+    ghc-options:       -fplugin=Polysemy.Plugin
+  else
+    ghc-options:       -fdefer-type-errors
+                       -fno-warn-deferred-type-errors
 
 -- Build configuration for the actual `haskell-src-transformations` library.
 library

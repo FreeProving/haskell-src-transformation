@@ -24,9 +24,11 @@ function printErrorAndDie() {
 # Make temporary file for Haddock output.
 haddock_output=$(mktemp)
 
-# Run tests with cabal.
-cabal new-haddock --haddock-all                   \
-                  --haddock-hyperlink-source 2>&1 | tee "$haddock_output"
+# Generate documentation with Haddock.
+# The Polysemy plugin has to be disabled since Haddock does not support plugins.
+cabal new-haddock --haddock-all                    \
+                  --haddock-hyperlink-source 2>&1  \
+                  --flags "-PolysemyPluginEnabled" | tee "$haddock_output"
 
 # Cabal currently does not set the exit status correctly when the Haddock
 # command fails. Thus we have to set the exit status ourselves.
