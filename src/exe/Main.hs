@@ -10,6 +10,7 @@ import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
 import           Control.Monad                  ( void )
+import           Data.List.Extra                ( splitOn )
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
                                                 , Members
@@ -29,6 +30,13 @@ import           System.Console.GetOpt          ( OptDescr(Option)
                                                 )
 import           System.Environment             ( getProgName
                                                 , getArgs
+                                                )
+import           System.Directory               ( createDirectoryIfMissing )
+import           System.FilePath                ( (</>)
+                                                , (<.>)
+                                                , joinPath
+                                                , takeBaseName
+                                                , takeDirectory
                                                 )
 import           System.IO                      ( stderr )
 
@@ -53,32 +61,36 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , evalPM
                                                 )
 
+-------------------------------------------------------------------------------
+-- Command Line Options                                                      --
+-------------------------------------------------------------------------------
+
 -- | A data type that contains the parsed command line options.
 data Options = Options
-  { showHelp     :: Bool
+  { optShowHelp     :: Bool
     -- ^ Flag that indicates whether to show the usage information.
-  , inputFile    :: FilePath
-    -- ^ The name of the input file.
-  , outputDir    :: Maybe FilePath
-    -- ^ The name of the output file or @Nothing@ if output should be printed
-    --   to the console.
-  , enableDebug  :: Bool
+  , optInputFiles   :: [FilePath]
+    -- ^ The names of the input files.
+  , optOutputDir    :: Maybe FilePath
+    -- ^ The name of the output directory or @Nothing@ if output should be
+    --   printed to the console.
+  , optEnableDebug  :: Bool
     -- ^ Flag that indicates whether to print debugging messages to the console.
-  , trivialCase  :: Bool
+  , optTrivialCase  :: Bool
     -- ^ Flag that indicates whether to enable trivial case completion or not.
-  , optimizeCase :: Bool
+  , optOptimizeCase :: Bool
     -- ^ Flag that indicates whether optimization for case expressions is
     --   enabled or not.
   }
 
 -- | The options to use by default if there are no command line arguments.
 defaultOptions :: Options
-defaultOptions = Options { showHelp     = False
-                         , inputFile    = error "Loading File failed"
-                         , outputDir    = Nothing
-                         , enableDebug  = False
-                         , trivialCase  = False
-                         , optimizeCase = True
+defaultOptions = Options { optShowHelp     = False
+                         , optInputFiles   = []
+                         , optOutputDir    = Nothing
+                         , optEnableDebug  = False
+                         , optTrivialCase  = False
+                         , optOptimizeCase = True
                          }
 
 -- | Descriptors for the supported command line options.
@@ -89,38 +101,38 @@ options :: [OptDescr (Options -> Options)]
 options =
   [ Option ['h', '?']
            ["help"]
-           (NoArg (\opts -> opts { showHelp = True }))
-           "Show help"
+           (NoArg (\opts -> opts { optShowHelp = True }))
+           "Display this message."
   , Option ['d']
            ["debug"]
-           (NoArg (\opts -> opts { enableDebug = True }))
-           "Prints all Debug messages generated during the Phases"
+           (NoArg (\opts -> opts { optEnableDebug = True }))
+           "Enable printing of debugging messages."
   , Option ['t']
-           ["trivialCC"]
-           (NoArg (\opts -> opts { trivialCase = True }))
-           "Enables trivial Case Completion"
+           ["trivial-cc"]
+           (NoArg (\opts -> opts { optTrivialCase = True }))
+           "Enable case completion with wildcard patterns."
   , Option ['n']
-           ["noOptimization"]
-           (NoArg (\opts -> opts { optimizeCase = False }))
-           "Disables optimization for case expressions"
-  , Option ['I']
-           ["Input"]
-           (ReqArg (\fp opts -> opts { inputFile = fp }) "DIR")
-           "input DIR" -- TODO this should be @"input FILE"@!
-  , Option ['o']
-           ["output"]
-           (ReqArg (\m opts -> opts { outputDir = Just m }) "DIR")
-           "output DIR"
+           ["no-optimization"]
+           (NoArg (\opts -> opts { optOptimizeCase = False }))
+           "Disable optimization for case expressions."
+  , Option
+    ['o']
+    ["output"]
+    (ReqArg (\dir opts -> opts { optOutputDir = Just dir }) "DIR")
+    (  "Optional. Path to output directory.\n"
+    ++ "Prints to the console by default."
+    )
   ]
 
 -- | Parses the given command line arguments.
 --
 --   Returns the recognized 'Options' and a list of non-options (i.e., input
---   file names). The 'non-options' are not actually used by the command line
---   interface. Input file names are specified using the @--Input@ option.
-parseArgs :: Member Report r => [String] -> Sem r (Options, [String])
+--   file names).
+parseArgs :: Member Report r => [String] -> Sem r Options
 parseArgs args
-  | null errors = return (foldr ($) defaultOptions optSetters, nonOpts)
+  | null errors = do
+    let opts = foldr ($) defaultOptions optSetters
+    return opts { optInputFiles = nonOpts }
   | otherwise = do
     mapM_ (report . Message Error) errors
     reportFatal
@@ -133,12 +145,19 @@ parseArgs args
   errors :: [String]
   (optSetters, nonOpts, errors) = getOpt Permute options args
 
+-------------------------------------------------------------------------------
+-- Usage Information                                                         --
+-------------------------------------------------------------------------------
+
 -- | The header of the help message.
 --
 --   This text is added before the description of the command line arguments.
 usageHeader :: FilePath -> String
 usageHeader progName =
-  "Usage: " ++ progName ++ " [options...]\n\n" ++ "Command line options:"
+  "Usage: "
+    ++ progName
+    ++ " [options...] <input-files...>\n\n"
+    ++ "Command line options:"
 
 -- | Prints the help message for the command line interface.
 --
@@ -148,14 +167,9 @@ putUsageInfo = do
   progName <- getProgName
   putStrLn (usageInfo (usageHeader progName) options)
 
--- | Creates the initial 'PMState' from the given command line options.
-transformOptions :: Options -> PMState
-transformOptions opts = PMState { nextId     = 0
-                                , constrMap  = specialCons
-                                , matchedPat = []
-                                , trivialCC  = trivialCase opts
-                                , opt        = optimizeCase opts
-                                }
+-------------------------------------------------------------------------------
+-- Main                                                                      --
+-------------------------------------------------------------------------------
 
 -- | The main function of the command line interface.
 --
@@ -180,28 +194,84 @@ main =
 --   or a file.
 application :: Members '[Report, Embed IO] r => Sem r ()
 application = do
-  args      <- embed getArgs
-  (opts, _) <- parseArgs args
+  args <- embed getArgs
+  opts <- parseArgs args
 
   -- TODO Filter reported message based on @--debug@ flag.
 
-  -- Show usage information when the @--help@ flag is specified.
-  if showHelp opts
+  -- Show usage information when the @--help@ flag is specified or there is no
+  -- input file.
+  if optShowHelp opts || null (optInputFiles opts)
     then embed putUsageInfo
-    else do
-      input <- embed $ readFile (inputFile opts)
-      let state        = transformOptions opts
-          inputModule  = HSE.fromParseResult (HSE.parseModule input)
-          outputModule = evalPM (processModule (void inputModule)) state
-      case outputDir opts of
-        -- TODO this looks to me as if 'outputDir' is named incorrectly.
-        -- It is not an output directory but the name of the output file.
-        Just out -> embed $ writeFile out (pPrint outputModule)
-        Nothing  -> embed $ putStrLn (pPrint outputModule)
+    else mapM_ (processInputFile opts) (optInputFiles opts)
+
+-------------------------------------------------------------------------------
+-- Pattern Matching Compilation                                              --
+-------------------------------------------------------------------------------
+
+-- | Applies the transformation to the given file and writes the transformed
+--   module to the console or an output file depending on the command line
+--   options.
+--
+--   The name of the output file is generated by appending the result of
+--   'makeOutputFileName' for the input module to output directory.
+--   If any parent directory of the output file does not exist, it is created.
+processInputFile
+  :: Members '[Report, Embed IO] r => Options -> FilePath -> Sem r ()
+processInputFile opts inputFile = do
+  input <- embed $ readFile inputFile
+  let state        = transformOptions opts
+      inputModule  = HSE.fromParseResult (HSE.parseModule input)
+      outputModule = evalPM (processModule (void inputModule)) state
+  case optOutputDir opts of
+    Just outputDir -> do
+      let outputFile = outputDir </> makeOutputFileName inputFile inputModule
+      embed $ createDirectoryIfMissing True (takeDirectory outputFile)
+      embed $ writeFile outputFile (prettyPrintModule outputModule)
+    Nothing -> embed $ putStrLn (pPrint outputModule)
+
+-- | Creates the initial 'PMState' from the given command line options.
+transformOptions :: Options -> PMState
+transformOptions opts = PMState { nextId     = 0
+                                , constrMap  = specialCons
+                                , matchedPat = []
+                                , trivialCC  = optTrivialCase opts
+                                , opt        = optOptimizeCase opts
+                                }
+
+-------------------------------------------------------------------------------
+-- Output                                                                    --
+-------------------------------------------------------------------------------
+
+-- | Gets the name of the output file for a module that has been read from the
+--   input file with the given name.
+--
+--   If the module has a module header, the output file name is based on the
+--   module name. Otherwise, the base name of the input file is used.
+makeOutputFileName
+  :: FilePath     -- ^ The name of the input file.
+  -> HSE.Module l -- ^ The module to make the output file name of.
+  -> FilePath     -- ^ The name of the output file.
+makeOutputFileName inputFile inputModule = outputFileName <.> "hs"
+ where
+  -- | The output file name without file extension.
+  outputFileName :: FilePath
+  outputFileName = maybe (takeBaseName inputFile)
+                         (joinPath . splitOn ".")
+                         (moduleName inputModule)
+
+  -- | Gets the module name of the given module.
+  --
+  --   Returns @Nothing@ if there is no module header or the module type is not
+  --   supported.
+  moduleName :: HSE.Module l -> Maybe String
+  moduleName (HSE.Module _ (Just moduleHead) _ _ _) = case moduleHead of
+    (HSE.ModuleHead _ (HSE.ModuleName _ modName) _ _) -> Just modName
+  moduleName _ = Nothing
 
 -- | Pretty prints the given Haskell module.
-pPrint :: HSE.Module () -> String
-pPrint = HSE.prettyPrintStyleMode
+prettyPrintModule :: HSE.Module () -> String
+prettyPrintModule = HSE.prettyPrintStyleMode
   (HSE.Style { HSE.mode           = HSE.PageMode
              , HSE.lineLength     = 120
              , HSE.ribbonsPerLine = 1.5

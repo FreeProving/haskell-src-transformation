@@ -65,7 +65,7 @@ cabal new-install exe:haskell-src-transformations
 You can also run the executable directly without installing it first.
 
 ```bash
-cabal new-run exe:haskell-src-transformations -- [options...]
+cabal new-run exe:haskell-src-transformations -- [options...] <input-files...>
 ```
 
 ### Library Installation
