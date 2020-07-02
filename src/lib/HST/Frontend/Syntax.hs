@@ -113,4 +113,7 @@ data SpecialCon s = UnitCon (SrcSpan s)
 
 data SrcSpan s = SrcSpan s
                | NoSrcSpan
-  deriving (Eq, Show)
+  deriving Show
+
+instance Eq (SrcSpan s) where
+  _ == _ = True
