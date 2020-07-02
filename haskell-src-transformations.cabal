@@ -34,12 +34,13 @@ library
   import:             deps
 
   hs-source-dirs:     src/lib
-  exposed-modules:    Application
-                    , Algo
-                    , GuardElimination
-                    , CaseCompletion
-                    , FreshVars
-  other-modules:      Renaming
+  exposed-modules:    HST.Application
+                    , HST.CoreAlgorithm
+                    , HST.Feature.GuardElimination
+                    , HST.Feature.CaseCompletion
+                    , HST.Environment.FreshVars
+                    , HST.Feature.Optimization
+  other-modules:      HST.Environment.Renaming
 
   build-depends:      mtl               >= 2.2 && < 2.3
 
@@ -62,7 +63,7 @@ test-suite haskell-src-transformations-unit-tests
   hs-source-dirs:     src/test
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
-  other-modules:      AlgoTests
+  other-modules:      HST.CoreAlgorithmTests
                     , BasicTests
   build-depends:      base
                     , haskell-src-transformations

@@ -1,4 +1,4 @@
--- | This module contains basic tests for 'haskell-source-transformations' 
+-- | This module contains basic tests for 'haskell-source-transformations'
 module BasicTests
   ( basicTests
   )
@@ -22,10 +22,10 @@ import           Language.Haskell.Exts.Pretty   ( Pretty
                                                 , prettyPrint
                                                 )
 
-import           Application                    ( processModule
+import           HST.Application                ( processModule
                                                 , specialCons
                                                 )
-import           FreshVars                      ( PMState(..)
+import           HST.Environment.FreshVars      ( PMState(..)
                                                 , evalPM
                                                 )
 

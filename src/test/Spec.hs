@@ -1,9 +1,9 @@
 module Spec where
 
-import           Test.Hspec
+import           Test.Hspec                     ( hspec )
 
-import           AlgoTests
-import           BasicTests
+import           HST.CoreAlgorithmTests         ( testAlgo )
+import           BasicTests                     ( basicTests )
 
 main :: IO ()
 main = do

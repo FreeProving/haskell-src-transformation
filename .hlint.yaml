@@ -7,4 +7,4 @@
 
 # In the renaming module substitutions are modeled as functions.
 # The usage of lambda abstractions actually improves the readability.
-- ignore: {name: "Redundant lambda", within: ["Renaming"]}
+- ignore: {name: "Redundant lambda", within: ["HST.Environment.Renaming"]}
