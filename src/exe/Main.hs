@@ -6,8 +6,6 @@ module Main
   )
 where
 
-import           Control.Monad                  ( void )
-
 import           HST.Application                ( processModule
                                                 , specialCons
                                                 )
@@ -20,6 +18,8 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , debugOutput
                                                 , evalPM
                                                 )
+import qualified HST.Frontend.HSETransformation
+                                               as HSET
 import qualified Language.Haskell.Exts         as HSE
 import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , ArgDescr(NoArg, ReqArg)
@@ -101,7 +101,7 @@ compilerOpts args = case getOpt Permute options args of
   where header = "" -- TODO meaningfull header
 
 -- | Creates the initial 'PMState' from the given command line options.
-transformOptions :: Options -> PMState
+transformOptions :: Options -> PMState s l t
 transformOptions opts = PMState { nextId      = 0
                                 , constrMap   = specialCons
                                 , matchedPat  = []
@@ -124,28 +124,29 @@ main = do
     then do
       let state = transformOptions opts
       input <- readFile $ inputFile opts
-      let x = HSE.fromParseResult (HSE.parseModule input)
-          m = evalPM (processModule (void x)) state
+      let x  = HSE.fromParseResult (HSE.parseModule input)
+          m  = evalPM (processModule (HSET.tfHSEtoHSTModule x)) state
+          x' = HSET.tfHSTtoHSEModule x m
       case outputDir opts of
         Just out -> do
           -- TODO this looks to me as if 'outputDir' is named incorrectly.
           -- It is not an output directory but the name of the output file.
-          writeFile out (pPrint m)
+          writeFile out (pPrint x')
           printDebug (enableDebug opts) state
         Nothing -> do
-          putStr $ pPrint m
+          putStr $ pPrint x'
           printDebug (enableDebug opts) state
     else putStr (usageInfo "" options)
 
 -- | Prints the 'debugOutput' from the given 'PMState' to the consolve if
 --   the first argument is set to @True@.
-printDebug :: Bool -> PMState -> IO ()
+printDebug :: Bool -> PMState s l t -> IO ()
 printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
                | -- TODO pretty debug
                  otherwise = return ()
 
 -- | Pretty prints the given Haskell module.
-pPrint :: HSE.Module () -> String
+pPrint :: HSE.Module HSE.SrcSpanInfo -> String
 pPrint = HSE.prettyPrintStyleMode
   (HSE.Style { HSE.mode           = HSE.PageMode
              , HSE.lineLength     = 120
