@@ -7,20 +7,26 @@ import qualified HST.Frontend.Syntax           as HST
 
 tfHSEtoHSTModule :: HSE.Module s -> HST.Module s (HSE.Literal s) (HSE.Type s)
 tfHSEtoHSTModule (HSE.Module _ _ _ _ decls) = HST.Module
-  (map tfHSEtoHSTDecl (filter isFunOrDType decls))
+  (map tfHSEtoHSTDecl (filter supportedDecls decls))
  where
-  isFunOrDType (HSE.FunBind _ _         ) = True
-  isFunOrDType (HSE.DataDecl _ _ _ _ _ _) = True
-  isFunOrDType _                          = False
+  supportedDecls (HSE.DataDecl _ _ _ _ _ _) = True
+  supportedDecls (HSE.FunBind _ _         ) = True
+  supportedDecls (HSE.PatBind _ _ _ _     ) = True
+  supportedDecls _                          = False
 tfHSEtoHSTModule _ = error "Unsupported Module type"
 
 tfHSEtoHSTDecl :: HSE.Decl s -> HST.Decl s (HSE.Literal s) (HSE.Type s)
 tfHSEtoHSTDecl (HSE.DataDecl _ (HSE.DataType _) _ dHead qcds _) =
   HST.DataDecl (tfHSEtoHSTDeclHead dHead) (map tfHSEtoHSTQualConDecl qcds)
-tfHSEtoHSTDecl (HSE.FunBind s matches) =
-  HST.FunBind (tfHSEtoHSTSrcSpan s) (map tfHSEtoHSTMatch matches)
 tfHSEtoHSTDecl (HSE.TypeSig s names typ) =
   HST.TypeSig (tfHSEtoHSTSrcSpan s) (map tfHSEtoHSTName names) typ
+tfHSEtoHSTDecl (HSE.FunBind s matches) =
+  HST.FunBind (tfHSEtoHSTSrcSpan s) (map tfHSEtoHSTMatch matches)
+tfHSEtoHSTDecl (HSE.PatBind s pat rhs mBinds) = HST.PatBind
+  (tfHSEtoHSTSrcSpan s)
+  (tfHSEtoHSTPat pat)
+  (tfHSEtoHSTRhs rhs)
+  (fmap tfHSEtoHSTBinds mBinds)
 tfHSEtoHSTDecl _ = error "Unsupported Declaration type"
 
 tfHSEtoHSTDeclHead :: HSE.DeclHead s -> HST.DeclHead s
@@ -230,11 +236,14 @@ tfHSTtoHSEModule (HSE.Module srcS mmh pragmas impDecls oDecls) (HST.Module aDecl
     mmh
     pragmas
     impDecls
-    (combineDecls oDecls (map tfHSTtoHSEDecl (filter isFun aDecls)))
+    (combineDecls oDecls (map tfHSTtoHSEDecl (filter isFunOrPat aDecls)))
  where
-  isFun (HST.FunBind _ _) = True
-  isFun _                 = False
+  isFunOrPat (HST.FunBind _ _    ) = True
+  isFunOrPat (HST.PatBind _ _ _ _) = True
+  isFunOrPat _                     = False
   combineDecls (HSE.FunBind _ _ : oDecls') (aDecl : aDecls') =
+    aDecl : combineDecls oDecls' aDecls'
+  combineDecls (HSE.PatBind _ _ _ _ : oDecls') (aDecl : aDecls') =
     aDecl : combineDecls oDecls' aDecls'
   combineDecls (oDecl : oDecls') aDecls' = oDecl : combineDecls oDecls' aDecls'
   combineDecls []                aDecls' = aDecls'
@@ -249,10 +258,15 @@ tfHSTtoHSEDecl
   -> HSE.Decl Src.SrcSpanInfo
 tfHSTtoHSEDecl (HST.DataDecl _ _) =
   error "Data type declarations should not be transformed back"
-tfHSTtoHSEDecl (HST.FunBind s matches) =
-  HSE.FunBind (tfHSTtoHSESrcSpan s) (map tfHSTtoHSEMatch matches)
 tfHSTtoHSEDecl (HST.TypeSig s names typ) =
   HSE.TypeSig (tfHSTtoHSESrcSpan s) (map tfHSTtoHSEName names) typ
+tfHSTtoHSEDecl (HST.FunBind s matches) =
+  HSE.FunBind (tfHSTtoHSESrcSpan s) (map tfHSTtoHSEMatch matches)
+tfHSTtoHSEDecl (HST.PatBind s pat rhs mBinds) = HSE.PatBind
+  (tfHSTtoHSESrcSpan s)
+  (tfHSTtoHSEPat pat)
+  (tfHSTtoHSERhs rhs)
+  (fmap tfHSTtoHSEBinds mBinds)
 
 tfHSTtoHSEBinds
   :: HST.Binds
