@@ -1,32 +1,32 @@
 module HST.Frontend.FromHSE where
 
+import           Data.Maybe                     ( fromMaybe
+                                                , mapMaybe
+                                                )
+
 import qualified Language.Haskell.Exts.Syntax  as HSE
 
 import qualified HST.Frontend.Syntax           as S
 
 transformModule :: HSE.Module s -> S.Module s (HSE.Literal s) (HSE.Type s)
-transformModule (HSE.Module _ _ _ _ decls) = S.Module
-  (map transformDecl (filter supportedDecls decls))
- where
-  supportedDecls (HSE.DataDecl _ _ _ _ _ _) = True
-  supportedDecls (HSE.FunBind _ _         ) = True
-  supportedDecls (HSE.PatBind _ _ _ _     ) = True
-  supportedDecls _                          = False
+transformModule (HSE.Module _ _ _ _ decls) =
+  S.Module (mapMaybe transformDecl decls)
 transformModule _ = error "Unsupported Module type"
 
-transformDecl :: HSE.Decl s -> S.Decl s (HSE.Literal s) (HSE.Type s)
+transformDecl :: HSE.Decl s -> Maybe (S.Decl s (HSE.Literal s) (HSE.Type s))
 transformDecl (HSE.DataDecl _ (HSE.DataType _) _ dHead qcds _) =
-  S.DataDecl (transformDeclHead dHead) (map transformQualConDecl qcds)
+  Just (S.DataDecl (transformDeclHead dHead) (map transformQualConDecl qcds))
 transformDecl (HSE.TypeSig s names typ) =
-  S.TypeSig (transformSrcSpan s) (map transformName names) typ
+  Just (S.TypeSig (transformSrcSpan s) (map transformName names) typ)
 transformDecl (HSE.FunBind s matches) =
-  S.FunBind (transformSrcSpan s) (map transformMatch matches)
-transformDecl (HSE.PatBind s pat rhs mBinds) = S.PatBind
-  (transformSrcSpan s)
-  (transformPat pat)
-  (transformRhs rhs)
-  (fmap transformBinds mBinds)
-transformDecl _ = error "Unsupported Declaration type"
+  Just (S.FunBind (transformSrcSpan s) (map transformMatch matches))
+transformDecl (HSE.PatBind s pat rhs mBinds) = Just
+  (S.PatBind (transformSrcSpan s)
+             (transformPat pat)
+             (transformRhs rhs)
+             (fmap transformBinds mBinds)
+  )
+transformDecl _ = Nothing
 
 transformDeclHead :: HSE.DeclHead s -> S.DeclHead s
 transformDeclHead (HSE.DHead _ dName    ) = S.DHead (transformName dName)
@@ -45,8 +45,9 @@ transformConDecl (HSE.InfixConDecl _ t1 cName t2) =
 transformConDecl (HSE.RecDecl _ cName _) = S.RecDecl (transformName cName)
 
 transformBinds :: HSE.Binds s -> S.Binds s (HSE.Literal s) (HSE.Type s)
-transformBinds (HSE.BDecls s decls) =
-  S.BDecls (transformSrcSpan s) (map transformDecl decls)
+transformBinds (HSE.BDecls s decls) = S.BDecls
+  (transformSrcSpan s)
+  (map (fromMaybe (error "Unsupported declaration") . transformDecl) decls)
 transformBinds _ = error "Implicit bindings are not supported"
 
 transformMatch :: HSE.Match s -> S.Match s (HSE.Literal s) (HSE.Type s)
