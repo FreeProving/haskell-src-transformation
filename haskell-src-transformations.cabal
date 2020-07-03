@@ -41,8 +41,9 @@ library
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
                     , HST.Frontend.Syntax
-                    , HST.Frontend.HSETransformation
                     , HST.Frontend.Build
+                    , HST.Frontend.FromHSE
+                    , HST.Frontend.ToHSE
   other-modules:      HST.Environment.Renaming
 
   build-depends:      mtl               >= 2.2 && < 2.3

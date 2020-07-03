@@ -18,8 +18,9 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , debugOutput
                                                 , evalPM
                                                 )
-import qualified HST.Frontend.HSETransformation
-                                               as HSET
+import qualified HST.Frontend.FromHSE          as FHSE
+import qualified HST.Frontend.ToHSE            as THSE
+
 import qualified Language.Haskell.Exts         as HSE
 import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , ArgDescr(NoArg, ReqArg)
@@ -125,8 +126,8 @@ main = do
       let state = transformOptions opts
       input <- readFile $ inputFile opts
       let x  = HSE.fromParseResult (HSE.parseModule input)
-          m  = evalPM (processModule (HSET.tfHSEtoHSTModule x)) state
-          x' = HSET.tfHSTtoHSEModule x m
+          m  = evalPM (processModule (FHSE.transformModule x)) state
+          x' = THSE.transformModule x m
       case outputDir opts of
         Just out -> do
           -- TODO this looks to me as if 'outputDir' is named incorrectly.
