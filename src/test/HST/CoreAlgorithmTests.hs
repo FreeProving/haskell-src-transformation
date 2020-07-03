@@ -10,7 +10,7 @@ import           Test.Hspec                     ( Spec
                                                 )
 import           Test.HUnit.Base                ( assertFailure )
 
-import qualified HST.CoreAlgorithm             as CA
+import qualified HST.CoreAlgorithm              ( compareCons )
 import           HST.Frontend.FromHSE          as FHSE
 
 -- | Tests for the "Algo" module.
@@ -28,7 +28,7 @@ parseTestPat patStr = case HSE.parsePat patStr of
 --   constructors.
 shouldMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
 shouldMatchCons pat1 pat2
-  | CA.compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
+  | compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
   = return ()
   | otherwise
   = assertFailure
@@ -42,7 +42,7 @@ shouldMatchCons pat1 pat2
 --   constructors.
 shouldNotMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
 shouldNotMatchCons pat1 pat2
-  | CA.compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
+  | compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
   = assertFailure
     $  "\""
     ++ HSE.prettyPrint pat1
