@@ -64,7 +64,7 @@ test-suite haskell-src-transformations-unit-tests
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
   other-modules:      HST.CoreAlgorithmTests
-                    , BasicTests
+                    , HST.ApplicationTests
   build-depends:      base
                     , haskell-src-transformations
                     , HUnit

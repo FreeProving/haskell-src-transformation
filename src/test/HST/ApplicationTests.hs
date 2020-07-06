@@ -1,6 +1,6 @@
 -- | This module contains basic tests for 'haskell-source-transformations'
-module BasicTests
-  ( basicTests
+module HST.ApplicationTests
+  ( applicationTests
   )
 where
 
@@ -29,9 +29,9 @@ import           HST.Environment.FreshVars      ( PMState(..)
                                                 , evalPM
                                                 )
 
-
-basicTests :: Spec
-basicTests = describe "Basic unit tests" tests
+-- | Test group for basic unit tests
+applicationTests :: Spec
+applicationTests = describe "Basic unit tests" tests
 
 -- | Parses a given string to a module and fails if parsing is not
 --   successful.
@@ -60,30 +60,37 @@ tests = do
   it "should transform pattern matching into case expressions" $ do
     mod1 <-
       parseTestModule
-      $  "module A where\nlengthL :: [a] -> Int\n"
-      ++ "lengthL [] = 0\nlengthL(_:xs) = 1 + lengthL xs"
+      $ unlines [ "module A where"
+                , "lengthL :: [a] -> Int"
+                , "lengthL [] = 0"
+                , "lengthL(_:xs) = 1 + lengthL xs"
+                ]
     expected <-
       parseTestModule
-      $  "module A where\nlengthL :: [a] -> Int\n"
-      ++ "lengthL a0 = case a0 of\n"
-      ++ "  []    -> 0\n"
-      ++ "  a1:a2 -> 1 + lengthL a2"
+      $  unlines [ "module A where"
+                 , "lengthL :: [a] -> Int"
+                 , "lengthL a0 = case a0 of"
+                 , "  []    -> 0"
+                 , "  a1:a2 -> 1 + lengthL a2"
+                 ]
     let mod2 = evalPM (processModule mod1) defaultState
     expected `prettyShouldBe` mod2
   it "should transform pattern matching in a partial function" $ do
     mod1 <-
       parseTestModule
-      $  "module A where\n"
-      ++ "head :: [a] -> a\n"
-      ++ "head (x:xs) = x"
+      $ unlines [ "module A where"
+                , "head :: [a] -> a"
+                , "head (x:xs) = x"
+                ]
     let mod2 = evalPM (processModule mod1) defaultState
     expected <-
       parseTestModule
-      $  "module A where\n"
-      ++ "head :: [a] -> a\n"
-      ++ "head a0 = case a0 of\n"
-      ++ "  a1 : a2 -> a1\n"
-      ++ "  [] -> undefined"
+      $ unlines [ "module A where"
+                , "head :: [a] -> a"
+                , "head a0 = case a0 of"
+                , "  a1 : a2 -> a1"
+                , "  [] -> undefined"
+                ]
     mod2 `prettyShouldBe` expected
   it "should accept a simple guarded expression" $ do
     mod1 <-
@@ -94,35 +101,38 @@ tests = do
     let mod2 = evalPM (processModule mod1) defaultState
     expected <-
       parseTestModule
-      $  "module A where\n"
-      ++ "id :: a -> a\n"
-      ++ "id a0 = let a2 = undefined\n"
-      ++ "            a1 = case a0 of\n"
-      ++ "              a3 -> if otherwise then a3"
-      ++ "                    else a2\n"
-      ++ "         in a1"
+      $ unlines [ "module A where\n"
+                , "id :: a -> a\n"
+                , "id a0 = let a2 = undefined"
+                , "            a1 = case a0 of"
+                , "              a3 -> if otherwise then a3"
+                , "                    else a2"
+                , "         in a1" ]
     mod2 `prettyShouldBe` expected
   it "should accept a more complex guarded function" $ do
     mod1 <-
       parseTestModule
-      $  "module A where\n"
-      ++ "useless :: (a -> Bool) -> a -> a -> a\n"
-      ++ "useless p x y | p x       = x\n"
-      ++ "              | otherwise = y"
+      $  unlines [ "module A where\n"
+                 , "useless :: (a -> Bool) -> a -> a -> a"
+                 , "useless p x y | p x       = x"
+                 , "              | otherwise = y"
+                 ]
     let mod2 = evalPM (processModule mod1) defaultState
     expected <-
       parseTestModule
-      $  "module A where\n"
-      ++ "useless :: (a -> Bool) -> a -> a -> a\n"
-      ++ "useless a0 a1 a2 = let\n"
-      ++ "                     a4 = undefined\n"
-      ++ "                     a3 = case a0 of\n"
-      ++ "                       a5 -> case a1 of\n"
-      ++ "                        a6 -> case a2 of\n"
-      ++ "                         a7 -> if a5 a6 then a6\n"
-      ++ "                               else if otherwise then a7\n"
-      ++ "                                    else a4\n"
-      ++ "                   in a3"
+      $ unlines
+          [ "module A where\n"
+          , "useless :: (a -> Bool) -> a -> a -> a"
+          , "useless a0 a1 a2 = let"
+          , "                     a4 = undefined"
+          , "                     a3 = case a0 of"
+          , "                       a5 -> case a1 of"
+          , "                        a6 -> case a2 of"
+          , "                         a7 -> if a5 a6 then a6"
+          , "                               else if otherwise then a7"
+          , "                                    else a4"
+          , "                   in a3"
+          ]
     mod2 `prettyShouldBe` expected
 
 -------------------------------------------------------------------------------
