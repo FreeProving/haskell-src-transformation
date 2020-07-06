@@ -99,8 +99,7 @@ test-suite haskell-src-transformations-unit-tests
   ghc-options:        -main-is Spec
   other-modules:      HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
-  build-depends:      base
-                    , haskell-src-transformations
+  build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8
                     , QuickCheck        >= 2.14 && < 2.15
