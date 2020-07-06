@@ -41,12 +41,7 @@ import           HST.Effect.Cancel              ( Cancel
 
 -- | Sets the expectation that the given 'IO' action terminates the program.
 shouldExit :: IO a -> Expectation
-shouldExit = flip shouldThrow exitException
- where
-  -- | Helper function that constraints the type of the exception thrown by
-  --   the 'IO' action to an 'ExitCode'.
-  exitException :: ExitCode -> Bool
-  exitException _ = True
+shouldExit = flip shouldThrow (const True :: ExitCode -> Bool)
 
 -- | Test group for interpreters of the 'HST.Effect.Cancel.Cancel' effect.
 testCancelEffect :: Spec

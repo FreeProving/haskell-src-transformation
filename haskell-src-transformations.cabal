@@ -40,7 +40,7 @@ common deps
 
   -- Base language which the package is written in.
   --
-  -- Polysemy needs a lot of langauge extensions. The language extensions
+  -- Polysemy needs a lot of language extensions. The language extensions
   -- which are required in every computation that uses Polysemy effects
   -- are enabled globally. Language extensions such as `TemplateHaskell`
   -- which are needed for the definition of custom effects only are enabled

@@ -148,7 +148,7 @@ errorToReport
 errorToReport errorToMessage =
   runError >=> either (reportFatal . errorToMessage) return
 
--- | Handles exceptions throw by IO actions embedded into the given computation
+-- | Handles exceptions thrown by IO actions embedded into the given computation
 --   by reporting the message returned by the given function for the thrown
 --   exception.
 exceptionToReport
