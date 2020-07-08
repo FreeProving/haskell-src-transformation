@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | This module contains methods for optimizing expressions by removing
 --   unnecessary nested case expressions.
 
@@ -22,7 +24,7 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
-optimize :: (Eq l, Eq t) => S.Exp s l t -> PM s l t (S.Exp s l t)
+optimize :: Eq (S.Exp a) => S.Exp a -> PM a (S.Exp a)
 optimize ex = case ex of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- optimize e1
@@ -61,8 +63,7 @@ optimize ex = case ex of
 --   If the scrutinee is a variable that has been matched already, the
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
-optimizeCase
-  :: (Eq l, Eq t) => S.Exp s l t -> [S.Alt s l t] -> PM s l t (S.Exp s l t)
+optimizeCase :: Eq (S.Exp a) => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
 optimizeCase e alts
   | isVarExp e = do
     mpats <- gets matchedPat
@@ -76,7 +77,7 @@ optimizeCase e alts
     return $ S.Case S.NoSrcSpan e' alts'
 
 -- | Tests whether the given expression is a variable expression.
-isVarExp :: S.Exp s l t -> Bool
+isVarExp :: S.Exp a -> Bool
 isVarExp (S.Var _ _) = True
 isVarExp _           = False
 
@@ -87,20 +88,20 @@ isVarExp _           = False
 --   alternative to the names of the corresponding variable patterns of the
 --   given pattern and applies 'optimize'.
 renameAndOpt
-  :: (Eq l, Eq t)
-  => S.Pat s l     -- ^ A pattern of a parent @case@ expression on the same scrutinee.
-  -> [S.Alt s l t] -- ^ The alternatives of the current @case@ expression.
-  -> PM s l t (S.Exp s l t)
+  :: Eq (S.Exp a)
+  => S.Pat a   -- ^ A pattern of a parent @case@ expression on the same scrutinee.
+  -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
+  -> PM a (S.Exp a)
 renameAndOpt pat alts =
   let aPaR     = map (\(S.Alt _ p r _) -> (p, r)) alts
       patQ     = getQNamePat pat
       sameCons = filter (\(p, _) -> cheatEq (getQNamePat p) patQ) aPaR
   in  case sameCons of
         []           -> error "Found name in case, but in alts"
-            -- $  "Found in case but not found in alts : Tried"
+            --  ("Found in case but not found in alts : Tried"
             -- ++ show patQ
             -- ++ " Searched in "
-            -- ++ show (map fst aPaR)
+            -- ++ show (map fst aPaR))
         ((p, r) : _) -> do
           let e  = selectExp r
               p1 = selectPats pat
@@ -110,25 +111,25 @@ renameAndOpt pat alts =
 
 -- | Compares the given 'S.QName's ignoring the distinction between 'S.Ident's
 --   and 'S.Symbol's, i.e. @S.Ident "+:"@ amd @S.Symbol "+:"@ are equal.
-cheatEq :: S.QName s -> S.QName s -> Bool
+cheatEq :: S.QName a -> S.QName a -> Bool
 cheatEq (S.UnQual _ (S.Symbol _ s1)) (S.UnQual _ (S.Ident  _ s2)) = s1 == s2
 cheatEq (S.UnQual _ (S.Ident  _ s1)) (S.UnQual _ (S.Symbol _ s2)) = s1 == s2
 cheatEq q1                           q2                           = q1 == q2
 
 -- | Gets the argument patterns of the given constructor pattern.
-selectPats :: S.Pat s l -> [S.Pat s l]
+selectPats :: S.Pat a -> [S.Pat a]
 selectPats (S.PApp _ _ pats      ) = pats
 selectPats (S.PInfixApp _ p1 _ p2) = [p1, p2]
 selectPats _                       = error "selectPat: Unsupported pattern" --not definied for " ++ show p
 
 -- | Gets the actual expression of the given right-hand side without guard.
-selectExp :: S.Rhs s l t -> S.Exp s l t
+selectExp :: S.Rhs a -> S.Exp a
 selectExp (S.UnGuardedRhs _ e) = e
 selectExp _                    = error "selectExp: only unguarded rhs"
 
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.
-renameAll :: [(S.Pat s l, S.Pat s l)] -> S.Exp s l t -> PM s l t (S.Exp s l t)
+renameAll :: [(S.Pat a, S.Pat a)] -> S.Exp a -> PM a (S.Exp a)
 -- TODO refactor higher order foldr
 -- TODO generate one Subst and apply only once
 renameAll []               e = return e
@@ -143,15 +144,13 @@ renameAll ((from, to) : r) e = do
 --
 --   While an alternative is optimized, the state contains a 'matchedPat'
 --   entry for the current pair of scrutinee and pattern.
-addAndOpt
-  :: (Eq l, Eq t) => S.Exp s l t -> [S.Alt s l t] -> PM s l t (S.Exp s l t)
+addAndOpt :: Eq (S.Exp a) => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
 addAndOpt e alts = do
   alts' <- mapM (bindAndOpt e) alts
   return $ S.Case S.NoSrcSpan e alts'
  where
   -- uses the list of Exp Pat as a stack
-  bindAndOpt
-    :: (Eq l, Eq t) => S.Exp s l t -> S.Alt s l t -> PM s l t (S.Alt s l t)
+  bindAndOpt :: Eq (S.Exp a) => S.Exp a -> S.Alt a -> PM a (S.Alt a)
   bindAndOpt v a@(S.Alt _ p _ _) = do
     stack <- gets matchedPat
     modify $ \state -> state { matchedPat = (v, p) : stack }
@@ -160,11 +159,11 @@ addAndOpt e alts = do
     return alt'
 
 -- | Applies 'optimizeAlt' to all given @case@ expression alternatives.
-optimizeAlts :: (Eq l, Eq t) => [S.Alt s l t] -> PM s l t [S.Alt s l t]
+optimizeAlts :: Eq (S.Exp a) => [S.Alt a] -> PM a [S.Alt a]
 optimizeAlts = mapM optimizeAlt
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
-optimizeAlt :: (Eq l, Eq t) => S.Alt s l t -> PM s l t (S.Alt s l t)
+optimizeAlt :: Eq (S.Exp a) => S.Alt a -> PM a (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
   let (S.UnGuardedRhs _ e) = rhs
   e' <- optimize e

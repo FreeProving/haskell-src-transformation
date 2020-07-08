@@ -102,7 +102,7 @@ compilerOpts args = case getOpt Permute options args of
   where header = "" -- TODO meaningfull header
 
 -- | Creates the initial 'PMState' from the given command line options.
-transformOptions :: Options -> PMState s l t
+transformOptions :: Options -> PMState a
 transformOptions opts = PMState { nextId      = 0
                                 , constrMap   = specialCons
                                 , matchedPat  = []
@@ -141,7 +141,7 @@ main = do
 
 -- | Prints the 'debugOutput' from the given 'PMState' to the consolve if
 --   the first argument is set to @True@.
-printDebug :: Bool -> PMState s l t -> IO ()
+printDebug :: Bool -> PMState a -> IO ()
 printDebug b s | b         = print $ "DebugOutput:" ++ debugOutput s
                | -- TODO pretty debug
                  otherwise = return ()

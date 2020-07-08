@@ -1,3 +1,7 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module HST.Frontend.FromHSE where
 
 import           Data.Maybe                     ( fromMaybe
@@ -5,15 +9,51 @@ import           Data.Maybe                     ( fromMaybe
                                                 )
 
 import qualified Language.Haskell.Exts.Syntax  as HSE
+import qualified Language.Haskell.Exts.SrcLoc  as Src
 
 import qualified HST.Frontend.Syntax           as S
 
-transformModule :: HSE.Module s -> S.Module s (HSE.Literal s) (HSE.Type s)
+data HSE
+type instance S.SrcSpanType HSE = Src.SrcSpanInfo
+type instance S.Literal HSE = HSE.Literal Src.SrcSpanInfo
+type instance S.TypeExp HSE = HSE.Type Src.SrcSpanInfo
+
+deriving instance Eq (S.Module HSE)
+deriving instance Eq (S.Decl HSE)
+deriving instance Eq (S.DeclHead HSE)
+deriving instance Eq (S.ConDecl HSE)
+deriving instance Eq (S.Binds HSE)
+deriving instance Eq (S.Match HSE)
+deriving instance Eq (S.Rhs HSE)
+deriving instance Eq (S.GuardedRhs HSE)
+deriving instance Eq (S.Exp HSE)
+deriving instance Eq (S.Alt HSE)
+
+deriving instance Show (S.Module HSE)
+deriving instance Show (S.Decl HSE)
+deriving instance Show (S.DeclHead HSE)
+deriving instance Show (S.ConDecl HSE)
+deriving instance Show (S.Binds HSE)
+deriving instance Show (S.Match HSE)
+deriving instance Show (S.Rhs HSE)
+deriving instance Show (S.GuardedRhs HSE)
+deriving instance Show (S.Exp HSE)
+deriving instance Show (S.Alt HSE)
+deriving instance Show (S.Pat HSE)
+deriving instance Show (S.Sign HSE)
+deriving instance Show (S.ModuleName HSE)
+deriving instance Show (S.QName HSE)
+deriving instance Show (S.Name HSE)
+deriving instance Show (S.QOp HSE)
+deriving instance Show (S.SpecialCon HSE)
+deriving instance Show (S.SrcSpan HSE)
+
+transformModule :: HSE.Module Src.SrcSpanInfo -> S.Module HSE
 transformModule (HSE.Module _ _ _ _ decls) =
   S.Module (mapMaybe transformDecl decls)
 transformModule _ = error "Unsupported Module type"
 
-transformDecl :: HSE.Decl s -> Maybe (S.Decl s (HSE.Literal s) (HSE.Type s))
+transformDecl :: HSE.Decl Src.SrcSpanInfo -> Maybe (S.Decl HSE)
 transformDecl (HSE.DataDecl _ (HSE.DataType _) _ dHead qcds _) =
   Just (S.DataDecl (transformDeclHead dHead) (map transformQualConDecl qcds))
 transformDecl (HSE.TypeSig s names typ) =
@@ -26,29 +66,29 @@ transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = Just
   )
 transformDecl _ = Nothing
 
-transformDeclHead :: HSE.DeclHead s -> S.DeclHead s
+transformDeclHead :: HSE.DeclHead Src.SrcSpanInfo -> S.DeclHead HSE
 transformDeclHead (HSE.DHead _ dName    ) = S.DHead (transformName dName)
 transformDeclHead (HSE.DHInfix _ _ dName) = S.DHInfix (transformName dName)
 transformDeclHead (HSE.DHParen _ dHead  ) = S.DHParen (transformDeclHead dHead)
 transformDeclHead (HSE.DHApp _ dHead _  ) = S.DHApp (transformDeclHead dHead)
 
-transformQualConDecl :: HSE.QualConDecl s -> S.ConDecl s (HSE.Type s)
+transformQualConDecl :: HSE.QualConDecl Src.SrcSpanInfo -> S.ConDecl HSE
 transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 
-transformConDecl :: HSE.ConDecl s -> S.ConDecl s (HSE.Type s)
+transformConDecl :: HSE.ConDecl Src.SrcSpanInfo -> S.ConDecl HSE
 transformConDecl (HSE.ConDecl _ cName types) =
   S.ConDecl (transformName cName) types
 transformConDecl (HSE.InfixConDecl _ t1 cName t2) =
   S.InfixConDecl t1 (transformName cName) t2
 transformConDecl (HSE.RecDecl _ cName _) = S.RecDecl (transformName cName)
 
-transformBinds :: HSE.Binds s -> S.Binds s (HSE.Literal s) (HSE.Type s)
+transformBinds :: HSE.Binds Src.SrcSpanInfo -> S.Binds HSE
 transformBinds (HSE.BDecls s decls) = S.BDecls
   (transformSrcSpan s)
   (map (fromMaybe (error "Unsupported declaration") . transformDecl) decls)
 transformBinds _ = error "Implicit bindings are not supported"
 
-transformMatch :: HSE.Match s -> S.Match s (HSE.Literal s) (HSE.Type s)
+transformMatch :: HSE.Match Src.SrcSpanInfo -> S.Match HSE
 transformMatch (HSE.Match s name pats rhs mBinds) = S.Match
   (transformSrcSpan s)
   (transformName name)
@@ -63,14 +103,13 @@ transformMatch (HSE.InfixMatch s pat name pats rhs mBinds) = S.InfixMatch
   (transformRhs rhs)
   (fmap transformBinds mBinds)
 
-transformRhs :: HSE.Rhs s -> S.Rhs s (HSE.Literal s) (HSE.Type s)
+transformRhs :: HSE.Rhs Src.SrcSpanInfo -> S.Rhs HSE
 transformRhs (HSE.UnGuardedRhs s e) =
   S.UnGuardedRhs (transformSrcSpan s) (transformExp e)
 transformRhs (HSE.GuardedRhss s grhss) =
   S.GuardedRhss (transformSrcSpan s) (map transformGuardedRhs grhss)
 
-transformGuardedRhs
-  :: HSE.GuardedRhs s -> S.GuardedRhs s (HSE.Literal s) (HSE.Type s)
+transformGuardedRhs :: HSE.GuardedRhs Src.SrcSpanInfo -> S.GuardedRhs HSE
 transformGuardedRhs (HSE.GuardedRhs s [HSE.Qualifier _ ge] e) =
   S.GuardedRhs (transformSrcSpan s) (transformExp ge) (transformExp e)
 transformGuardedRhs _ =
@@ -80,7 +119,7 @@ transformBoxed :: HSE.Boxed -> S.Boxed
 transformBoxed HSE.Boxed   = S.Boxed
 transformBoxed HSE.Unboxed = S.Unboxed
 
-transformExp :: HSE.Exp s -> S.Exp s (HSE.Literal s) (HSE.Type s)
+transformExp :: HSE.Exp Src.SrcSpanInfo -> S.Exp HSE
 transformExp (HSE.Var s qName) =
   S.Var (transformSrcSpan s) (transformQName qName)
 transformExp (HSE.Con s qName) =
@@ -112,13 +151,13 @@ transformExp (HSE.ExpTypeSig s e typ) =
   S.ExpTypeSig (transformSrcSpan s) (transformExp e) typ
 transformExp _ = error "Unsupported Expression type"
 
-transformAlt :: HSE.Alt s -> S.Alt s (HSE.Literal s) (HSE.Type s)
+transformAlt :: HSE.Alt Src.SrcSpanInfo -> S.Alt HSE
 transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
                                                 (transformPat pat)
                                                 (transformRhs rhs)
                                                 (fmap transformBinds mBinds)
 
-transformPat :: HSE.Pat s -> S.Pat s (HSE.Literal s)
+transformPat :: HSE.Pat Src.SrcSpanInfo -> S.Pat HSE
 transformPat (HSE.PVar s name) =
   S.PVar (transformSrcSpan s) (transformName name)
 transformPat (HSE.PInfixApp s pat1 qName pat2) = S.PInfixApp
@@ -137,15 +176,15 @@ transformPat (HSE.PList s pats) =
 transformPat (HSE.PWildCard s) = S.PWildCard (transformSrcSpan s)
 transformPat _                 = error "Unsupported Pattern type"
 
-transformSign :: HSE.Sign s -> S.Sign s
+transformSign :: HSE.Sign Src.SrcSpanInfo -> S.Sign HSE
 transformSign (HSE.Signless s) = S.Signless (transformSrcSpan s)
 transformSign (HSE.Negative s) = S.Negative (transformSrcSpan s)
 
-transformModuleName :: HSE.ModuleName s -> S.ModuleName s
+transformModuleName :: HSE.ModuleName Src.SrcSpanInfo -> S.ModuleName HSE
 transformModuleName (HSE.ModuleName s name) =
   S.ModuleName (transformSrcSpan s) name
 
-transformQName :: HSE.QName s -> S.QName s
+transformQName :: HSE.QName Src.SrcSpanInfo -> S.QName HSE
 transformQName (HSE.Qual s modName name) =
   S.Qual (transformSrcSpan s) (transformModuleName modName) (transformName name)
 transformQName (HSE.UnQual s name) =
@@ -153,17 +192,17 @@ transformQName (HSE.UnQual s name) =
 transformQName (HSE.Special s spCon) =
   S.Special (transformSrcSpan s) (transformSpecialCon spCon)
 
-transformName :: HSE.Name s -> S.Name s
+transformName :: HSE.Name Src.SrcSpanInfo -> S.Name HSE
 transformName (HSE.Ident  s name) = S.Ident (transformSrcSpan s) name
 transformName (HSE.Symbol s name) = S.Symbol (transformSrcSpan s) name
 
-transformQOp :: HSE.QOp s -> S.QOp s
+transformQOp :: HSE.QOp Src.SrcSpanInfo -> S.QOp HSE
 transformQOp (HSE.QVarOp s qName) =
   S.QVarOp (transformSrcSpan s) (transformQName qName)
 transformQOp (HSE.QConOp s qName) =
   S.QConOp (transformSrcSpan s) (transformQName qName)
 
-transformSpecialCon :: HSE.SpecialCon s -> S.SpecialCon s
+transformSpecialCon :: HSE.SpecialCon Src.SrcSpanInfo -> S.SpecialCon HSE
 transformSpecialCon (HSE.UnitCon s) = S.UnitCon (transformSrcSpan s)
 transformSpecialCon (HSE.ListCon s) = S.ListCon (transformSrcSpan s)
 transformSpecialCon (HSE.FunCon  s) = S.FunCon (transformSrcSpan s)
@@ -174,5 +213,5 @@ transformSpecialCon (HSE.UnboxedSingleCon s) =
   S.UnboxedSingleCon (transformSrcSpan s)
 transformSpecialCon (HSE.ExprHole s) = S.ExprHole (transformSrcSpan s)
 
-transformSrcSpan :: s -> S.SrcSpan s
+transformSrcSpan :: Src.SrcSpanInfo -> S.SrcSpan HSE
 transformSrcSpan = S.SrcSpan

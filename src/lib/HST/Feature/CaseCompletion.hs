@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | This module contains methods for completing case expressions both in
 --   expressions and entire modules.
 
@@ -19,7 +21,7 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | Takes a given expression and applies the algorithm on it resulting in
 --   completed cases
-completeCase :: (Eq l, Eq t) => Bool -> S.Exp s l t -> PM s l t (S.Exp s l t)
+completeCase :: Eq (S.Exp a) => Bool -> S.Exp a -> PM a (S.Exp a)
 completeCase insideLet (S.Case _ expr as) = do
   v <- newVar
   let eqs = map getEqFromAlt as   -- [Eqs]
@@ -60,22 +62,17 @@ completeCase il (S.Paren _ e1) = do
 completeCase _ v = return v
 -- TODO unhandled or not implemented cons missing. Is NegApp used?
 
-completeBindRhs :: (Eq l, Eq t) => S.Binds s l t -> PM s l t (S.Binds s l t)
+completeBindRhs :: Eq (S.Exp a) => S.Binds a -> PM a (S.Binds a)
 completeBindRhs (S.BDecls _ dcls) = do
   dcls' <- mapM (applyCCDecl True) dcls
   return $ S.BDecls S.NoSrcSpan dcls'
 --completeBindRhs _ = error "completeBindRhs: ImplicitBinds not supported yet"
 
-getEqFromAlt :: S.Alt s l t -> Eqs s l t
+getEqFromAlt :: S.Alt a -> Eqs a
 getEqFromAlt (S.Alt _ pat (S.UnGuardedRhs _ expr) _) = ([pat], expr)
 getEqFromAlt _ = error "guarded Rhs in getEqFromAlt"
 
-completeLambda
-  :: (Eq l, Eq t)
-  => [S.Pat s l]
-  -> S.Exp s l t
-  -> Bool
-  -> PM s l t (S.Exp s l t)
+completeLambda :: Eq (S.Exp a) => [S.Pat a] -> S.Exp a -> Bool -> PM a (S.Exp a)
 completeLambda ps e insideLet = do
   xs <- newVars (length ps)
   e' <- completeCase insideLet e
@@ -83,23 +80,22 @@ completeLambda ps e insideLet = do
   res <- match xs [eq] err
   return $ S.Lambda S.NoSrcSpan xs res
 
-applyCCModule :: (Eq l, Eq t) => S.Module s l t -> PM s l t (S.Module s l t)
+applyCCModule :: Eq (S.Exp a) => S.Module a -> PM a (S.Module a)
 applyCCModule (S.Module ds) = do
   dcls <- mapM (applyCCDecl False) ds
   return $ S.Module dcls
 
-applyCCDecl :: (Eq l, Eq t) => Bool -> S.Decl s l t -> PM s l t (S.Decl s l t)
+applyCCDecl :: Eq (S.Exp a) => Bool -> S.Decl a -> PM a (S.Decl a)
 applyCCDecl insideLet (S.FunBind _ ms) = do
   nms <- applyCCMatches insideLet ms
   return (S.FunBind S.NoSrcSpan nms)
 applyCCDecl _ v = return v
 
-applyCCMatches
-  :: (Eq l, Eq t) => Bool -> [S.Match s l t] -> PM s l t [S.Match s l t]
+applyCCMatches :: Eq (S.Exp a) => Bool -> [S.Match a] -> PM a [S.Match a]
 applyCCMatches insideLet = mapM applyCCMatch
  where
   -- TODO maybe only apply if needed -> isIncomplete?
-  applyCCMatch :: (Eq l, Eq t) => S.Match s l t -> PM s l t (S.Match s l t)
+  applyCCMatch :: Eq (S.Exp a) => S.Match a -> PM a (S.Match a)
   applyCCMatch (S.Match _ n ps rhs _) = case rhs of
     S.UnGuardedRhs _ e -> do
       x <- completeCase insideLet e

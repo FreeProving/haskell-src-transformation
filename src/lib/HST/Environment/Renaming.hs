@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | This module contains definitions for substitutions of variables.
 
 module HST.Environment.Renaming where
@@ -24,19 +26,19 @@ compose :: Subst -> Subst -> Subst
 compose = (.)
 
 -- | Type for substations extended from variable names to expressions.
-type TSubst s l t
-  =  S.Exp s l t -- VarExp
-  -> S.Exp s l t -- Constructor application expression
+type TSubst a
+  =  S.Exp a -- VarExp
+  -> S.Exp a -- Constructor application expression
 
 -- Smart constructor for 'TSubst' that creates a substitution that replaces
 -- the given variable expression (first argument) with the second expression.
-tSubst :: (Eq l, Eq t) => S.Exp s l t -> S.Exp s l t -> TSubst s l t
+tSubst :: Eq (S.Exp a) => S.Exp a -> S.Exp a -> TSubst a
 tSubst vE tE = \v -> if v == vE then tE else v
 
 -- | Type class for AST nodes of type @c@ a 'TSubst' can be applied to.
 class TermSubst c where
   -- | Applies the given substitution to the given node.
-  substitute :: TSubst s l t -> c s l t -> c s l t
+  substitute :: TSubst a -> c a -> c a
 
 -- | 'TermSubst' instance for expressions.
 instance TermSubst S.Exp where
@@ -79,7 +81,7 @@ class Rename c where
   rename :: Subst -> c -> c
 
 -- | 'Rename' instance for expressions.
-instance Rename (S.Exp s l t) where
+instance Rename (S.Exp a) where
     -- rename :: Subst -> Exp l -> Exp l
   rename s expr = case expr of
     S.Var l qname          -> S.Var l (rename s qname)
@@ -98,7 +100,7 @@ instance Rename (S.Exp s l t) where
     _                      -> error "Rename: Exp caused an error"
 
 -- | 'Rename' instance for optionally qualified variable names.
-instance Rename (S.QName s) where
+instance Rename (S.QName a) where
   rename s qname = case qname of
     -- TODO qualified variables should not be renamed.
     S.Qual l mname name -> S.Qual l mname (rename s name)
@@ -106,7 +108,7 @@ instance Rename (S.QName s) where
     S.Special l special -> S.Special l special
 
 -- | 'Rename' instance for variable names.
-instance Rename (S.Name s) where
+instance Rename (S.Name a) where
   rename s name = case name of
     S.Ident  l str -> S.Ident l $ s str
     S.Symbol l str -> S.Ident l $ s str
@@ -115,11 +117,11 @@ instance Rename (S.Name s) where
 --
 --   Variables are renamed on the right-hand side and in variable patterns.
 --   TODO is it actually wanted to replace variable binders?
-instance Rename (S.Alt s l t) where
+instance Rename (S.Alt s) where
   rename s (S.Alt l p rhs mB) = S.Alt l (rename s p) (rename s rhs) mB
 
 -- | 'Rename' instance for patterns.
-instance Rename (S.Pat s l) where
+instance Rename (S.Pat a) where
   rename s pat = case pat of
     S.PVar l name -> S.PVar l $ rename s name
     S.PInfixApp l p1 qname p2 ->
@@ -134,13 +136,13 @@ instance Rename (S.Pat s l) where
 --
 --   Applies the substitution to the expression on the right-hand side.
 --   There must be no guards.
-instance Rename (S.Rhs s l t) where
+instance Rename (S.Rhs s) where
   rename s rhs = case rhs of
     S.UnGuardedRhs l e -> S.UnGuardedRhs l $ rename s e
     S.GuardedRhss  _ _ -> error "Rename: GuardedRhss not supported"
 
 -- | Creates a new fresh variable pattern for the given variable pattern.
-renamePVar :: S.Pat s l -> PM s l t (S.Pat s l)
+renamePVar :: S.Pat a -> PM a (S.Pat a)
 renamePVar (S.PVar l name) = do
   nname <- newName name
   return (S.PVar l nname)
@@ -150,14 +152,14 @@ renamePVar _ = error "no variable in renamePVar"
 --
 --   The given argument must be an identifier. Only the annotation of the
 --   identifier is preserved.
-newName :: S.Name s -> PM s l t (S.Name s)
+newName :: S.Name a -> PM a (S.Name a)
 newName (S.Ident l _) = do
   var <- freshVar
   return (S.Ident l ('a' : show var))
 newName _ = error "no Ident in newName"
 
 -- | Generates a fresh variable name with an ID from the state.
-genVar :: PM s l t (S.Name s)
+genVar :: PM a (S.Name a)
 genVar = do
   x <- freshVar
   return (S.Ident S.NoSrcSpan ('a' : show x))

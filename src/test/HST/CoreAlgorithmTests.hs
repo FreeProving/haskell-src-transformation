@@ -1,6 +1,5 @@
 module HST.CoreAlgorithmTests where
 
-import           Control.Monad                  ( void )
 import qualified Language.Haskell.Exts         as HSE
 import           Test.Hspec                     ( Spec
                                                 , Expectation
@@ -19,14 +18,14 @@ testAlgo = describe "Algo" testCompareCons
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
-parseTestPat :: String -> IO (HSE.Pat ())
+parseTestPat :: String -> IO (HSE.Pat HSE.SrcSpanInfo)
 parseTestPat patStr = case HSE.parsePat patStr of
-  HSE.ParseOk pat          -> return $ void pat
+  HSE.ParseOk pat          -> return pat
   HSE.ParseFailed _ errMsg -> assertFailure errMsg
 
 -- | Sets the expectation that the given patterns should have matching
 --   constructors.
-shouldMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
+shouldMatchCons :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
 shouldMatchCons pat1 pat2
   | compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
   = return ()
@@ -40,7 +39,7 @@ shouldMatchCons pat1 pat2
 
 -- | Sets the expectation that the given patterns should not have matching
 --   constructors.
-shouldNotMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
+shouldNotMatchCons :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
 shouldNotMatchCons pat1 pat2
   | compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
   = assertFailure
