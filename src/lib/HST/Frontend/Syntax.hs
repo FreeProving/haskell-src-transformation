@@ -100,3 +100,28 @@ data SrcSpan s = SrcSpan s
 
 instance Eq (SrcSpan s) where
   _ == _ = True
+
+getSrcExp :: Exp s l t -> SrcSpan s
+getSrcExp (Var src _         ) = src
+getSrcExp (Con src _         ) = src
+getSrcExp (Lit src _         ) = src
+getSrcExp (InfixApp src _ _ _) = src
+getSrcExp (App src _ _       ) = src
+getSrcExp (NegApp src _      ) = src
+getSrcExp (Lambda src _ _    ) = src
+getSrcExp (Let    src _ _    ) = src
+getSrcExp (If src _ _ _      ) = src
+getSrcExp (Case  src _ _     ) = src
+getSrcExp (Tuple src _ _     ) = src
+getSrcExp (List  src _       ) = src
+getSrcExp (Paren src _       ) = src
+getSrcExp (ExpTypeSig src _ _) = src
+
+getSrcPat :: Pat s l -> SrcSpan s
+getSrcPat (PVar src _         ) = src
+getSrcPat (PInfixApp src _ _ _) = src
+getSrcPat (PApp   src _ _     ) = src
+getSrcPat (PTuple src _ _     ) = src
+getSrcPat (PParen src _       ) = src
+getSrcPat (PList  src _       ) = src
+getSrcPat (PWildCard src      ) = src

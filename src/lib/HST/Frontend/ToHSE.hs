@@ -92,24 +92,8 @@ transformGuardedRhs
   -> HSE.GuardedRhs Src.SrcSpanInfo
 transformGuardedRhs (S.GuardedRhs s ge e) = HSE.GuardedRhs
   (transformSrcSpan s)
-  [HSE.Qualifier (transformSrcSpan (getSrcExp ge)) (transformExp ge)]
+  [HSE.Qualifier (transformSrcSpan (S.getSrcExp ge)) (transformExp ge)]
   (transformExp e)
- where
-  getSrcExp :: S.Exp s l t -> S.SrcSpan s
-  getSrcExp (S.Var src _         ) = src
-  getSrcExp (S.Con src _         ) = src
-  getSrcExp (S.Lit src _         ) = src
-  getSrcExp (S.InfixApp src _ _ _) = src
-  getSrcExp (S.App    src _ _    ) = src
-  getSrcExp (S.NegApp src _      ) = src
-  getSrcExp (S.Lambda src _ _    ) = src
-  getSrcExp (S.Let    src _ _    ) = src
-  getSrcExp (S.If src _ _ _      ) = src
-  getSrcExp (S.Case  src _ _     ) = src
-  getSrcExp (S.Tuple src _ _     ) = src
-  getSrcExp (S.List  src _       ) = src
-  getSrcExp (S.Paren src _       ) = src
-  getSrcExp (S.ExpTypeSig src _ _) = src
 
 
 transformBoxed :: S.Boxed -> HSE.Boxed
