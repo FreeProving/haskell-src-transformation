@@ -36,12 +36,14 @@ eliminateL vs err eqs = do
   startVar         <- newVar
   (decls, lastPat) <- foldGEqs vs ([], startVar) eqs
   let errDecl = toDecl lastPat err -- error has to be bound to last new var
-  return $ S.Let B.noSrc (B.binds (errDecl : decls)) (A.translatePVar startVar)
+  return $ S.Let S.NoSrcSpan
+                 (S.BDecls S.NoSrcSpan (errDecl : decls))
+                 (A.translatePVar startVar)
 
 toDecl :: S.Pat s l -> S.Exp s l t -> S.Decl s l t
 toDecl (S.PVar _ name) e = S.FunBind
-  B.noSrc
-  [S.Match B.noSrc name [] (S.UnGuardedRhs B.noSrc e) B.noBinds]
+  S.NoSrcSpan
+  [S.Match S.NoSrcSpan name [] (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
 toDecl _ _ = error "GuardElimination.toDecl: Variable pattern expected"
 
 -- Folds the list of GExps to declarations.
@@ -80,9 +82,9 @@ createCase
 --               [B.alt p res, B.alt B.wildcard next]) i vps
 createCase i _    []             = i
 createCase i next ((v, p) : vps) = S.Case
-  B.noSrc
+  S.NoSrcSpan
   (A.translatePVar v)
-  [B.alt p (createCase i next vps), B.alt B.wildcard next]
+  [B.alt p (createCase i next vps), B.alt (S.PWildCard S.NoSrcSpan) next]
 
 -- Converts a rhs into an if then else expression as mentioned in the semantics
 rhsToIf
@@ -97,7 +99,7 @@ rhsToIf (S.GuardedRhss  _ grhs) next = buildIF next grhs
     -> [S.GuardedRhs s l t]      -- guarded rhs to fold
     -> PM s l t (S.Exp s l t)    -- if then else expr
   buildIF nx gs = foldM
-    (\res (S.GuardedRhs _ e1 e2) -> return (S.If B.noSrc e1 e2 res))
+    (\res (S.GuardedRhs _ e1 e2) -> return (S.If S.NoSrcSpan e1 e2 res))
     nx
     (reverse gs) -- reverse, since foldM is a foldl with side effect
 
@@ -108,32 +110,32 @@ applyGEExp e = case e of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- applyGEExp e1
     e2' <- applyGEExp e2
-    return $ S.InfixApp B.noSrc e1' qop e2'
+    return $ S.InfixApp S.NoSrcSpan e1' qop e2'
   S.App _ e1 e2 -> do
     e1' <- applyGEExp e1
     e2' <- applyGEExp e2
-    return $ S.App B.noSrc e1' e2'
+    return $ S.App S.NoSrcSpan e1' e2'
   S.Lambda _ ps e1 -> do
     e' <- applyGEExp e1
-    return $ S.Lambda B.noSrc ps e'
+    return $ S.Lambda S.NoSrcSpan ps e'
   S.Let _ bs e1 -> do
     e' <- applyGEExp e1
-    return $ S.Let B.noSrc bs e'
+    return $ S.Let S.NoSrcSpan bs e'
   S.If _ e1 e2 e3 -> do
     e1' <- applyGEExp e1
     e2' <- applyGEExp e2
     e3' <- applyGEExp e3
-    return $ S.If B.noSrc e1' e2' e3'
+    return $ S.If S.NoSrcSpan e1' e2' e3'
   S.Case _ e1 alts -> do
     e'    <- applyGEExp e1
     alts' <- applyGEAlts alts
-    return $ S.Case B.noSrc e' alts'
+    return $ S.Case S.NoSrcSpan e' alts'
   S.Tuple _ boxed es -> do
     es' <- mapM applyGEExp es
-    return $ S.Tuple B.noSrc boxed es'
+    return $ S.Tuple S.NoSrcSpan boxed es'
   S.List _ es -> do
     es' <- mapM applyGEExp es
-    return $ S.List B.noSrc es'
+    return $ S.List S.NoSrcSpan es'
   -- can cause problems if a exp is missing in this case
   x -> return x
 
@@ -145,7 +147,7 @@ applyGEAlts as = if any (\(S.Alt _ _ rhs _) -> isGuardedRhs rhs) as
     newVar'  <- newVar
     e        <- eliminateL [newVar'] A.err gexps
     matchVar <- newVar
-    return [S.Alt B.noSrc matchVar (S.UnGuardedRhs B.noSrc e) B.noBinds]
+    return [S.Alt S.NoSrcSpan matchVar (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
   else return as
 
 -- Applies guard elimination to a module
@@ -158,7 +160,7 @@ applyGEModule (S.Module ds) = do
 applyGEDecl :: S.Decl s l t -> PM s l t (S.Decl s l t)
 applyGEDecl (S.FunBind _ ms) = do
   nms <- applyGEMatches ms
-  return (S.FunBind B.noSrc nms)
+  return (S.FunBind S.NoSrcSpan nms)
 applyGEDecl v = return v
 
 -- mapM
@@ -187,7 +189,11 @@ applyGE ms = do
       funArity = (length . fst . head) geqs
   nVars <- newVars funArity
   nExp  <- eliminateL nVars A.err geqs
-  return $ S.Match B.noSrc mname nVars (S.UnGuardedRhs B.noSrc nExp) Nothing
+  return $ S.Match S.NoSrcSpan
+                   mname
+                   nVars
+                   (S.UnGuardedRhs S.NoSrcSpan nExp)
+                   Nothing
 
 -- compares the names of two matches
 comp :: S.Match s l t -> S.Match s l t -> Bool

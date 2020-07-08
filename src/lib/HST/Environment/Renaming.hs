@@ -6,7 +6,6 @@ import           HST.Environment.FreshVars      ( PM
                                                 , freshVar
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 
 -- | A substitution (or "renaming") is a mapping of variable names to variable
 --   names.
@@ -161,4 +160,4 @@ newName _ = error "no Ident in newName"
 genVar :: PM s l t (S.Name s)
 genVar = do
   x <- freshVar
-  return (S.Ident B.noSrc ('a' : show x))
+  return (S.Ident S.NoSrcSpan ('a' : show x))

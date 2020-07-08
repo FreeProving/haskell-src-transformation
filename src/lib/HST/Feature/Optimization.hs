@@ -18,7 +18,6 @@ import           HST.Environment.Renaming       ( subst
                                                 , rename
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 
 
 -- | Removes all case expressions that are nested inside another case
@@ -28,32 +27,32 @@ optimize ex = case ex of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- optimize e1
     e2' <- optimize e2
-    return $ S.InfixApp B.noSrc e1' qop e2'
+    return $ S.InfixApp S.NoSrcSpan e1' qop e2'
   S.App _ e1 e2 -> do
     e1' <- optimize e1
     e2' <- optimize e2
-    return $ S.App B.noSrc e1' e2'
+    return $ S.App S.NoSrcSpan e1' e2'
   S.Lambda _ ps e -> do
     e' <- optimize e
-    return $ S.Lambda B.noSrc ps e'
+    return $ S.Lambda S.NoSrcSpan ps e'
   S.Let _ b e -> do
     e' <- optimize e
-    return $ S.Let B.noSrc b e'
+    return $ S.Let S.NoSrcSpan b e'
   S.If _ e1 e2 e3 -> do
     e1' <- optimize e1
     e2' <- optimize e2
     e3' <- optimize e3
-    return $ S.If B.noSrc e1' e2' e3'
-  S.Case _ e alts  -> optimizeCase e alts
-  S.Tuple _ bxd es -> do
+    return $ S.If S.NoSrcSpan e1' e2' e3'
+  S.Case  _ e   alts -> optimizeCase e alts
+  S.Tuple _ bxd es   -> do
     es' <- mapM optimize es
-    return $ S.Tuple B.noSrc bxd es'
+    return $ S.Tuple S.NoSrcSpan bxd es'
   S.List _ es -> do
     es' <- mapM optimize es
-    return $ S.List B.noSrc es'
+    return $ S.List S.NoSrcSpan es'
   S.Paren _ e -> do
     e' <- optimize e
-    return $ S.Paren B.noSrc e'
+    return $ S.Paren S.NoSrcSpan e'
   c -> return c
 
 -- | Tests whether the given scrutinee of a @case@ expression is a variable
@@ -74,7 +73,7 @@ optimizeCase e alts
     otherwise = do
     e'    <- optimize e
     alts' <- optimizeAlts alts
-    return $ S.Case B.noSrc e' alts'
+    return $ S.Case S.NoSrcSpan e' alts'
 
 -- | Tests whether the given expression is a variable expression.
 isVarExp :: S.Exp s l t -> Bool
@@ -148,7 +147,7 @@ addAndOpt
   :: (Eq l, Eq t) => S.Exp s l t -> [S.Alt s l t] -> PM s l t (S.Exp s l t)
 addAndOpt e alts = do
   alts' <- mapM (bindAndOpt e) alts
-  return $ S.Case B.noSrc e alts'
+  return $ S.Case S.NoSrcSpan e alts'
  where
   -- uses the list of Exp Pat as a stack
   bindAndOpt
@@ -169,4 +168,4 @@ optimizeAlt :: (Eq l, Eq t) => S.Alt s l t -> PM s l t (S.Alt s l t)
 optimizeAlt (S.Alt _ p rhs _) = do
   let (S.UnGuardedRhs _ e) = rhs
   e' <- optimize e
-  return $ S.Alt B.noSrc p (S.UnGuardedRhs B.noSrc e') B.noBinds
+  return $ S.Alt S.NoSrcSpan p (S.UnGuardedRhs S.NoSrcSpan e') Nothing

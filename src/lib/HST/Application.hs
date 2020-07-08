@@ -28,7 +28,6 @@ import qualified HST.Feature.GuardElimination  as GE
                                                 )
 import           HST.Feature.Optimization       ( optimize )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in
 --   the module.
@@ -41,7 +40,7 @@ useAlgoModule (S.Module ds) = do
 useAlgoDecl :: (Eq l, Eq t) => S.Decl s l t -> PM s l t (S.Decl s l t)
 useAlgoDecl (S.FunBind _ ms) = do
   nms <- useAlgoMatches ms
-  return (S.FunBind B.noSrc nms)
+  return (S.FunBind S.NoSrcSpan nms)
 useAlgoDecl v = return v
 
 -- TODO maybe refactor to fun decl or check if oneFun stuff is needed or
@@ -84,9 +83,16 @@ useAlgo ms = do
   if b
     then do
       oExp <- optimize nExp
-      return $ S.Match B.noSrc mname nVars (S.UnGuardedRhs B.noSrc oExp) Nothing
-    else return
-      $ S.Match B.noSrc mname nVars (S.UnGuardedRhs B.noSrc nExp) Nothing
+      return $ S.Match S.NoSrcSpan
+                       mname
+                       nVars
+                       (S.UnGuardedRhs S.NoSrcSpan oExp)
+                       Nothing
+    else return $ S.Match S.NoSrcSpan
+                          mname
+                          nVars
+                          (S.UnGuardedRhs S.NoSrcSpan nExp)
+                          Nothing
  where
   selectExp :: S.Rhs s l t -> S.Exp s l t
   selectExp (S.UnGuardedRhs _ e) = e
@@ -125,8 +131,8 @@ getDataName _ = error "getDataName: Symbol or infix in declaration"
 --   constructor.
 getDataCons :: S.ConDecl s t -> Constructor s
 getDataCons (S.ConDecl cname types) =
-  (S.UnQual B.noSrc cname, length types, False)
-getDataCons (S.InfixConDecl _ cname _) = (S.UnQual B.noSrc cname, 2, True)
+  (S.UnQual S.NoSrcSpan cname, length types, False)
+getDataCons (S.InfixConDecl _ cname _) = (S.UnQual S.NoSrcSpan cname, 2, True)
 getDataCons (S.RecDecl _) = error "record notation is not supported"
 
 -- |The function 'fromName' takes a Name and returns its String.
@@ -150,15 +156,15 @@ processModule m = do
 --   used in @Main.hs@
 specialCons :: [(String, [Constructor s])]
 specialCons =
-  [ ("unit", [(S.Special B.noSrc (S.UnitCon B.noSrc), 0, False)])
+  [ ("unit", [(S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan), 0, False)])
   , ( "list"
-    , [ (S.Special B.noSrc (S.ListCon B.noSrc), 0, False)
-      , (S.Special B.noSrc (S.Cons B.noSrc)   , 2, True)
+    , [ (S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan), 0, False)
+      , (S.Special S.NoSrcSpan (S.Cons S.NoSrcSpan)   , 2, True)
       ]
     )
-  , ("fun", [(S.Special B.noSrc (S.FunCon B.noSrc), 2, True)])
+  , ("fun", [(S.Special S.NoSrcSpan (S.FunCon S.NoSrcSpan), 2, True)])
   , ( "pair"
-    , [(S.Special B.noSrc (S.TupleCon B.noSrc S.Boxed 2), 2, False)]
+    , [(S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan S.Boxed 2), 2, False)]
     )    -- TODO Tuples
-  , ("wildcard", [(S.Special B.noSrc (S.ExprHole B.noSrc), 0, False)])
+  , ("wildcard", [(S.Special S.NoSrcSpan (S.ExprHole S.NoSrcSpan), 0, False)])
   ]

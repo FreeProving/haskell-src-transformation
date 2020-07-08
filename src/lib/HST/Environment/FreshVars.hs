@@ -20,7 +20,6 @@ import           Control.Monad.State            ( State
 import qualified Control.Monad.State           as State
 
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 
 -- QName instead of String to support special Syntax
 -- Bool isInfix
@@ -79,7 +78,7 @@ newVar :: PM s l t (S.Pat s l)
 newVar = do
   nv <- freshVar
   let v = 'a' : show nv
-  return (B.pvar (B.name v))
+  return (S.PVar S.NoSrcSpan (S.Ident S.NoSrcSpan v))
 
 addConstrMap :: (String, [Constructor s]) -> PM s l t ()
 addConstrMap cs = do

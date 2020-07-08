@@ -46,7 +46,8 @@ type Eqs s l t = ([S.Pat s l], S.Exp s l t)
 
 -- | The default error expression to insert for pattern matching failures.
 err :: S.Exp s l t
-err = S.Var B.noSrc (S.UnQual B.noSrc (S.Ident B.noSrc "undefined"))
+err =
+  S.Var S.NoSrcSpan (S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan "undefined"))
 
 -- | Compiles the given equations of a function declaration to a single
 --   expression that performs explicit pattern matching using @case@
@@ -144,7 +145,7 @@ makeRhs
   -> PM s l t (S.Exp s l t)
 makeRhs x xs eqs er = do
   alts <- computeAlts x xs eqs er
-  return (B.caseE (translatePVar x) alts)
+  return (S.Case S.NoSrcSpan (translatePVar x) alts)
 
 -- | Converts the given variable pattern to a variable expression.
 translatePVar :: S.Pat s l -> S.Exp s l t
@@ -175,7 +176,7 @@ computeAlts x xs eqs er = do
       b <- gets trivialCC
       if b
         then -- TODO is 'err' correct? Why not 'er'?
-             return $ alts ++ [B.alt B.wildcard err]
+             return $ alts ++ [B.alt (S.PWildCard S.NoSrcSpan) err]
         else do
           z <- createAltsFromConstr x zs er
           -- TODO currently not sorted (reversed)
@@ -219,12 +220,12 @@ getQName (S.Alt _ p _ _) = getQNamePat p
 --
 --   Returns the 'S.Special' names for special patterns such as lists and tuples.
 getQNamePat :: S.Pat s l -> S.QName s
-getQNamePat (S.PApp _ qn _       ) = qn
+getQNamePat (S.PApp _ qn _) = qn
 getQNamePat (S.PInfixApp _ _ qn _) = qn
-getQNamePat (S.PList _ _         ) = S.Special B.noSrc (S.ListCon B.noSrc)
-getQNamePat (S.PWildCard _       ) = S.Special B.noSrc (S.ExprHole B.noSrc) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
+getQNamePat (S.PList _ _) = S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan)
+getQNamePat (S.PWildCard _) = S.Special S.NoSrcSpan (S.ExprHole S.NoSrcSpan) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
 getQNamePat (S.PTuple _ bxd ps) =
-  S.Special B.noSrc (S.TupleCon B.noSrc bxd (length ps))
+  S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan bxd (length ps))
 getQNamePat _ = error "getQNamePat unsuported Pattern"
 
 -- TODO refactor with smartcons
@@ -247,8 +248,8 @@ createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
     -> PM s l t (S.Alt s l t)
   createAltFromConstr pat e (qn, ar, b) = do
     nvars <- newVars ar
-    let p | b         = S.PInfixApp B.noSrc (head nvars) qn (nvars !! 1)
-          | otherwise = S.PApp B.noSrc qn nvars
+    let p | b         = S.PInfixApp S.NoSrcSpan (head nvars) qn (nvars !! 1)
+          | otherwise = S.PApp S.NoSrcSpan qn nvars
         p'   = translateApp p
         pat' = translatePVar pat
         e'   = substitute (tSubst pat' p') e
@@ -304,10 +305,12 @@ consName :: S.Pat s l -> Maybe (S.QName s)
 consName (S.PApp _ qn _       ) = return qn
 consName (S.PInfixApp _ _ qn _) = return qn
 consName (S.PParen _ pat      ) = consName pat
-consName (S.PList  _ []       ) = return $ S.Special B.noSrc $ S.ListCon B.noSrc
-consName (S.PList  _ (_ : _)  ) = return $ S.Special B.noSrc $ S.Cons B.noSrc
+consName (S.PList _ []) =
+  return $ S.Special S.NoSrcSpan $ S.ListCon S.NoSrcSpan
+consName (S.PList _ (_ : _)) =
+  return $ S.Special S.NoSrcSpan $ S.Cons S.NoSrcSpan
 consName (S.PTuple _ bxd ps) =
-  return $ S.Special B.noSrc $ S.TupleCon B.noSrc bxd $ length ps
+  return $ S.Special S.NoSrcSpan $ S.TupleCon S.NoSrcSpan bxd $ length ps
 consName (S.PWildCard _) = Nothing
 consName _               = error $ "consName: unsupported pattern" -- \"" ++ P.prettyPrint pat ++ "\""
 
@@ -347,15 +350,18 @@ computeAlt pat pats er prps@(p : _) = do
 -- | Converts a constructor application pattern (where the argument patterns
 --   are variable or wildcard patterns) to an expression.
 translateApp :: S.Pat s l -> S.Exp s l t
-translateApp (S.PApp _ qn ps) =
-  foldl (\acc x -> S.App B.noSrc acc (translatePVar x)) (S.Con B.noSrc qn) ps
-translateApp (S.PInfixApp _ p1 qn p2) = S.InfixApp B.noSrc
+translateApp (S.PApp _ qn ps) = foldl
+  (\acc x -> S.App S.NoSrcSpan acc (translatePVar x))
+  (S.Con S.NoSrcSpan qn)
+  ps
+translateApp (S.PInfixApp _ p1 qn p2) = S.InfixApp S.NoSrcSpan
                                                    (translatePVar p1)
-                                                   (S.QConOp B.noSrc qn)
+                                                   (S.QConOp S.NoSrcSpan qn)
                                                    (translatePVar p2)
-translateApp (S.PTuple _ bxd ps) = S.Tuple B.noSrc bxd $ map translatePVar ps
-translateApp (S.PList _ ps     ) = S.List B.noSrc $ map translatePVar ps
-translateApp _                   = error "translateApp: Unsupported pattern"
+translateApp (S.PTuple _ bxd ps) =
+  S.Tuple S.NoSrcSpan bxd $ map translatePVar ps
+translateApp (S.PList _ ps) = S.List S.NoSrcSpan $ map translatePVar ps
+translateApp _              = error "translateApp: Unsupported pattern"
           -- pat = error ("translateApp does not support: " ++ show pat)
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
@@ -369,24 +375,24 @@ translateApp _                   = error "translateApp: Unsupported pattern"
 getConst :: S.Pat s l -> PM s l t (S.Pat s l, [S.Pat s l], [S.Pat s l])
 getConst (S.PApp _ qname ps) = do
   nvars <- newVars (length ps)
-  return (S.PApp B.noSrc qname nvars, nvars, ps)
+  return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
 getConst (S.PInfixApp _ p1 qname p2) = do
   nvars <- newVars 2
   let [nv1, nv2] = nvars
       ps         = [p1, p2]
-  return (S.PInfixApp B.noSrc nv1 qname nv2, nvars, ps)
+  return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
 getConst (S.PParen _ p) = getConst p
 getConst (S.PList _ ps)
-  | null ps = return (S.PList B.noSrc [], [], [])
+  | null ps = return (S.PList S.NoSrcSpan [], [], [])
   | otherwise = do
     let (n : nv) = ps
-        listCon  = S.Special B.noSrc $ S.Cons B.noSrc
-    getConst (S.PInfixApp B.noSrc n listCon (S.PList B.noSrc nv))
+        listCon  = S.Special S.NoSrcSpan $ S.Cons S.NoSrcSpan
+    getConst (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
 getConst (S.PTuple _ bxd ps) = do
   nvars <- newVars (length ps)
-  return (S.PTuple B.noSrc bxd nvars, nvars, ps)
+  return (S.PTuple S.NoSrcSpan bxd nvars, nvars, ps)
 -- wildcards no longer needed as cons
-getConst (S.PWildCard _) = return (S.PWildCard B.noSrc, [], [])
+getConst (S.PWildCard _) = return (S.PWildCard S.NoSrcSpan, [], [])
 getConst _               = error "wrong Pattern in getConst"
 
 -- | Tests whether the pattern lists of all given equations starts with a
