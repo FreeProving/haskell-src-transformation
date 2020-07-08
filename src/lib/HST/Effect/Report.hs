@@ -73,7 +73,7 @@ data Severity = Internal | Error | Warning | Info | Debug
 
 -- | A messages that can be 'report'ed.
 data Message = Message { msgSeverity :: Severity, msgText :: String }
-
+  deriving (Show, Eq)
 -- TODO Add @Pretty@ instance for messages.
 showPrettyMessage :: Message -> String
 showPrettyMessage (Message severity msg) = show severity ++ ": " ++ msg
