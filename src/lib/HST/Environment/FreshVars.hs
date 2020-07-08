@@ -46,10 +46,10 @@ data PMState s l t = PMState
 newtype PM s l t a = PM { unwrapPM :: State (PMState s l t) a }
  deriving (Functor, Applicative, Monad, MonadState (PMState s l t))
 
-runPM :: PM s l t a -> (PMState s l t) -> (a, PMState s l t)
+runPM :: PM s l t a -> PMState s l t -> (a, PMState s l t)
 runPM = State.runState . unwrapPM
 
-evalPM :: PM s l t a -> (PMState s l t) -> a
+evalPM :: PM s l t a -> PMState s l t -> a
 evalPM = State.evalState . unwrapPM
 
 instance MonadFail (PM s l t) where

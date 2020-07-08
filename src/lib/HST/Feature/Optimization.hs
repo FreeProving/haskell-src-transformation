@@ -119,7 +119,7 @@ cheatEq q1                           q2                           = q1 == q2
 selectPats :: S.Pat s l -> [S.Pat s l]
 selectPats (S.PApp _ _ pats      ) = pats
 selectPats (S.PInfixApp _ p1 _ p2) = [p1, p2]
-selectPats _                       = error $ "selectPat: Unsupported pattern" --not definied for " ++ show p
+selectPats _                       = error "selectPat: Unsupported pattern" --not definied for " ++ show p
 
 -- | Gets the actual expression of the given right-hand side without guard.
 selectExp :: S.Rhs s l t -> S.Exp s l t

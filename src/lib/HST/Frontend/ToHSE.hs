@@ -110,7 +110,7 @@ transformExp (S.Var s qName) =
   HSE.Var (transformSrcSpan s) (transformQName qName)
 transformExp (S.Con s qName) =
   HSE.Con (transformSrcSpan s) (transformQName qName)
-transformExp (S.Lit s lit           ) = (HSE.Lit (transformSrcSpan s) lit)
+transformExp (S.Lit s lit           ) = HSE.Lit (transformSrcSpan s) lit
 transformExp (S.InfixApp s e1 qOp e2) = HSE.InfixApp (transformSrcSpan s)
                                                      (transformExp e1)
                                                      (transformQOp qOp)

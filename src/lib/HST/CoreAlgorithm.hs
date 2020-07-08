@@ -311,7 +311,7 @@ consName (S.PList _ (_ : _)) =
 consName (S.PTuple _ bxd ps) =
   return $ S.Special S.NoSrcSpan $ S.TupleCon S.NoSrcSpan bxd $ length ps
 consName (S.PWildCard _) = Nothing
-consName _               = error $ "consName: unsupported pattern" -- \"" ++ P.prettyPrint pat ++ "\""
+consName _               = error "consName: unsupported pattern" -- \"" ++ P.prettyPrint pat ++ "\""
 
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.

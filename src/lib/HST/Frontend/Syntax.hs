@@ -4,7 +4,7 @@ module HST.Frontend.Syntax where
 -- AST Data Structure                                                        --
 -------------------------------------------------------------------------------
 
-data Module s l t = Module [Decl s l t]
+newtype Module s l t = Module [Decl s l t]
   deriving (Eq, Show)
 
 data Decl s l t = DataDecl (DeclHead s) [ConDecl s t]
