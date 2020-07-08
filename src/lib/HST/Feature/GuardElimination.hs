@@ -94,22 +94,9 @@ rhsToIf (S.GuardedRhss  _ grhs) next = buildIF next grhs
     -> [S.GuardedRhs s l t]      -- guarded rhs to fold
     -> PM s l t (S.Exp s l t)    -- if then else expr
   buildIF nx gs = foldM
-    (\res x -> extract x >>= \(e1, e2) -> return (S.If B.noSrc e1 e2 res))
+    (\res (S.GuardedRhs _ e1 e2) -> return (S.If B.noSrc e1 e2 res))
     nx
     (reverse gs) -- reverse, since foldM is a foldl with side effect
-
--- Converts a guarded rhs into a pair of a boolean expression and the right side
-extract :: S.GuardedRhs s l t -> PM s l t (S.Exp s l t, S.Exp s l t)
-extract (S.GuardedRhs _ [s] e) = applyGEExp e
-  >>= \a -> return (fromQualifier s, a)
- where
-  fromQualifier :: S.Stmt s l t -> S.Exp s l t
-  fromQualifier (S.Qualifier _ qe) = qe
-  fromQualifier _                  = error "fromQualifier: no Qualifier"
--- TODO
-extract (S.GuardedRhs _ (_ : _) _) =
-  error "Currently only one guard exp allowed"
-extract (S.GuardedRhs _ [] _) = error "GuardedRhss with no guards"
 
 -- Applies guard elimination on an expression converting guarded rhs in cases
 -- into unguarded exps
@@ -144,9 +131,8 @@ applyGEExp e = case e of
   S.List _ es -> do
     es' <- mapM applyGEExp es
     return $ S.List B.noSrc es'
-  S.ListComp _ _ _ -> error "applyGEExp: ListComp not yet supported"
   -- can cause problems if a exp is missing in this case
-  x                -> return x
+  x -> return x
 
 -- Applies guard elimination on alts by using eliminateL
 applyGEAlts :: [S.Alt s l t] -> PM s l t [S.Alt s l t]
@@ -242,10 +228,9 @@ containsGuardedRhsExp e = case e of
   S.If _ e1 e2 e3      -> any containsGuardedRhsExp [e1, e2, e3]
   S.Case _ e' alts ->
     containsGuardedRhsExp e' || any containsGuardedRhsAlt alts
-  S.Tuple _ _ es   -> any containsGuardedRhsExp es
-  S.List _ es      -> any containsGuardedRhsExp es
-  S.ListComp _ _ _ -> error "containsGuardedRhsExp: ListComp not yet supported"
-  _                -> False
+  S.Tuple _ _ es -> any containsGuardedRhsExp es
+  S.List _ es    -> any containsGuardedRhsExp es
+  _              -> False
 
 containsGuardedRhsAlt :: S.Alt s l t -> Bool
 containsGuardedRhsAlt (S.Alt _ _ rhs _) = isGuardedRhs rhs

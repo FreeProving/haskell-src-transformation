@@ -45,7 +45,6 @@ optimize ex = case ex of
     e3' <- optimize e3
     return $ S.If B.noSrc e1' e2' e3'
   S.Case _ e alts  -> optimizeCase e alts
-  S.Do _ _         -> error "optimize : do is not supported"
   S.Tuple _ bxd es -> do
     es' <- mapM optimize es
     return $ S.Tuple B.noSrc bxd es'

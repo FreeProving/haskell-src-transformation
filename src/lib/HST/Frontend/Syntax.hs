@@ -31,7 +31,7 @@ data Rhs s l t = UnGuardedRhs (SrcSpan s) (Exp s l t)
                | GuardedRhss (SrcSpan s) [GuardedRhs s l t]
   deriving (Eq, Show)
 
-data GuardedRhs s l t = GuardedRhs (SrcSpan s) [Stmt s l t] (Exp s l t)
+data GuardedRhs s l t = GuardedRhs (SrcSpan s) (Exp s l t) (Exp s l t)
   deriving (Eq, Show)
 
 data Boxed = Boxed
@@ -48,33 +48,16 @@ data Exp s l t = Var (SrcSpan s) (QName s)
                | Let (SrcSpan s) (Binds s l t) (Exp s l t)
                | If (SrcSpan s) (Exp s l t) (Exp s l t) (Exp s l t)
                | Case (SrcSpan s) (Exp s l t) [Alt s l t]
-               | Do (SrcSpan s) [Stmt s l t]
                | Tuple (SrcSpan s) Boxed [Exp s l t]
                | List (SrcSpan s) [Exp s l t]
                | Paren (SrcSpan s) (Exp s l t)
-               | EnumFrom (SrcSpan s) (Exp s l t)
-               | EnumFromTo (SrcSpan s) (Exp s l t) (Exp s l t)
-               | EnumFromThen (SrcSpan s) (Exp s l t) (Exp s l t)
-               | EnumFromThenTo (SrcSpan s) (Exp s l t) (Exp s l t) (Exp s l t)
-               | ListComp (SrcSpan s) (Exp s l t) [QualStmt s l t]
                | ExpTypeSig (SrcSpan s) (Exp s l t) t
-  deriving (Eq, Show)
-
-data Stmt s l t = Generator (SrcSpan s) (Pat s l) (Exp s l t)
-                | Qualifier (SrcSpan s) (Exp s l t)
-                | LetStmt (SrcSpan s) (Binds s l t)
-                | RecStmt (SrcSpan s) [Stmt s l t]
-  deriving (Eq, Show)
-
--- Extensions are missing
-data QualStmt s l t = QualStmt (SrcSpan s) (Stmt s l t)
   deriving (Eq, Show)
 
 data Alt s l t = Alt (SrcSpan s) (Pat s l) (Rhs s l t) (Maybe (Binds s l t))
   deriving (Eq, Show)
 
 data Pat s l = PVar (SrcSpan s) (Name s)
-             | PLit (SrcSpan s) (Sign s) l
              | PInfixApp (SrcSpan s) (Pat s l) (QName s) (Pat s l)
              | PApp (SrcSpan s) (QName s) [Pat s l]
              | PTuple (SrcSpan s) Boxed [Pat s l]

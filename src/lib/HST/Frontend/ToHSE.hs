@@ -96,8 +96,27 @@ transformGuardedRhs
        (HSE.Literal Src.SrcSpanInfo)
        (HSE.Type Src.SrcSpanInfo)
   -> HSE.GuardedRhs Src.SrcSpanInfo
-transformGuardedRhs (S.GuardedRhs s stmts e) =
-  HSE.GuardedRhs (transformSrcSpan s) (map transformStmt stmts) (transformExp e)
+transformGuardedRhs (S.GuardedRhs s ge e) = HSE.GuardedRhs
+  (transformSrcSpan s)
+  [HSE.Qualifier (transformSrcSpan (getSrcExp ge)) (transformExp ge)]
+  (transformExp e)
+ where
+  getSrcExp :: S.Exp s l t -> S.SrcSpan s
+  getSrcExp (S.Var src _         ) = src
+  getSrcExp (S.Con src _         ) = src
+  getSrcExp (S.Lit src _         ) = src
+  getSrcExp (S.InfixApp src _ _ _) = src
+  getSrcExp (S.App    src _ _    ) = src
+  getSrcExp (S.NegApp src _      ) = src
+  getSrcExp (S.Lambda src _ _    ) = src
+  getSrcExp (S.Let    src _ _    ) = src
+  getSrcExp (S.If src _ _ _      ) = src
+  getSrcExp (S.Case  src _ _     ) = src
+  getSrcExp (S.Tuple src _ _     ) = src
+  getSrcExp (S.List  src _       ) = src
+  getSrcExp (S.Paren src _       ) = src
+  getSrcExp (S.ExpTypeSig src _ _) = src
+
 
 transformBoxed :: S.Boxed -> HSE.Boxed
 transformBoxed S.Boxed   = HSE.Boxed
@@ -131,54 +150,13 @@ transformExp (S.If s e1 e2 e3) = HSE.If (transformSrcSpan s)
                                         (transformExp e3)
 transformExp (S.Case s e alts) =
   HSE.Case (transformSrcSpan s) (transformExp e) (map transformAlt alts)
-transformExp (S.Do s stmts) =
-  HSE.Do (transformSrcSpan s) (map transformStmt stmts)
 transformExp (S.Tuple s bxd es) =
   HSE.Tuple (transformSrcSpan s) (transformBoxed bxd) (map transformExp es)
 transformExp (S.List s es) =
   HSE.List (transformSrcSpan s) (map transformExp es)
 transformExp (S.Paren s e) = HSE.Paren (transformSrcSpan s) (transformExp e)
-transformExp (S.EnumFrom s e) =
-  HSE.EnumFrom (transformSrcSpan s) (transformExp e)
-transformExp (S.EnumFromTo s e1 e2) =
-  HSE.EnumFromTo (transformSrcSpan s) (transformExp e1) (transformExp e2)
-transformExp (S.EnumFromThen s e1 e2) =
-  HSE.EnumFromThen (transformSrcSpan s) (transformExp e1) (transformExp e2)
-transformExp (S.EnumFromThenTo s e1 e2 e3) = HSE.EnumFromThenTo
-  (transformSrcSpan s)
-  (transformExp e1)
-  (transformExp e2)
-  (transformExp e3)
-transformExp (S.ListComp s e qStmts) = HSE.ListComp
-  (transformSrcSpan s)
-  (transformExp e)
-  (map transformQualStmt qStmts)
 transformExp (S.ExpTypeSig s e typ) =
   HSE.ExpTypeSig (transformSrcSpan s) (transformExp e) typ
-
-transformStmt
-  :: S.Stmt
-       Src.SrcSpanInfo
-       (HSE.Literal Src.SrcSpanInfo)
-       (HSE.Type Src.SrcSpanInfo)
-  -> HSE.Stmt Src.SrcSpanInfo
-transformStmt (S.Generator s pat e) =
-  HSE.Generator (transformSrcSpan s) (transformPat pat) (transformExp e)
-transformStmt (S.Qualifier s e) =
-  HSE.Qualifier (transformSrcSpan s) (transformExp e)
-transformStmt (S.LetStmt s binds) =
-  HSE.LetStmt (transformSrcSpan s) (transformBinds binds)
-transformStmt (S.RecStmt s stmts) =
-  HSE.RecStmt (transformSrcSpan s) (map transformStmt stmts)
-
-transformQualStmt
-  :: S.QualStmt
-       Src.SrcSpanInfo
-       (HSE.Literal Src.SrcSpanInfo)
-       (HSE.Type Src.SrcSpanInfo)
-  -> HSE.QualStmt Src.SrcSpanInfo
-transformQualStmt (S.QualStmt s stmt) =
-  HSE.QualStmt (transformSrcSpan s) (transformStmt stmt)
 
 transformAlt
   :: S.Alt
@@ -196,8 +174,6 @@ transformPat
   -> HSE.Pat Src.SrcSpanInfo
 transformPat (S.PVar s name) =
   HSE.PVar (transformSrcSpan s) (transformName name)
-transformPat (S.PLit s sign lit) =
-  HSE.PLit (transformSrcSpan s) (transformSign sign) lit
 transformPat (S.PInfixApp s pat1 qName pat2) = HSE.PInfixApp
   (transformSrcSpan s)
   (transformPat pat1)

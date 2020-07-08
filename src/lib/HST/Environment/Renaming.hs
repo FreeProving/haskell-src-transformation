@@ -56,9 +56,8 @@ instance TermSubst S.Exp where
     S.Tuple l bxd es   -> S.Tuple l bxd (map (substitute s) es)
     S.List  l es       -> S.List l (map (substitute s) es)
     S.Paren l e        -> S.Paren l (substitute s e)
-    S.ListComp   _ _ _ -> error "TermSubst: List comp is not supported"
     S.ExpTypeSig l e t -> S.ExpTypeSig l (substitute s e) t
-    _                    -> error "TermSubst: Exp caused an error"
+    _                  -> error "TermSubst: Exp caused an error"
 
 -- | 'TermSubst' instance for @case@ expression alternatives.
 --
@@ -91,14 +90,13 @@ instance Rename (S.Exp s l t) where
     S.App    l e1 e2       -> S.App l (rename s e1) (rename s e2)
     S.Lambda l ps e        -> S.Lambda l (map (rename s) ps) (rename s e)
     S.Let    l b  e        -> S.Let l b $ rename s e
-    S.If l e1 e2 e3 -> S.If l (rename s e1) (rename s e2) (rename s e3)
+    S.If l e1 e2 e3        -> S.If l (rename s e1) (rename s e2) (rename s e3)
     S.Case  l e   as       -> S.Case l (rename s e) (map (rename s) as)
     S.Tuple l bxd es       -> S.Tuple l bxd (map (rename s) es)
     S.List  l es           -> S.List l (map (rename s) es)
     S.Paren l e            -> S.Paren l (rename s e)
-    S.ListComp   _ _ _     -> error "Rename: List comp is not supported"
     S.ExpTypeSig l e t     -> S.ExpTypeSig l (rename s e) t
-    _                        -> error "Rename: Exp caused an error"
+    _                      -> error "Rename: Exp caused an error"
 
 -- | 'Rename' instance for optionally qualified variable names.
 instance Rename (S.QName s) where
@@ -132,7 +130,6 @@ instance Rename (S.Pat s l) where
     S.PList  l ps       -> S.PList l (map (rename s) ps)
     S.PParen l p        -> S.PParen l $ rename s p
     S.PWildCard l       -> S.PWildCard l
-    _                     -> error "Rename: Pat caused an error"
 
 -- | 'Rename' instance for right-hand sides.
 --

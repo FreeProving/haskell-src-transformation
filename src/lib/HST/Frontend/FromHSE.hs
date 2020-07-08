@@ -73,8 +73,10 @@ transformRhs (HSE.GuardedRhss s grhss) =
 
 transformGuardedRhs
   :: HSE.GuardedRhs s -> S.GuardedRhs s (HSE.Literal s) (HSE.Type s)
-transformGuardedRhs (HSE.GuardedRhs s stmts e) =
-  S.GuardedRhs (transformSrcSpan s) (map transformStmt stmts) (transformExp e)
+transformGuardedRhs (HSE.GuardedRhs s [HSE.Qualifier _ ge] e) =
+  S.GuardedRhs (transformSrcSpan s) (transformExp ge) (transformExp e)
+transformGuardedRhs _ =
+  error "Only boolean expressions are supported as statements"
 
 transformBoxed :: HSE.Boxed -> S.Boxed
 transformBoxed HSE.Boxed   = S.Boxed
@@ -103,46 +105,14 @@ transformExp (HSE.If s e1 e2 e3) = S.If (transformSrcSpan s)
                                         (transformExp e3)
 transformExp (HSE.Case s e alts) =
   S.Case (transformSrcSpan s) (transformExp e) (map transformAlt alts)
-transformExp (HSE.Do s stmts) =
-  S.Do (transformSrcSpan s) (map transformStmt stmts)
 transformExp (HSE.Tuple s bxd es) =
   S.Tuple (transformSrcSpan s) (transformBoxed bxd) (map transformExp es)
 transformExp (HSE.List s es) =
   S.List (transformSrcSpan s) (map transformExp es)
 transformExp (HSE.Paren s e) = S.Paren (transformSrcSpan s) (transformExp e)
-transformExp (HSE.EnumFrom s e) =
-  S.EnumFrom (transformSrcSpan s) (transformExp e)
-transformExp (HSE.EnumFromTo s e1 e2) =
-  S.EnumFromTo (transformSrcSpan s) (transformExp e1) (transformExp e2)
-transformExp (HSE.EnumFromThen s e1 e2) =
-  S.EnumFromThen (transformSrcSpan s) (transformExp e1) (transformExp e2)
-transformExp (HSE.EnumFromThenTo s e1 e2 e3) = S.EnumFromThenTo
-  (transformSrcSpan s)
-  (transformExp e1)
-  (transformExp e2)
-  (transformExp e3)
-transformExp (HSE.ListComp s e qStmts) = S.ListComp
-  (transformSrcSpan s)
-  (transformExp e)
-  (map transformQualStmt qStmts)
 transformExp (HSE.ExpTypeSig s e typ) =
   S.ExpTypeSig (transformSrcSpan s) (transformExp e) typ
 transformExp _ = error "Unsupported Expression type"
-
-transformStmt :: HSE.Stmt s -> S.Stmt s (HSE.Literal s) (HSE.Type s)
-transformStmt (HSE.Generator s pat e) =
-  S.Generator (transformSrcSpan s) (transformPat pat) (transformExp e)
-transformStmt (HSE.Qualifier s e) =
-  S.Qualifier (transformSrcSpan s) (transformExp e)
-transformStmt (HSE.LetStmt s binds) =
-  S.LetStmt (transformSrcSpan s) (transformBinds binds)
-transformStmt (HSE.RecStmt s stmts) =
-  S.RecStmt (transformSrcSpan s) (map transformStmt stmts)
-
-transformQualStmt :: HSE.QualStmt s -> S.QualStmt s (HSE.Literal s) (HSE.Type s)
-transformQualStmt (HSE.QualStmt s stmt) =
-  S.QualStmt (transformSrcSpan s) (transformStmt stmt)
-transformQualStmt _ = error "List Comprehension Extensions are not supported"
 
 transformAlt :: HSE.Alt s -> S.Alt s (HSE.Literal s) (HSE.Type s)
 transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
@@ -153,8 +123,6 @@ transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
 transformPat :: HSE.Pat s -> S.Pat s (HSE.Literal s)
 transformPat (HSE.PVar s name) =
   S.PVar (transformSrcSpan s) (transformName name)
-transformPat (HSE.PLit s sign lit) =
-  S.PLit (transformSrcSpan s) (transformSign sign) lit
 transformPat (HSE.PInfixApp s pat1 qName pat2) = S.PInfixApp
   (transformSrcSpan s)
   (transformPat pat1)

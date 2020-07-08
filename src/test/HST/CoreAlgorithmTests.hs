@@ -10,7 +10,7 @@ import           Test.Hspec                     ( Spec
                                                 )
 import           Test.HUnit.Base                ( assertFailure )
 
-import qualified HST.CoreAlgorithm              ( compareCons )
+import           HST.CoreAlgorithm              ( compareCons )
 import           HST.Frontend.FromHSE          as FHSE
 
 -- | Tests for the "Algo" module.
