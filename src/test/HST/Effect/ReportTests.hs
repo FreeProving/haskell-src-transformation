@@ -88,6 +88,7 @@ testReportToOutputOrCancel = context "reportToOutputOrCancel" $ do
     outputRun comp `shouldBe` ([msg1, msg2], Just 42)
   where outputRun = run . runOutputList . runCancel . reportToOutputOrCancel
 
+-- | Test group for 'filterReportedMessages' tests.
 testFilterReportedMessages :: Spec
 testFilterReportedMessages = context "filterReportedMessages" $ do
   it "should report nothing if predicate is always false" $ do
