@@ -20,8 +20,8 @@ transformModule (HSE.Module srcS mmh pragmas impDecls oDecls) (S.Module aDecls)
     impDecls
     (combineDecls oDecls (map transformDecl (filter isFun aDecls)))
  where
-  isFun (S.FunBind _ _    ) = True
-  isFun _                   = False
+  isFun (S.FunBind _ _) = True
+  isFun _               = False
   combineDecls (HSE.FunBind _ _ : oDecls') (aDecl : aDecls') =
     aDecl : combineDecls oDecls' aDecls'
   combineDecls (HSE.PatBind _ _ _ _ : oDecls') (aDecl : aDecls') =

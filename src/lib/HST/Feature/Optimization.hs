@@ -97,10 +97,10 @@ renameAndOpt pat alts =
       sameCons = filter (\(p, _) -> cheatEq (getQNamePat p) patQ) aPaR
   in  case sameCons of
         []           -> error "Found name in case, but in alts"
-            {- $  "Found in case but not found in alts : Tried"
-            ++ show patQ
-            ++ " Searched in "
-            ++ show (map fst aPaR) -}
+            -- $  "Found in case but not found in alts : Tried"
+            -- ++ show patQ
+            -- ++ " Searched in "
+            -- ++ show (map fst aPaR)
         ((p, r) : _) -> do
           let e  = selectExp r
               p1 = selectPats pat
