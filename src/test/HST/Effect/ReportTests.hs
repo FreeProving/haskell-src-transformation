@@ -1,3 +1,5 @@
+-- | This module contains tests for "HST.Effect.Cancel".
+
 module HST.Effect.ReportTests
   ( testReportEffect
   )
@@ -24,11 +26,12 @@ import           Test.Hspec                     ( Spec
                                                 )
 
 
-
+-- | Test group for interpreters of the 'HST.Effect.Report.Report' effect
 testReportEffect :: Spec
 testReportEffect = describe "HST.Effect.Report" $ do
   testRunReport
 
+-- | Test group for 'runReport' tests
 testRunReport :: Spec
 testRunReport = context "runReport" $ do
   it "returns Just a value and no messages if nothing is reported" $ do
