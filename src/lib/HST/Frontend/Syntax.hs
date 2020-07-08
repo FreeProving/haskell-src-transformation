@@ -1,5 +1,9 @@
 module HST.Frontend.Syntax where
 
+-------------------------------------------------------------------------------
+-- AST Data Structure                                                        --
+-------------------------------------------------------------------------------
+
 data Module s l t = Module [Decl s l t]
   deriving (Eq, Show)
 
@@ -100,6 +104,17 @@ data SrcSpan s = SrcSpan s
 
 instance Eq (SrcSpan s) where
   _ == _ = True
+
+-------------------------------------------------------------------------------
+-- Construction and Destruction Functions                                    --
+-------------------------------------------------------------------------------
+
+var :: Name s -> Exp s l t
+var n@(Ident s _) = Var s (UnQual s n)
+var n@(Symbol s _) = Var s (UnQual s n)
+
+alt :: Pat s l -> Exp s l t -> Alt s l t
+alt pat e = Alt (getSrcPat pat) pat (UnGuardedRhs (getSrcExp e) e) Nothing
 
 getSrcExp :: Exp s l t -> SrcSpan s
 getSrcExp (Var src _         ) = src

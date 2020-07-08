@@ -34,7 +34,6 @@ import           HST.Environment.Renaming       ( subst
                                                 , substitute
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 --import qualified Language.Haskell.Exts.Pretty  as P
 
 
@@ -149,7 +148,7 @@ makeRhs x xs eqs er = do
 
 -- | Converts the given variable pattern to a variable expression.
 translatePVar :: S.Pat s l -> S.Exp s l t
-translatePVar (S.PVar _ vname) = B.var vname
+translatePVar (S.PVar _ vname) = S.var vname
 translatePVar _ = error "translatePVar: expected variable pattern" --, got" ++ show p)
 
 -- TODO remove redundand types
@@ -176,7 +175,7 @@ computeAlts x xs eqs er = do
       b <- gets trivialCC
       if b
         then -- TODO is 'err' correct? Why not 'er'?
-             return $ alts ++ [B.alt (S.PWildCard S.NoSrcSpan) err]
+             return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) err]
         else do
           z <- createAltsFromConstr x zs er
           -- TODO currently not sorted (reversed)
@@ -253,7 +252,7 @@ createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
         p'   = translateApp p
         pat' = translatePVar pat
         e'   = substitute (tSubst pat' p') e
-    return (B.alt p e')
+    return (S.alt p e')
 
 -- | Groups the given equations based on the constructor matched by their
 --   first pattern.
@@ -339,7 +338,7 @@ computeAlt pat pats er prps@(p : _) = do
   let sub = tSubst (translatePVar pat) (translateApp capp)
   res <- match (nvars ++ pats) nprps (substitute sub er)
   let res' = substitute sub res
-  return (B.alt capp res')
+  return (S.alt capp res')
  where
   f :: Eqs s l t -> PM s l t (Eqs s l t)
   f ([]    , r) = return ([], r) -- potentially unused

@@ -41,7 +41,6 @@ library
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
                     , HST.Frontend.Syntax
-                    , HST.Frontend.Build
                     , HST.Frontend.FromHSE
                     , HST.Frontend.ToHSE
   other-modules:      HST.Environment.Renaming

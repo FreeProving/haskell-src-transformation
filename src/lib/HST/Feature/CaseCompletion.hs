@@ -16,7 +16,6 @@ import           HST.Environment.FreshVars      ( PM
                                                 , newVar
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 
 -- | Takes a given expression and applies the algorithm on it resulting in
 --   completed cases
@@ -32,7 +31,7 @@ completeCase insideLet (S.Case _ expr as) = do
       let (S.Case _ _ resAs) = res
       return $ S.Case S.NoSrcSpan expr resAs  -- test to deconstruct the first case
     else do
-      let a = B.alt v res
+      let a = S.alt v res
       return $ S.Case S.NoSrcSpan expr [a]
 completeCase il (S.InfixApp _ e1 qop e2) = do
   exp1 <- completeCase il e1

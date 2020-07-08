@@ -20,7 +20,6 @@ import           HST.Environment.FreshVars      ( PM
                                                 , newVar
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.Build            as B
 
 type GExp s l t = ([S.Pat s l], S.Rhs s l t)
 
@@ -79,12 +78,12 @@ createCase
 -- createCase i next vps
 --   = foldr (\(v,p) next ->
 --       Case () (A.translatePVar v)
---               [B.alt p res, B.alt B.wildcard next]) i vps
+--               [S.alt p res, S.alt B.wildcard next]) i vps
 createCase i _    []             = i
 createCase i next ((v, p) : vps) = S.Case
   S.NoSrcSpan
   (A.translatePVar v)
-  [B.alt p (createCase i next vps), B.alt (S.PWildCard S.NoSrcSpan) next]
+  [S.alt p (createCase i next vps), S.alt (S.PWildCard S.NoSrcSpan) next]
 
 -- Converts a rhs into an if then else expression as mentioned in the semantics
 rhsToIf
