@@ -26,8 +26,10 @@ data ConDecl s t = ConDecl (Name s) [t]
 data Binds s l t = BDecls (SrcSpan s) [Decl s l t]
   deriving (Eq, Show)
 
-data Match s l t = Match (SrcSpan s) (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
-                 | InfixMatch (SrcSpan s) (Pat s l) (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
+data Match s l t
+  = Match (SrcSpan s) (Name s) [Pat s l] (Rhs s l t) (Maybe (Binds s l t))
+  | InfixMatch (SrcSpan s) (Pat s l) (Name s) [Pat s l]
+               (Rhs s l t) (Maybe (Binds s l t))
   deriving (Eq, Show)
 
 data Rhs s l t = UnGuardedRhs (SrcSpan s) (Exp s l t)
@@ -110,7 +112,7 @@ instance Eq (SrcSpan s) where
 -------------------------------------------------------------------------------
 
 var :: Name s -> Exp s l t
-var n@(Ident s _) = Var s (UnQual s n)
+var n@(Ident  s _) = Var s (UnQual s n)
 var n@(Symbol s _) = Var s (UnQual s n)
 
 alt :: Pat s l -> Exp s l t -> Alt s l t
