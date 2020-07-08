@@ -10,7 +10,6 @@ where
 import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , Eqs
-                                                , isPVar
                                                 )
 import           HST.Environment.FreshVars      ( PM
                                                 , newVars
@@ -94,12 +93,6 @@ applyCCDecl :: (Eq l, Eq t) => Bool -> S.Decl s l t -> PM s l t (S.Decl s l t)
 applyCCDecl insideLet (S.FunBind _ ms) = do
   nms <- applyCCMatches insideLet ms
   return (S.FunBind B.noSrc nms)
-applyCCDecl insideLet (S.PatBind _ p r _) = if isPVar p
-  then do
-    let e = (\(S.UnGuardedRhs _ x) -> x) r
-    e' <- completeCase insideLet e
-    return $ S.PatBind B.noSrc p (S.UnGuardedRhs B.noSrc e') B.noBinds
-  else error "Toplevel PatBind with no Variable"
 applyCCDecl _ v = return v
 
 applyCCMatches

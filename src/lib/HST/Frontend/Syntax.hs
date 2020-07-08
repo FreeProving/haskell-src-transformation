@@ -6,7 +6,6 @@ data Module s l t = Module [Decl s l t]
 data Decl s l t = DataDecl (DeclHead s) [ConDecl s t]
                 | TypeSig (SrcSpan s) [Name s] t
                 | FunBind (SrcSpan s) [Match s l t]
-                | PatBind (SrcSpan s) (Pat s l) (Rhs s l t) (Maybe (Binds s l t))
   deriving (Eq, Show)
 
 data DeclHead s = DHead (Name s)

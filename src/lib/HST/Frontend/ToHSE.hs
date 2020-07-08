@@ -18,11 +18,10 @@ transformModule (HSE.Module srcS mmh pragmas impDecls oDecls) (S.Module aDecls)
     mmh
     pragmas
     impDecls
-    (combineDecls oDecls (map transformDecl (filter isFunOrPat aDecls)))
+    (combineDecls oDecls (map transformDecl (filter isFun aDecls)))
  where
-  isFunOrPat (S.FunBind _ _    ) = True
-  isFunOrPat (S.PatBind _ _ _ _) = True
-  isFunOrPat _                   = False
+  isFun (S.FunBind _ _    ) = True
+  isFun _                   = False
   combineDecls (HSE.FunBind _ _ : oDecls') (aDecl : aDecls') =
     aDecl : combineDecls oDecls' aDecls'
   combineDecls (HSE.PatBind _ _ _ _ : oDecls') (aDecl : aDecls') =
@@ -44,11 +43,6 @@ transformDecl (S.TypeSig s names typ) =
   HSE.TypeSig (transformSrcSpan s) (map transformName names) typ
 transformDecl (S.FunBind s matches) =
   HSE.FunBind (transformSrcSpan s) (map transformMatch matches)
-transformDecl (S.PatBind s pat rhs mBinds) = HSE.PatBind
-  (transformSrcSpan s)
-  (transformPat pat)
-  (transformRhs rhs)
-  (fmap transformBinds mBinds)
 
 transformBinds
   :: S.Binds

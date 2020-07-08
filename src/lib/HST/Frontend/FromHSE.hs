@@ -20,11 +20,9 @@ transformDecl (HSE.TypeSig s names typ) =
   Just (S.TypeSig (transformSrcSpan s) (map transformName names) typ)
 transformDecl (HSE.FunBind s matches) =
   Just (S.FunBind (transformSrcSpan s) (map transformMatch matches))
-transformDecl (HSE.PatBind s pat rhs mBinds) = Just
-  (S.PatBind (transformSrcSpan s)
-             (transformPat pat)
-             (transformRhs rhs)
-             (fmap transformBinds mBinds)
+transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = Just
+  (S.FunBind (transformSrcSpan s)
+             [transformMatch (HSE.Match s name [] rhs mBinds)]
   )
 transformDecl _ = Nothing
 

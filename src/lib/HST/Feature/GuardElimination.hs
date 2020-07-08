@@ -39,7 +39,10 @@ eliminateL vs err eqs = do
   return $ S.Let B.noSrc (B.binds (errDecl : decls)) (A.translatePVar startVar)
 
 toDecl :: S.Pat s l -> S.Exp s l t -> S.Decl s l t
-toDecl p e = S.PatBind B.noSrc p (S.UnGuardedRhs B.noSrc e) B.noBinds
+toDecl (S.PVar _ name) e = S.FunBind
+  B.noSrc
+  [S.Match B.noSrc name [] (S.UnGuardedRhs B.noSrc e) B.noBinds]
+toDecl _ _ = error "GuardElimination.toDecl: Variable pattern expected"
 
 -- Folds the list of GExps to declarations.
 foldGEqs
