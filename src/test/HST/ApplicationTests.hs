@@ -1,4 +1,4 @@
--- | This module contains basic tests for 'haskell-source-transformations'
+-- | This module contains basic tests for 'HST.Application'
 module HST.ApplicationTests
   ( applicationTests
   )
@@ -6,6 +6,7 @@ where
 
 import           Test.Hspec                     ( Spec
                                                 , Expectation
+                                                , context
                                                 , describe
                                                 , it
                                                 , shouldBe
@@ -31,7 +32,7 @@ import           HST.Environment.FreshVars      ( PMState(..)
 
 -- | Test group for basic unit tests
 applicationTests :: Spec
-applicationTests = describe "Basic unit tests" tests
+applicationTests = describe "HST.Application" testProcessModule
 
 -- | Parses a given string to a module and fails if parsing is not
 --   successful.
@@ -51,10 +52,11 @@ defaultState = PMState { nextId      = 0
                        }
 
 -- | Test cases for 'processModule'.
-tests :: Spec
-tests = do
+testProcessModule :: Spec
+testProcessModule = context "processModule" $ do
   it "should accept a simple function" $ do
-    mod1 <- parseTestModule "module A where\nf :: a -> a\nf x = x"
+    mod1 <- parseTestModule
+      $ unlines ["module A where", "f :: a -> a", "f x = x"]
     let mod2 = evalPM (processModule mod1) defaultState
     mod2 `prettyShouldBe` mod1
   it "should transform pattern matching into case expressions" $ do
@@ -86,15 +88,12 @@ tests = do
       ]
     mod2 `prettyShouldBe` expected
   it "should accept a simple guarded expression" $ do
-    mod1 <-
-      parseTestModule
-      $  "module A where\n"
-      ++ "id :: a -> a\n"
-      ++ "id x | otherwise = x"
+    mod1 <- parseTestModule
+      $ unlines ["module A where", "id :: a -> a", "id x | otherwise = x"]
     let mod2 = evalPM (processModule mod1) defaultState
     expected <- parseTestModule $ unlines
-      [ "module A where\n"
-      , "id :: a -> a\n"
+      [ "module A where"
+      , "id :: a -> a"
       , "id a0 = let a2 = undefined"
       , "            a1 = case a0 of"
       , "              a3 -> if otherwise then a3"
@@ -104,24 +103,24 @@ tests = do
     mod2 `prettyShouldBe` expected
   it "should accept a more complex guarded function" $ do
     mod1 <- parseTestModule $ unlines
-      [ "module A where\n"
+      [ "module A where"
       , "useless :: (a -> Bool) -> a -> a -> a"
       , "useless p x y | p x       = x"
       , "              | otherwise = y"
       ]
     let mod2 = evalPM (processModule mod1) defaultState
     expected <- parseTestModule $ unlines
-      [ "module A where\n"
+      [ "module A where"
       , "useless :: (a -> Bool) -> a -> a -> a"
-      , "useless a0 a1 a2 = let"
-      , "                     a4 = undefined"
-      , "                     a3 = case a0 of"
-      , "                       a5 -> case a1 of"
-      , "                        a6 -> case a2 of"
-      , "                         a7 -> if a5 a6 then a6"
-      , "                               else if otherwise then a7"
-      , "                                    else a4"
-      , "                   in a3"
+      , "useless a0 a1 a2 ="
+      , "  let a4 = undefined"
+      , "      a3 = case a0 of"
+      , "        a5 -> case a1 of"
+      , "          a6 -> case a2 of"
+      , "            a7 -> if a5 a6 then a6"
+      , "                           else if otherwise then a7"
+      , "                                             else a4"
+      , "  in a3"
       ]
     mod2 `prettyShouldBe` expected
 
@@ -132,8 +131,4 @@ tests = do
 -- | Pretty prints both values and tests whether the resulting strings are
 --   equal modulo whitespace.
 prettyShouldBe :: (Pretty a, Pretty b) => a -> b -> Expectation
-prettyShouldBe x y =
-  let discardWhitespace = unwords . words
-      prettyX           = discardWhitespace (prettyPrint x)
-      prettyY           = discardWhitespace (prettyPrint y)
-  in  prettyX `shouldBe` prettyY
+prettyShouldBe x y = prettyPrint x `shouldBe` prettyPrint y
