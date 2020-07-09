@@ -30,7 +30,7 @@ import           HST.Environment.FreshVars      ( PMState(..)
                                                 , evalPM
                                                 )
 
--- | Tests for the 'HST.Application' module.
+-- | Tests for the "HST.Application" module.
 applicationTests :: Spec
 applicationTests = describe "HST.Application" testProcessModule
 
