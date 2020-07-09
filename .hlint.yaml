@@ -14,5 +14,5 @@
 - ignore: {name: "Redundant $"}
 - ignore: {name: "Redundant do"}
 
-# Duplication makes the test code easier to read
+# Duplication makes the test code easier to read.
 - ignore: {name: "Reduce duplication", within: ["HST.Effect.ReportTests"]}
