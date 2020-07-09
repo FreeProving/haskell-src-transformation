@@ -147,10 +147,6 @@ transformPat (HSE.PList s pats) =
 transformPat (HSE.PWildCard s) = S.PWildCard (transformSrcSpan s)
 transformPat _                 = error "Unsupported Pattern type"
 
-transformSign :: HSE.Sign Src.SrcSpanInfo -> S.Sign HSE
-transformSign (HSE.Signless s) = S.Signless (transformSrcSpan s)
-transformSign (HSE.Negative s) = S.Negative (transformSrcSpan s)
-
 transformModuleName :: HSE.ModuleName Src.SrcSpanInfo -> S.ModuleName HSE
 transformModuleName (HSE.ModuleName s name) =
   S.ModuleName (transformSrcSpan s) name

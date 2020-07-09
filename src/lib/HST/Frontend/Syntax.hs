@@ -140,11 +140,6 @@ data Pat a = PVar (SrcSpan a) (Name a)
   deriving Eq
 deriving instance ShowAST a => Show (Pat a)
 
-data Sign a = Signless (SrcSpan a)
-            | Negative (SrcSpan a)
-  deriving Eq
-deriving instance ShowAST a => Show (Sign a)
-
 -- | A name of a Haskell module used in a qualified name.
 data ModuleName a = ModuleName (SrcSpan a) String
   deriving Eq

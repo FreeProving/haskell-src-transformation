@@ -125,10 +125,6 @@ transformPat (S.PList s pats) =
   HSE.PList (transformSrcSpan s) (map transformPat pats)
 transformPat (S.PWildCard s) = HSE.PWildCard (transformSrcSpan s)
 
-transformSign :: S.Sign HSE -> HSE.Sign Src.SrcSpanInfo
-transformSign (S.Signless s) = HSE.Signless (transformSrcSpan s)
-transformSign (S.Negative s) = HSE.Negative (transformSrcSpan s)
-
 transformModuleName :: S.ModuleName HSE -> HSE.ModuleName Src.SrcSpanInfo
 transformModuleName (S.ModuleName s name) =
   HSE.ModuleName (transformSrcSpan s) name
