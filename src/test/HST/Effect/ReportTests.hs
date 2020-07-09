@@ -1,4 +1,4 @@
--- | This module contains tests for "HST.Effect.Cancel".
+-- | This module contains tests for "HST.Effect.Report".
 
 module HST.Effect.ReportTests
   ( testReportEffect
