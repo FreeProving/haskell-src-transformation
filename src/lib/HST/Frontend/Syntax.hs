@@ -22,19 +22,19 @@ module HST.Frontend.Syntax where
 -- | Type family for the type of source spans.
 type family SrcSpanType a
 
--- | Type family for the type of 'Integer', 'String' and other literals.
+-- | Type family for the type of @Integer@, @String@ and other literals.
 type family Literal a
 
 -- | Type family for the type of type expressions.
 type family TypeExp a
 
--- | Wrapper class for the 'Eq' instance of ASTs.
+-- | Wrapper class for the @Eq@ instance of ASTs.
 --
---   Note that source span information is not compared when using '==' on AST
+--   Note that source span information is not compared when using @==@ on AST
 --   constructs.
 class (Eq (Literal a), Eq (TypeExp a)) => EqAST a
 
--- | Wrapper class for the 'Show' instance of ASTs.
+-- | Wrapper class for the @Show@ instance of ASTs.
 class (Show (SrcSpanType a), Show (Literal a), Show (TypeExp a)) => ShowAST a
 
 -- | A representation of a Haskell module.
@@ -181,7 +181,7 @@ data SrcSpan a = SrcSpan (SrcSpanType a)
                | NoSrcSpan
 deriving instance ShowAST a => Show (SrcSpan a)
 
--- | Custom equality for 'SrcSpan' which always returns @True@.
+-- | Custom equality instance for 'SrcSpan' which always returns @True@.
 instance Eq (SrcSpan a) where
   _ == _ = True
 
