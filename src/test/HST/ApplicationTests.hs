@@ -1,4 +1,4 @@
--- | This module contains basic tests for 'HST.Application'.
+-- | This module contains basic tests for "HST.Application".
 module HST.ApplicationTests
   ( applicationTests
   )
