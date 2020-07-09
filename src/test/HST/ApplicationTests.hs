@@ -1,4 +1,4 @@
--- | This module contains basic tests for 'HST.Application'
+-- | This module contains basic tests for 'HST.Application'.
 module HST.ApplicationTests
   ( applicationTests
   )
@@ -30,7 +30,7 @@ import           HST.Environment.FreshVars      ( PMState(..)
                                                 , evalPM
                                                 )
 
--- | Test group for basic unit tests
+-- | Tests for the 'HST.Application' module.
 applicationTests :: Spec
 applicationTests = describe "HST.Application" testProcessModule
 
