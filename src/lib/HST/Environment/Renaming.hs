@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | This module contains definitions for substitutions of variables.
 
 module HST.Environment.Renaming where
@@ -32,7 +30,7 @@ type TSubst a
 
 -- Smart constructor for 'TSubst' that creates a substitution that replaces
 -- the given variable expression (first argument) with the second expression.
-tSubst :: Eq (S.Exp a) => S.Exp a -> S.Exp a -> TSubst a
+tSubst :: S.EqAST a => S.Exp a -> S.Exp a -> TSubst a
 tSubst vE tE = \v -> if v == vE then tE else v
 
 -- | Type class for AST nodes of type @c@ a 'TSubst' can be applied to.

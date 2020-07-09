@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | This module contains methods for optimizing expressions by removing
 --   unnecessary nested case expressions.
 
@@ -24,7 +22,7 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
-optimize :: Eq (S.Exp a) => S.Exp a -> PM a (S.Exp a)
+optimize :: S.EqAST a => S.Exp a -> PM a (S.Exp a)
 optimize ex = case ex of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- optimize e1
@@ -63,7 +61,7 @@ optimize ex = case ex of
 --   If the scrutinee is a variable that has been matched already, the
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
-optimizeCase :: Eq (S.Exp a) => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
+optimizeCase :: S.EqAST a => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
 optimizeCase e alts
   | isVarExp e = do
     mpats <- gets matchedPat
@@ -88,7 +86,7 @@ isVarExp _           = False
 --   alternative to the names of the corresponding variable patterns of the
 --   given pattern and applies 'optimize'.
 renameAndOpt
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => S.Pat a   -- ^ A pattern of a parent @case@ expression on the same scrutinee.
   -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
   -> PM a (S.Exp a)
@@ -144,13 +142,13 @@ renameAll ((from, to) : r) e = do
 --
 --   While an alternative is optimized, the state contains a 'matchedPat'
 --   entry for the current pair of scrutinee and pattern.
-addAndOpt :: Eq (S.Exp a) => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
+addAndOpt :: S.EqAST a => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
 addAndOpt e alts = do
   alts' <- mapM (bindAndOpt e) alts
   return $ S.Case S.NoSrcSpan e alts'
  where
   -- uses the list of Exp Pat as a stack
-  bindAndOpt :: Eq (S.Exp a) => S.Exp a -> S.Alt a -> PM a (S.Alt a)
+  bindAndOpt :: S.EqAST a => S.Exp a -> S.Alt a -> PM a (S.Alt a)
   bindAndOpt v a@(S.Alt _ p _ _) = do
     stack <- gets matchedPat
     modify $ \state -> state { matchedPat = (v, p) : stack }
@@ -159,11 +157,11 @@ addAndOpt e alts = do
     return alt'
 
 -- | Applies 'optimizeAlt' to all given @case@ expression alternatives.
-optimizeAlts :: Eq (S.Exp a) => [S.Alt a] -> PM a [S.Alt a]
+optimizeAlts :: S.EqAST a => [S.Alt a] -> PM a [S.Alt a]
 optimizeAlts = mapM optimizeAlt
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
-optimizeAlt :: Eq (S.Exp a) => S.Alt a -> PM a (S.Alt a)
+optimizeAlt :: S.EqAST a => S.Alt a -> PM a (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
   let (S.UnGuardedRhs _ e) = rhs
   e' <- optimize e

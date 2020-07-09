@@ -25,7 +25,8 @@ parseTestPat patStr = case HSE.parsePat patStr of
 
 -- | Sets the expectation that the given patterns should have matching
 --   constructors.
-shouldMatchCons :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
+shouldMatchCons
+  :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
 shouldMatchCons pat1 pat2
   | compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
   = return ()
@@ -39,7 +40,8 @@ shouldMatchCons pat1 pat2
 
 -- | Sets the expectation that the given patterns should not have matching
 --   constructors.
-shouldNotMatchCons :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
+shouldNotMatchCons
+  :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
 shouldNotMatchCons pat1 pat2
   | compareCons (FHSE.transformPat pat1) (FHSE.transformPat pat2)
   = assertFailure

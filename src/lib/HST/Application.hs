@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | This module applies the main pattern-matching compilation algorithm and
 --   the different features to a Haskell module.
 
@@ -33,13 +31,13 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | The function 'useAlgo' applies the algorithm on each declaration in
 --   the module.
-useAlgoModule :: Eq (S.Exp a) => S.Module a -> PM a (S.Module a)
+useAlgoModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
 useAlgoModule (S.Module ds) = do
   dcls <- mapM useAlgoDecl ds
   return $ S.Module dcls
 
 -- | The function 'useAlgoDecl' applies the algorithm on the the FunBinds
-useAlgoDecl :: Eq (S.Exp a) => S.Decl a -> PM a (S.Decl a)
+useAlgoDecl :: S.EqAST a => S.Decl a -> PM a (S.Decl a)
 useAlgoDecl (S.FunBind _ ms) = do
   nms <- useAlgoMatches ms
   return (S.FunBind S.NoSrcSpan nms)
@@ -47,7 +45,7 @@ useAlgoDecl v = return v
 
 -- TODO maybe refactor to fun decl or check if oneFun stuff is needed or
 -- always true
-useAlgoMatches :: Eq (S.Exp a) => [S.Match a] -> PM a [S.Match a]
+useAlgoMatches :: S.EqAST a => [S.Match a] -> PM a [S.Match a]
 useAlgoMatches []       = return []
 useAlgoMatches (m : ms) = do
   let (oneFun, r) = span (GE.comp m) ms
@@ -72,7 +70,7 @@ hasCons _ = True -- False?
 -- | The function 'useAlgo' applies the match function to a list of matches
 --   returning a single Match.
 useAlgo
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => [S.Match a]          -- all matches for one function name
   -> PM a (S.Match a) -- contains one match
 useAlgo ms = do
@@ -145,7 +143,7 @@ fromName (S.Symbol _ str) = str
 -- | The function 'processModule' sequentially applies the different
 --   transformations to the given module after collecting the data types.
 --   Returns a new module with the transformed functions.
-processModule :: Eq (S.Exp a) => S.Module a -> PM a (S.Module a)
+processModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
 processModule m = do
   collectDataInfo m -- TODO  maybe unused
   eliminatedM    <- GE.applyGEModule m

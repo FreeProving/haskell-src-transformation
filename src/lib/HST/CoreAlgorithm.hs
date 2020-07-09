@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 -- | This module contains the actual implementation of the pattern-matching
 --   compilation algorithm.
 
@@ -57,7 +55,7 @@ err =
 --   All equations must have the same number of patterns as the given list
 --   of fresh variable patterns.
 match
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => [S.Pat a] -- ^ Fresh variable patterns.
   -> [Eqs a]   -- ^ The equations of the function declaration.
   -> S.Exp a   -- ^ The error expression for pattern-matching failures.
@@ -127,7 +125,7 @@ isPVar _            = False
 -- | Applies 'match' to every group of equations where the error expression
 --   is the 'match' result of the next group.
 createRekMatch
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => [S.Pat a] -- ^ Fresh variable patterns.
   -> S.Exp a   -- ^ The error expression for pattern-matching failures.
   -> [[Eqs a]] -- ^ Groups of equations (see 'groupPat').
@@ -138,7 +136,7 @@ createRekMatch vars er =
 -- | Creates a case expression that performs pattern matching on the variable
 --   bound by the given variable pattern.
 makeRhs
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => S.Pat a   -- ^ The fresh variable pattern to match.
   -> [S.Pat a] -- ^ The remaing fresh variable patterns.
   -> [Eqs a]   -- ^ The equations.
@@ -162,7 +160,7 @@ translatePVar _ = error "translatePVar: expected variable pattern" --, got" ++ s
 --   If trivial case completion is not enabled, one alternative is added for
 --   every missing constructor.
 computeAlts
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => S.Pat a   -- ^ The variable pattern that binds the matched variable.
   -> [S.Pat a] -- ^ The remaing fresh variable patterns.
   -> [Eqs a]   -- ^ The equations to generate alternatives for.
@@ -234,7 +232,7 @@ getQNamePat _ = error "getQNamePat unsuported Pattern"
 -- | Creates new @case@ expression alternatives for the given missing
 --   constructors.
 createAltsFromConstr
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => S.Pat a         -- ^ The fresh variable matched by the @case@ expression.
   -> [Constructor a] -- ^ The missing constructors to generate alternatives for.
   -> S.Exp a         -- ^ The error expression for pattern-matching failures.
@@ -242,7 +240,7 @@ createAltsFromConstr
 createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
  where
   createAltFromConstr
-    :: Eq (S.Exp a) => S.Pat a -> S.Exp a -> Constructor a -> PM a (S.Alt a)
+    :: S.EqAST a => S.Pat a -> S.Exp a -> Constructor a -> PM a (S.Alt a)
   createAltFromConstr pat e (qn, ar, b) = do
     nvars <- newVars ar
     let p | b         = S.PInfixApp S.NoSrcSpan (head nvars) qn (nvars !! 1)
@@ -322,7 +320,7 @@ consName _               = error "consName: unsupported pattern" -- \"" ++ P.pre
 --   termination check of the free-compiler and can probably be removed
 --   once sharing is implemented.
 computeAlt
-  :: Eq (S.Exp a)
+  :: S.EqAST a
   => S.Pat a   -- ^ The variable pattern that binds the matched variable.
   -> [S.Pat a] -- ^ The remaing fresh variable patterns.
   -> S.Exp a   -- ^ The error expression for pattern-matching failures.

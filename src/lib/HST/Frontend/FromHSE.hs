@@ -1,6 +1,4 @@
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 module HST.Frontend.FromHSE where
 
@@ -18,35 +16,8 @@ type instance S.SrcSpanType HSE = Src.SrcSpanInfo
 type instance S.Literal HSE = HSE.Literal Src.SrcSpanInfo
 type instance S.TypeExp HSE = HSE.Type Src.SrcSpanInfo
 
-deriving instance Eq (S.Module HSE)
-deriving instance Eq (S.Decl HSE)
-deriving instance Eq (S.DeclHead HSE)
-deriving instance Eq (S.ConDecl HSE)
-deriving instance Eq (S.Binds HSE)
-deriving instance Eq (S.Match HSE)
-deriving instance Eq (S.Rhs HSE)
-deriving instance Eq (S.GuardedRhs HSE)
-deriving instance Eq (S.Exp HSE)
-deriving instance Eq (S.Alt HSE)
-
-deriving instance Show (S.Module HSE)
-deriving instance Show (S.Decl HSE)
-deriving instance Show (S.DeclHead HSE)
-deriving instance Show (S.ConDecl HSE)
-deriving instance Show (S.Binds HSE)
-deriving instance Show (S.Match HSE)
-deriving instance Show (S.Rhs HSE)
-deriving instance Show (S.GuardedRhs HSE)
-deriving instance Show (S.Exp HSE)
-deriving instance Show (S.Alt HSE)
-deriving instance Show (S.Pat HSE)
-deriving instance Show (S.Sign HSE)
-deriving instance Show (S.ModuleName HSE)
-deriving instance Show (S.QName HSE)
-deriving instance Show (S.Name HSE)
-deriving instance Show (S.QOp HSE)
-deriving instance Show (S.SpecialCon HSE)
-deriving instance Show (S.SrcSpan HSE)
+instance S.EqAST HSE
+instance S.ShowAST HSE
 
 transformModule :: HSE.Module Src.SrcSpanInfo -> S.Module HSE
 transformModule (HSE.Module _ _ _ _ decls) =
