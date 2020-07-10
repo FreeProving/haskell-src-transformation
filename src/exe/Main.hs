@@ -9,7 +9,6 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
-import           Control.Monad                  ( void )
 import           Data.List.Extra                ( splitOn )
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
@@ -66,10 +65,8 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , opt
                                                 , evalPM
                                                 )
-
--------------------------------------------------------------------------------
--- Command Line Options                                                      --
--------------------------------------------------------------------------------
+import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | A data type that contains the parsed command line options.
 data Options = Options
@@ -228,9 +225,11 @@ processInputFile
   :: Members '[Report, Embed IO] r => Options -> FilePath -> Sem r ()
 processInputFile opts inputFile = do
   input <- embed $ readFile inputFile
-  let state        = initPMState opts
-      inputModule  = HSE.fromParseResult (HSE.parseModule input)
-      outputModule = evalPM (processModule (void inputModule)) state
+  let state       = initPMState opts
+      inputModule = HSE.fromParseResult (HSE.parseModule input)
+      intermediateModule =
+        evalPM (processModule (FromHSE.transformModule inputModule)) state
+      outputModule = ToHSE.transformModule inputModule intermediateModule
   case optOutputDir opts of
     Just outputDir -> do
       let outputFile = outputDir </> makeOutputFileName inputFile inputModule
@@ -239,7 +238,7 @@ processInputFile opts inputFile = do
     Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
 
 -- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Options -> PMState
+initPMState :: Options -> PMState a
 initPMState opts = PMState { nextId     = 0
                            , constrMap  = specialCons
                            , matchedPat = []
@@ -278,7 +277,7 @@ makeOutputFileName inputFile inputModule = outputFileName <.> "hs"
   moduleName _ = Nothing
 
 -- | Pretty prints the given Haskell module.
-prettyPrintModule :: HSE.Module () -> String
+prettyPrintModule :: HSE.Module HSE.SrcSpanInfo -> String
 prettyPrintModule = HSE.prettyPrintStyleMode
   (HSE.Style { HSE.mode           = HSE.PageMode
              , HSE.lineLength     = 120

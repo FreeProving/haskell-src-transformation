@@ -33,21 +33,20 @@ import           HST.Environment.Renaming       ( subst
                                                 , rename
                                                 , substitute
                                                 )
-
-import qualified Language.Haskell.Exts.Syntax  as HSE
-import qualified Language.Haskell.Exts.Build   as B
-import qualified Language.Haskell.Exts.Pretty  as P
+import qualified HST.Frontend.Syntax           as S
+--import qualified Language.Haskell.Exts.Pretty  as P
 
 
 -- | A type that represents a single equation of a function declaration.
 --
 --   An equation is characterized by the argument patterns and the right-hand
 --   side.
-type Eqs = ([HSE.Pat ()], HSE.Exp ())
+type Eqs a = ([S.Pat a], S.Exp a)
 
 -- | The default error expression to insert for pattern matching failures.
-err :: HSE.Exp ()
-err = HSE.Var () (HSE.UnQual () (HSE.Ident () "undefined"))
+err :: S.Exp a
+err =
+  S.Var S.NoSrcSpan (S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan "undefined"))
 
 -- | Compiles the given equations of a function declaration to a single
 --   expression that performs explicit pattern matching using @case@
@@ -56,10 +55,11 @@ err = HSE.Var () (HSE.UnQual () (HSE.Ident () "undefined"))
 --   All equations must have the same number of patterns as the given list
 --   of fresh variable patterns.
 match
-  :: [HSE.Pat ()] -- ^ Fresh variable patterns.
-  -> [Eqs]    --     ^ The equations of the function declaration.
-  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> PM (HSE.Exp ())
+  :: S.EqAST a
+  => [S.Pat a] -- ^ Fresh variable patterns.
+  -> [Eqs a]   -- ^ The equations of the function declaration.
+  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+  -> PM a (S.Exp a)
 match [] (([], e) : _) _  = return e  -- Rule 3a: All patterns matched.
 match [] []            er = return er -- Rule 3b: Pattern-matching failure.
 match vars@(x : xs) eqs er
@@ -81,7 +81,7 @@ match [] _ _ = error "match: equations have different number of arguments"
 --   (must be a variable or wildcard pattern) of the given equation by the
 --   fresh variable bound by the given variable pattern on the right-hand side
 --   of the equation.
-substVars :: HSE.Pat () -> Eqs -> PM Eqs
+substVars :: S.Pat a -> Eqs a -> PM a (Eqs a)
 substVars pv (p : ps, e) = do
   s1 <- getPVarName p
   s2 <- getPVarName pv
@@ -93,16 +93,15 @@ substVars _ _ = error "substVars: expected equation with at least one pattern"
 --
 --   Returns a fresh variable for wildcard patterns.
 --   The given pattern must be a variable or wildcard pattern.
-getPVarName :: HSE.Pat () -> PM String
-getPVarName (HSE.PVar _ pname) = getNameStr pname
+getPVarName :: S.Pat a -> PM a String
+getPVarName (S.PVar _ pname) = getNameStr pname
  where
-  getNameStr (HSE.Ident  _ str) = return str
-  getNameStr (HSE.Symbol _ str) = return str
-getPVarName (HSE.PWildCard _) = do
+  getNameStr (S.Ident  _ str) = return str
+  getNameStr (S.Symbol _ str) = return str
+getPVarName (S.PWildCard _) = do
   n <- freshVar
   return $ 'a' : show n
-getPVarName x =
-  error $ "getPVarName: expected variable or wildcard pattern, got " ++ show x
+getPVarName _ = error "getPVarName: expected variable or wildcard pattern" --, got " ++ show x
 
 -- | Groups the given equations based on the type of their first pattern.
 --
@@ -111,7 +110,7 @@ getPVarName x =
 
 --   Two equations are in the same group only if their pattern lists both
 --   start with a variable pattern or both start with a constructor pattern.
-groupPat :: [Eqs] -> [[Eqs]]
+groupPat :: [Eqs a] -> [[Eqs a]]
 groupPat = groupBy ordPats
   where ordPats (ps, _) (qs, _) = isPVar (head ps) && isPVar (head qs)
 
@@ -119,37 +118,38 @@ groupPat = groupBy ordPats
 --
 --   TODO shouldn't this return @True@ for wildcard patterns, too?
 --   What's the difference to @isVar@?
-isPVar :: HSE.Pat () -> Bool
-isPVar (HSE.PVar _ _) = True
-isPVar _              = False
+isPVar :: S.Pat a -> Bool
+isPVar (S.PVar _ _) = True
+isPVar _            = False
 
 -- | Applies 'match' to every group of equations where the error expression
 --   is the 'match' result of the next group.
 createRekMatch
-  :: [HSE.Pat ()] -- ^ Fresh variable patterns.
-  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> [[Eqs]]      -- ^ Groups of equations (see 'groupPat').
-  -> PM (HSE.Exp ())
+  :: S.EqAST a
+  => [S.Pat a] -- ^ Fresh variable patterns.
+  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+  -> [[Eqs a]] -- ^ Groups of equations (see 'groupPat').
+  -> PM a (S.Exp a)
 createRekMatch vars er =
   foldr (\eqs mrhs -> mrhs >>= match vars eqs) (return er)
 
 -- | Creates a case expression that performs pattern matching on the variable
 --   bound by the given variable pattern.
 makeRhs
-  :: HSE.Pat ()   -- ^ The fresh variable pattern to match.
-  -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
-  -> [Eqs]        -- ^ The equations.
-  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> PM (HSE.Exp ())
+  :: S.EqAST a
+  => S.Pat a   -- ^ The fresh variable pattern to match.
+  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
+  -> [Eqs a]   -- ^ The equations.
+  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+  -> PM a (S.Exp a)
 makeRhs x xs eqs er = do
   alts <- computeAlts x xs eqs er
-  return (B.caseE (translatePVar x) alts)
+  return (S.Case S.NoSrcSpan (translatePVar x) alts)
 
 -- | Converts the given variable pattern to a variable expression.
-translatePVar :: HSE.Pat () -> HSE.Exp ()
-translatePVar (HSE.PVar _ vname) = B.var vname
-translatePVar p =
-  error ("translatePVar: expected variable pattern, got" ++ show p)
+translatePVar :: S.Pat a -> S.Exp a
+translatePVar (S.PVar _ vname) = S.var vname
+translatePVar _ = error "translatePVar: expected variable pattern" --, got" ++ show p)
 
 -- TODO remove redundand types
 
@@ -160,11 +160,12 @@ translatePVar p =
 --   If trivial case completion is not enabled, one alternative is added for
 --   every missing constructor.
 computeAlts
-  :: HSE.Pat ()   -- ^ The variable pattern that binds the matched variable.
-  -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
-  -> [Eqs]        -- ^ The equations to generate alternatives for.
-  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> PM [HSE.Alt ()]
+  :: S.EqAST a
+  => S.Pat a   -- ^ The variable pattern that binds the matched variable.
+  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
+  -> [Eqs a]   -- ^ The equations to generate alternatives for.
+  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+  -> PM a [S.Alt a]
 computeAlts x xs eqs er = do
   alts <- mapM (computeAlt x xs er) (groupByCons eqs)
   mxs  <- getMissingConstrs alts
@@ -174,7 +175,7 @@ computeAlts x xs eqs er = do
       b <- gets trivialCC
       if b
         then -- TODO is 'err' correct? Why not 'er'?
-             return $ alts ++ [B.alt B.wildcard err]
+             return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) err]
         else do
           z <- createAltsFromConstr x zs er
           -- TODO currently not sorted (reversed)
@@ -182,7 +183,7 @@ computeAlts x xs eqs er = do
 
 -- | Looks up the constructors of the data type that is matched by the given
 --   @case@ expression alternatives for which there are no alternatives already.
-getMissingConstrs :: [HSE.Alt ()] -> PM [Constructor]
+getMissingConstrs :: [S.Alt a] -> PM a [Constructor a]
 getMissingConstrs []   = error "getMissingConstrs: empty list"
 getMissingConstrs alts = do
   cmap <- gets constrMap -- [(datantype, (constructor,arity))]
@@ -192,39 +193,38 @@ getMissingConstrs alts = do
 
 -- | Removes the 'Constructor's with the given names from the given list.
 findCons
-  :: [Constructor]  -- TODO rename // complement
-  -> [HSE.QName ()]
-  -> [Constructor]
+  :: [Constructor a]  -- TODO rename // complement
+  -> [S.QName a]
+  -> [Constructor a]
 findCons cons usedcons =
   filter (\con -> getConstrName con `notElem` usedcons) cons
 
 -- | Looks up the data type for the given constructor in the given map.
 findDataType
-  :: HSE.QName ()                   -- Constructor name
-  -> [(String, [Constructor])]  -- [(Datatype, [(Konstruktor,Arität)])]
-  -> (String, [Constructor])     -- Datatype
+  :: S.QName a                   -- Constructor name
+  -> [(String, [Constructor a])] -- [(Datatype, [(Konstruktor,Arität)])]
+  -> (String, [Constructor a])   -- Datatype
 findDataType cname = foldr
   (\c sc -> if cname `elem` map getConstrName (snd c) then c else sc)
-  (error
-    ("findDataType: could not find data type for constructor " ++ show cname)
-  ) -- todo fst und snd als synonym
+  (error "findDataType: could not find data type for constructor" -- " ++ show cname)
+                                                                 ) -- todo fst und snd als synonym
 
 -- | Gets the name of the constructor matched by the given @case@ expression
 --   alternative.
-getQName :: HSE.Alt () -> HSE.QName ()
-getQName (HSE.Alt _ p _ _) = getQNamePat p
+getQName :: S.Alt a -> S.QName a
+getQName (S.Alt _ p _ _) = getQNamePat p
 -- getQName  _             = error "getQName: expected an Alt"
 
 -- | Gets the name of a constructor pattern.
 --
---   Returns the 'HSE.Special' names for special patterns such as lists and tuples.
-getQNamePat :: HSE.Pat () -> HSE.QName ()
-getQNamePat (HSE.PApp _ qn _       ) = qn
-getQNamePat (HSE.PInfixApp _ _ qn _) = qn
-getQNamePat (HSE.PList _ _         ) = HSE.Special () (HSE.ListCon ())
-getQNamePat (HSE.PWildCard _       ) = HSE.Special () (HSE.ExprHole ()) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
-getQNamePat (HSE.PTuple _ bxd ps) =
-  HSE.Special () (HSE.TupleCon () bxd (length ps))
+--   Returns the 'S.Special' names for special patterns such as lists and tuples.
+getQNamePat :: S.Pat a -> S.QName a
+getQNamePat (S.PApp _ qn _) = qn
+getQNamePat (S.PInfixApp _ _ qn _) = qn
+getQNamePat (S.PList _ _) = S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan)
+getQNamePat (S.PWildCard _) = S.Special S.NoSrcSpan (S.ExprHole S.NoSrcSpan) -- TODO aren't wildcard pattern considers variable and not constructor patterns?
+getQNamePat (S.PTuple _ bxd ps) =
+  S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan bxd (length ps))
 getQNamePat _ = error "getQNamePat unsuported Pattern"
 
 -- TODO refactor with smartcons
@@ -232,29 +232,30 @@ getQNamePat _ = error "getQNamePat unsuported Pattern"
 -- | Creates new @case@ expression alternatives for the given missing
 --   constructors.
 createAltsFromConstr
-  :: HSE.Pat ()        -- ^ The fresh variable matched by the @case@ expression.
-  -> [Constructor]     -- ^ The missing constructors to generate alternatives for.
-  -> HSE.Exp ()        -- ^ The error expression for pattern-matching failures.
-  -> PM [HSE.Alt ()]
+  :: S.EqAST a
+  => S.Pat a         -- ^ The fresh variable matched by the @case@ expression.
+  -> [Constructor a] -- ^ The missing constructors to generate alternatives for.
+  -> S.Exp a         -- ^ The error expression for pattern-matching failures.
+  -> PM a [S.Alt a]
 createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs
  where
   createAltFromConstr
-    :: HSE.Pat () -> HSE.Exp () -> Constructor -> PM (HSE.Alt ())
+    :: S.EqAST a => S.Pat a -> S.Exp a -> Constructor a -> PM a (S.Alt a)
   createAltFromConstr pat e (qn, ar, b) = do
     nvars <- newVars ar
-    let p | b         = HSE.PInfixApp () (head nvars) qn (nvars !! 1)
-          | otherwise = HSE.PApp () qn nvars
+    let p | b         = S.PInfixApp S.NoSrcSpan (head nvars) qn (nvars !! 1)
+          | otherwise = S.PApp S.NoSrcSpan qn nvars
         p'   = translateApp p
         pat' = translatePVar pat
         e'   = substitute (tSubst pat' p') e
-    return (B.alt p e')
+    return (S.alt p e')
 
 -- | Groups the given equations based on the constructor matched by their
 --   first pattern.
 --
 --   The order of equations that match the same constructor (i.e., within
 --   groups) is preserved.
-groupByCons :: [Eqs] -> [[Eqs]]
+groupByCons :: [Eqs a] -> [[Eqs a]]
 groupByCons = groupBy2 select
 
 -- | A version of 'groupBy' that produces only one group for all
@@ -285,27 +286,28 @@ groupBy2 = groupBy2' []
 
 -- | Tests whether the pattern lists of the given equations start with the same
 --   constructor.
-select :: Eqs -> Eqs -> Bool
+select :: Eqs a -> Eqs a -> Bool
 select (ps, _) (qs, _) = compareCons (head ps) (head qs)
 
 -- | Tests whether the given patterns match the same constructor or both match
 --   the wildcard pattern.
-compareCons :: HSE.Pat () -> HSE.Pat () -> Bool
+compareCons :: S.Pat a -> S.Pat a -> Bool
 compareCons = (==) `on` consName
 
 -- | Returns the qualified name of the constructor of the given pattern or
 --   @Nothing@ if it is a wildcard pattern.
-consName :: HSE.Pat () -> Maybe (HSE.QName ())
-consName (HSE.PApp _ qn _       ) = return qn
-consName (HSE.PInfixApp _ _ qn _) = return qn
-consName (HSE.PParen _ pat      ) = consName pat
-consName (HSE.PList  _ []       ) = return $ HSE.Special () $ HSE.ListCon ()
-consName (HSE.PList  _ (_ : _)  ) = return $ HSE.Special () $ HSE.Cons ()
-consName (HSE.PTuple _ bxd ps) =
-  return $ HSE.Special () $ HSE.TupleCon () bxd $ length ps
-consName (HSE.PWildCard _) = Nothing
-consName pat =
-  error $ "consName: unsupported pattern \"" ++ P.prettyPrint pat ++ "\""
+consName :: S.Pat a -> Maybe (S.QName a)
+consName (S.PApp _ qn _       ) = return qn
+consName (S.PInfixApp _ _ qn _) = return qn
+consName (S.PParen _ pat      ) = consName pat
+consName (S.PList _ []) =
+  return $ S.Special S.NoSrcSpan $ S.ListCon S.NoSrcSpan
+consName (S.PList _ (_ : _)) =
+  return $ S.Special S.NoSrcSpan $ S.Cons S.NoSrcSpan
+consName (S.PTuple _ bxd ps) =
+  return $ S.Special S.NoSrcSpan $ S.TupleCon S.NoSrcSpan bxd $ length ps
+consName (S.PWildCard _) = Nothing
+consName _               = error "consName: unsupported pattern" -- \"" ++ P.prettyPrint pat ++ "\""
 
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.
@@ -318,11 +320,12 @@ consName pat =
 --   termination check of the free-compiler and can probably be removed
 --   once sharing is implemented.
 computeAlt
-  :: HSE.Pat ()   -- ^ The variable pattern that binds the matched variable.
-  -> [HSE.Pat ()] -- ^ The remaing fresh variable patterns.
-  -> HSE.Exp ()   -- ^ The error expression for pattern-matching failures.
-  -> [Eqs]        -- ^ A group of equations (see 'groupByCons').
-  -> PM (HSE.Alt ())
+  :: S.EqAST a
+  => S.Pat a   -- ^ The variable pattern that binds the matched variable.
+  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
+  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+  -> [Eqs a]   -- ^ A group of equations (see 'groupByCons').
+  -> PM a (S.Alt a)
 computeAlt _   _    _  []           = error "computeAlt: no equations"
 computeAlt pat pats er prps@(p : _) = do
   -- oldpats need to be computed for each pattern
@@ -331,9 +334,9 @@ computeAlt pat pats er prps@(p : _) = do
   let sub = tSubst (translatePVar pat) (translateApp capp)
   res <- match (nvars ++ pats) nprps (substitute sub er)
   let res' = substitute sub res
-  return (B.alt capp res')
+  return (S.alt capp res')
  where
-  f :: Eqs -> PM Eqs
+  f :: Eqs a -> PM a (Eqs a)
   f ([]    , r) = return ([], r) -- potentially unused
   f (v : vs, r) = do
     (_, _, oldpats) <- getConst v
@@ -341,14 +344,20 @@ computeAlt pat pats er prps@(p : _) = do
 
 -- | Converts a constructor application pattern (where the argument patterns
 --   are variable or wildcard patterns) to an expression.
-translateApp :: HSE.Pat () -> HSE.Exp ()
-translateApp (HSE.PApp _ qn ps) =
-  foldl (\acc x -> HSE.App () acc (translatePVar x)) (HSE.Con () qn) ps
-translateApp (HSE.PInfixApp _ p1 qn p2) =
-  HSE.InfixApp () (translatePVar p1) (HSE.QConOp () qn) (translatePVar p2)
-translateApp (HSE.PTuple _ bxd ps) = HSE.Tuple () bxd $ map translatePVar ps
-translateApp (HSE.PList _ ps) = HSE.List () $ map translatePVar ps
-translateApp pat = error ("translateApp does not support: " ++ show pat)
+translateApp :: S.Pat a -> S.Exp a
+translateApp (S.PApp _ qn ps) = foldl
+  (\acc x -> S.App S.NoSrcSpan acc (translatePVar x))
+  (S.Con S.NoSrcSpan qn)
+  ps
+translateApp (S.PInfixApp _ p1 qn p2) = S.InfixApp S.NoSrcSpan
+                                                   (translatePVar p1)
+                                                   (S.QConOp S.NoSrcSpan qn)
+                                                   (translatePVar p2)
+translateApp (S.PTuple _ bxd ps) =
+  S.Tuple S.NoSrcSpan bxd $ map translatePVar ps
+translateApp (S.PList _ ps) = S.List S.NoSrcSpan $ map translatePVar ps
+translateApp _              = error "translateApp: Unsupported pattern"
+          -- pat = error ("translateApp does not support: " ++ show pat)
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
 -- oldpats
@@ -358,59 +367,59 @@ translateApp pat = error ("translateApp does not support: " ++ show pat)
 --
 --   Returns the constructor with replaced child patterns and a list of
 --   new and old variable patterns.
-getConst :: HSE.Pat () -> PM (HSE.Pat (), [HSE.Pat ()], [HSE.Pat ()])
-getConst (HSE.PApp _ qname ps) = do
+getConst :: S.Pat a -> PM a (S.Pat a, [S.Pat a], [S.Pat a])
+getConst (S.PApp _ qname ps) = do
   nvars <- newVars (length ps)
-  return (HSE.PApp () qname nvars, nvars, ps)
-getConst (HSE.PInfixApp _ p1 qname p2) = do
+  return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
+getConst (S.PInfixApp _ p1 qname p2) = do
   nvars <- newVars 2
   let [nv1, nv2] = nvars
       ps         = [p1, p2]
-  return (HSE.PInfixApp () nv1 qname nv2, nvars, ps)
-getConst (HSE.PParen _ p) = getConst p
-getConst (HSE.PList _ ps)
-  | null ps = return (HSE.PList () [], [], [])
+  return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
+getConst (S.PParen _ p) = getConst p
+getConst (S.PList _ ps)
+  | null ps = return (S.PList S.NoSrcSpan [], [], [])
   | otherwise = do
     let (n : nv) = ps
-        listCon  = HSE.Special () $ HSE.Cons ()
-    getConst (HSE.PInfixApp () n listCon (HSE.PList () nv))
-getConst (HSE.PTuple _ bxd ps) = do
+        listCon  = S.Special S.NoSrcSpan $ S.Cons S.NoSrcSpan
+    getConst (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
+getConst (S.PTuple _ bxd ps) = do
   nvars <- newVars (length ps)
-  return (HSE.PTuple () bxd nvars, nvars, ps)
+  return (S.PTuple S.NoSrcSpan bxd nvars, nvars, ps)
 -- wildcards no longer needed as cons
-getConst (HSE.PWildCard _) = return (HSE.PWildCard (), [], [])
-getConst _                 = error "wrong Pattern in getConst"
+getConst (S.PWildCard _) = return (S.PWildCard S.NoSrcSpan, [], [])
+getConst _               = error "wrong Pattern in getConst"
 
 -- | Tests whether the pattern lists of all given equations starts with a
 --   variable pattern.
-allVars :: [Eqs] -> Bool
+allVars :: [Eqs a] -> Bool
 allVars = all (isVar . firstPat)
 
 -- | Gets the first pattern of the pattern list of the given equation.
-firstPat :: Eqs -> HSE.Pat ()
+firstPat :: Eqs a -> S.Pat a
 firstPat = head . fst
 
 -- | Tests whether the given pattern is a variable or wildcard pattern.
-isVar :: HSE.Pat () -> Bool
-isVar (HSE.PVar _ _   ) = True
-isVar (HSE.PWildCard _) = True
-isVar _                 = False
+isVar :: S.Pat a -> Bool
+isVar (S.PVar _ _   ) = True
+isVar (S.PWildCard _) = True
+isVar _               = False
 
 -- | Tests whether the pattern lists of all given equations starts with a
 --   constructor pattern.
-allCons :: [Eqs] -> Bool
+allCons :: [Eqs a] -> Bool
 allCons = all (isCons . firstPat)
 
 -- | Tests whether the given pattern is a constructor pattern.
 --
 --   Special patterns for lists and tuples are also considered constructor
 --   patterns.
-isCons :: HSE.Pat () -> Bool
+isCons :: S.Pat a -> Bool
 isCons p = case p of
-  HSE.PApp _ _ _        -> True
-  HSE.PInfixApp _ _ _ _ -> True
-  HSE.PParen _ p'       -> isCons p'
-  HSE.PList  _ _        -> True
-  HSE.PTuple _ _ _      -> True
-  HSE.PWildCard _       -> False -- Wildcards are now treated as variables
-  _                     -> False
+  S.PApp _ _ _        -> True
+  S.PInfixApp _ _ _ _ -> True
+  S.PParen _ p'       -> isCons p'
+  S.PList  _ _        -> True
+  S.PTuple _ _ _      -> True
+  S.PWildCard _       -> False -- Wildcards are now treated as variables
+  _                   -> False

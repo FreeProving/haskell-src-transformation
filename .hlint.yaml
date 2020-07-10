@@ -16,3 +16,10 @@
 
 # Duplication makes the test code easier to read.
 - ignore: {name: "Reduce duplication", within: ["HST.Effect.ReportTests"]}
+
+# Aliases for qualified imports.
+- modules:
+  - {name: [ HST.CoreAlgorithm ], as: CA}
+  - {name: [ HST.Frontend.Syntax ], as: S}
+  - {name: [ HST.Frontend.FromHSE ], as: FromHSE}
+  - {name: [ HST.Frontend.ToHSE ], as: ToHSE}

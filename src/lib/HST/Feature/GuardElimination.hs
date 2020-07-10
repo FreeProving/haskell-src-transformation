@@ -10,7 +10,7 @@ where                                   -- TODO Apply GE to GuardedRhs in case e
                                                                                 -- TODO only apply to the parts with guards (not on matches if in case)
                                                                                     -- not false by semantics
 
-import qualified HST.CoreAlgorithm             as A
+import qualified HST.CoreAlgorithm             as CA
                                                 ( err
                                                 , translatePVar
                                                 )
@@ -19,47 +19,50 @@ import           HST.Environment.FreshVars      ( PM
                                                 , newVars
                                                 , newVar
                                                 )
+import qualified HST.Frontend.Syntax           as S
 
-import qualified Language.Haskell.Exts.Build   as B
-import qualified Language.Haskell.Exts.Syntax  as HSE
-
-type GExp = ([HSE.Pat ()], HSE.Rhs ())
+type GExp a = ([S.Pat a], S.Rhs a)
 
 -- Generates an expression with a let binding for each pattern + guard pair.
 -- As defined in the semantics the first match of both pattern and guard has
 -- to be evaluated causing a the sequential structure.
 eliminateL
-  :: [HSE.Pat ()]   -- fresh Vars
-  -> HSE.Exp ()     -- error
-  -> [GExp]     -- pairs of pattern and guarded rhs
-  -> PM (HSE.Exp ())
+  :: [S.Pat a]  -- fresh Vars
+  -> S.Exp a  -- error
+  -> [GExp a] -- pairs of pattern and guarded rhs
+  -> PM a (S.Exp a)
 eliminateL vs err eqs = do
   startVar         <- newVar
   (decls, lastPat) <- foldGEqs vs ([], startVar) eqs
   let errDecl = toDecl lastPat err -- error has to be bound to last new var
-  return $ HSE.Let () (B.binds (errDecl : decls)) (A.translatePVar startVar)
+  return $ S.Let S.NoSrcSpan
+                 (S.BDecls S.NoSrcSpan (errDecl : decls))
+                 (CA.translatePVar startVar)
 
-toDecl :: HSE.Pat () -> HSE.Exp () -> HSE.Decl ()
-toDecl p e = HSE.PatBind () p (HSE.UnGuardedRhs () e) B.noBinds
+toDecl :: S.Pat a -> S.Exp a -> S.Decl a
+toDecl (S.PVar _ name) e = S.FunBind
+  S.NoSrcSpan
+  [S.Match S.NoSrcSpan name [] (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
+toDecl _ _ = error "GuardElimination.toDecl: Variable pattern expected"
 
 -- Folds the list of GExps to declarations.
 foldGEqs
-  :: [HSE.Pat ()]                   -- fresh variables for the case exps
-  -> ([HSE.Decl ()], HSE.Pat ())    -- startcase ([], first generated Pattern)
-  -> [GExp]                         -- list of pattern + rhs pair
-  -> PM ([HSE.Decl ()], HSE.Pat ()) -- a list of declarations for the let binding and a
-                                    -- free Variable for the error case
+  :: [S.Pat a]                 -- fresh variables for the case exps
+  -> ([S.Decl a], S.Pat a) -- startcase ([], first generated Pattern)
+  -> [GExp a]                -- list of pattern + rhs pair
+  -> PM a ([S.Decl a], S.Pat a) -- a list of declarations for the let binding
+                                          -- and a free Variable for the error case
 foldGEqs vs = foldM (\(decls, p) geq -> createDecl vs (decls, p) geq)
 
 -- Generates a varbinding and a new variable for the next var binding
 createDecl
-  :: [HSE.Pat ()]                   -- generated varibles
-  -> ([HSE.Decl ()], HSE.Pat ())    -- (current decls , variable for let binding)
-  -> GExp                           -- pairs of pattern to match against and a guarded Rhs
-  -> PM ([HSE.Decl ()], HSE.Pat ()) -- var bindings , variable for next match
+  :: [S.Pat a]                 -- generated varibles
+  -> ([S.Decl a], S.Pat a) -- (current decls , variable for let binding)
+  -> GExp a                  -- pairs of pattern to match against and a guarded Rhs
+  -> PM a ([S.Decl a], S.Pat a) -- var bindings , variable for next match
 createDecl vs (decl, p) (ps, rhs) = do
   nVar <- newVar
-  let varExp = A.translatePVar nVar
+  let varExp = CA.translatePVar nVar
   iexp <- rhsToIf rhs varExp
   let cexp  = createCase iexp varExp (zip vs ps)
   let ndecl = toDecl p cexp
@@ -68,115 +71,100 @@ createDecl vs (decl, p) (ps, rhs) = do
 -- TODO refactor to higher order
 -- Generates a recursive case expression for each variable and pattern pair
 createCase
-  :: HSE.Exp ()             -- ifThenElse
-  -> HSE.Exp ()             -- the other pattern (in case pattern match or guard fails)
-  -> [(HSE.Pat (), HSE.Pat ())] -- Patterns to match (PVar , Pattern)
-  -> HSE.Exp ()
+  :: S.Exp a              -- ifThenElse
+  -> S.Exp a              -- the other pattern (in case pattern match or guard fails)
+  -> [(S.Pat a, S.Pat a)] -- Patterns to match (PVar , Pattern)
+  -> S.Exp a
 -- createCase i next vps
 --   = foldr (\(v,p) next ->
---       Case () (A.translatePVar v)
---               [B.alt p res, B.alt B.wildcard next]) i vps
+--       Case () (translatePVar v)
+--               [S.alt p res, S.alt B.wildcard next]) i vps
 createCase i _    []             = i
-createCase i next ((v, p) : vps) = HSE.Case
-  ()
-  (A.translatePVar v)
-  [B.alt p (createCase i next vps), B.alt B.wildcard next]
+createCase i next ((v, p) : vps) = S.Case
+  S.NoSrcSpan
+  (CA.translatePVar v)
+  [S.alt p (createCase i next vps), S.alt (S.PWildCard S.NoSrcSpan) next]
 
 -- Converts a rhs into an if then else expression as mentioned in the semantics
 rhsToIf
-  :: HSE.Rhs ()      -- the (maybe guarded) righthandside
-  -> HSE.Exp ()      -- next case
-  -> PM (HSE.Exp ()) -- creates the if p_1 then . . . .
-rhsToIf (HSE.UnGuardedRhs _ e   ) _    = applyGEExp e
-rhsToIf (HSE.GuardedRhss  _ grhs) next = buildIF next grhs
+  :: S.Rhs a      -- the (maybe guarded) righthandside
+  -> S.Exp a      -- next case
+  -> PM a (S.Exp a) -- creates the if p_1 then . . . .
+rhsToIf (S.UnGuardedRhs _ e   ) _    = applyGEExp e
+rhsToIf (S.GuardedRhss  _ grhs) next = buildIF next grhs
  where
   buildIF
-    :: HSE.Exp ()               -- next rule
-    -> [HSE.GuardedRhs ()]      -- guarded rhs to fold
-    -> PM (HSE.Exp ())          -- if then else expr
+    :: S.Exp a               -- next rule
+    -> [S.GuardedRhs a]      -- guarded rhs to fold
+    -> PM a (S.Exp a)    -- if then else expr
   buildIF nx gs = foldM
-    (\res x -> extract x >>= \(e1, e2) -> return (HSE.If () e1 e2 res))
+    (\res (S.GuardedRhs _ e1 e2) -> return (S.If S.NoSrcSpan e1 e2 res))
     nx
     (reverse gs) -- reverse, since foldM is a foldl with side effect
 
--- Converts a guarded rhs into a pair of a boolean expression and the right side
-extract :: HSE.GuardedRhs () -> PM (HSE.Exp (), HSE.Exp ())
-extract (HSE.GuardedRhs _ [s] e) = applyGEExp e
-  >>= \a -> return (fromQualifier s, a)
- where
-  fromQualifier :: HSE.Stmt () -> HSE.Exp ()
-  fromQualifier (HSE.Qualifier () qe) = qe
-  fromQualifier _                     = error "fromQualifier: no Qualifier"
--- TODO
-extract (HSE.GuardedRhs _ (_ : _) _) =
-  error "Currently only one guard exp allowed"
-extract (HSE.GuardedRhs _ [] _) = error "GuardedRhss with no guards"
-
 -- Applies guard elimination on an expression converting guarded rhs in cases
 -- into unguarded exps
-applyGEExp :: HSE.Exp () -> PM (HSE.Exp ())
+applyGEExp :: S.Exp a -> PM a (S.Exp a)
 applyGEExp e = case e of
-  HSE.InfixApp _ e1 qop e2 -> do
+  S.InfixApp _ e1 qop e2 -> do
     e1' <- applyGEExp e1
     e2' <- applyGEExp e2
-    return $ HSE.InfixApp () e1' qop e2'
-  HSE.App _ e1 e2 -> do
+    return $ S.InfixApp S.NoSrcSpan e1' qop e2'
+  S.App _ e1 e2 -> do
     e1' <- applyGEExp e1
     e2' <- applyGEExp e2
-    return $ HSE.App () e1' e2'
-  HSE.Lambda _ ps e1 -> do
+    return $ S.App S.NoSrcSpan e1' e2'
+  S.Lambda _ ps e1 -> do
     e' <- applyGEExp e1
-    return $ HSE.Lambda () ps e'
-  HSE.Let _ bs e1 -> do
+    return $ S.Lambda S.NoSrcSpan ps e'
+  S.Let _ bs e1 -> do
     e' <- applyGEExp e1
-    return $ HSE.Let () bs e'
-  HSE.If _ e1 e2 e3 -> do
+    return $ S.Let S.NoSrcSpan bs e'
+  S.If _ e1 e2 e3 -> do
     e1' <- applyGEExp e1
     e2' <- applyGEExp e2
     e3' <- applyGEExp e3
-    return $ HSE.If () e1' e2' e3'
-  HSE.Case _ e1 alts -> do
+    return $ S.If S.NoSrcSpan e1' e2' e3'
+  S.Case _ e1 alts -> do
     e'    <- applyGEExp e1
     alts' <- applyGEAlts alts
-    return $ HSE.Case () e' alts'
-  HSE.Tuple _ boxed es -> do
+    return $ S.Case S.NoSrcSpan e' alts'
+  S.Tuple _ boxed es -> do
     es' <- mapM applyGEExp es
-    return $ HSE.Tuple () boxed es'
-  HSE.List _ es -> do
+    return $ S.Tuple S.NoSrcSpan boxed es'
+  S.List _ es -> do
     es' <- mapM applyGEExp es
-    return $ HSE.List () es'
-  HSE.ListComp _ _ _ -> error "applyGEExp: ListComp not yet supported"
+    return $ S.List S.NoSrcSpan es'
   -- can cause problems if a exp is missing in this case
-  x                  -> return x
+  x -> return x
 
 -- Applies guard elimination on alts by using eliminateL
-applyGEAlts :: [HSE.Alt ()] -> PM [HSE.Alt ()]
-applyGEAlts as = if any (\(HSE.Alt _ _ rhs _) -> isGuardedRhs rhs) as
+applyGEAlts :: [S.Alt a] -> PM a [S.Alt a]
+applyGEAlts as = if any (\(S.Alt _ _ rhs _) -> isGuardedRhs rhs) as
   then do
-    let gexps = map (\(HSE.Alt _ p rhs _) -> ([p], rhs)) as
+    let gexps = map (\(S.Alt _ p rhs _) -> ([p], rhs)) as
     newVar'  <- newVar
-    e        <- eliminateL [newVar'] A.err gexps
+    e        <- eliminateL [newVar'] CA.err gexps
     matchVar <- newVar
-    return [HSE.Alt () matchVar (HSE.UnGuardedRhs () e) B.noBinds]
+    return [S.Alt S.NoSrcSpan matchVar (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
   else return as
 
 -- Applies guard elimination to a module
-applyGEModule :: HSE.Module () -> PM (HSE.Module ())
-applyGEModule (HSE.Module _ mmh mps ids ds) = do
+applyGEModule :: S.Module a -> PM a (S.Module a)
+applyGEModule (S.Module ds) = do
   dcls <- mapM applyGEDecl ds
-  return $ HSE.Module () mmh mps ids dcls
-applyGEModule _ = error "applyGEModule: not on module"
+  return $ S.Module dcls
 
 -- Applies guard elimination to a declaration
-applyGEDecl :: HSE.Decl () -> PM (HSE.Decl ())
-applyGEDecl (HSE.FunBind _ ms) = do
+applyGEDecl :: S.Decl a -> PM a (S.Decl a)
+applyGEDecl (S.FunBind _ ms) = do
   nms <- applyGEMatches ms
-  return (HSE.FunBind () nms)
+  return (S.FunBind S.NoSrcSpan nms)
 applyGEDecl v = return v
 
 -- mapM
 -- Applies guard elimination to a list of matches to generate one without guards
-applyGEMatches :: [HSE.Match ()] -> PM [HSE.Match ()]
+applyGEMatches :: [S.Match a] -> PM a [S.Match a]
 applyGEMatches []       = return []
 applyGEMatches (m : ms) = do
   let (oneFun, r) = span (comp m) ms
@@ -192,64 +180,65 @@ applyGEMatches (m : ms) = do
 
 -- Applies guard elimination to one function
 applyGE
-  :: [HSE.Match ()] -- one fun group
-  -> PM (HSE.Match ())
+  :: [S.Match a] -- one fun group
+  -> PM a (S.Match a)
 applyGE ms = do
   let mname    = getMatchName ms
-      geqs     = map (\(HSE.Match _ _ pats rhs _) -> (pats, rhs)) ms
+      geqs     = map (\(S.Match _ _ pats rhs _) -> (pats, rhs)) ms
       funArity = (length . fst . head) geqs
   nVars <- newVars funArity
-  nExp  <- eliminateL nVars A.err geqs
-  return $ HSE.Match () mname nVars (HSE.UnGuardedRhs () nExp) Nothing
+  nExp  <- eliminateL nVars CA.err geqs
+  return $ S.Match S.NoSrcSpan
+                   mname
+                   nVars
+                   (S.UnGuardedRhs S.NoSrcSpan nExp)
+                   Nothing
 
 -- compares the names of two matches
-comp :: HSE.Match () -> HSE.Match () -> Bool
-comp (HSE.Match _ name _ _ _) (HSE.Match _ name2 _ _ _) =
+comp :: S.Match a -> S.Match a -> Bool
+comp (S.Match _ name _ _ _) (S.Match _ name2 _ _ _) =
   selectNameStr name == selectNameStr name2
-comp (HSE.InfixMatch _ _ name _ _ _) (HSE.InfixMatch _ _ name2 _ _ _) =
+comp (S.InfixMatch _ _ name _ _ _) (S.InfixMatch _ _ name2 _ _ _) =
   selectNameStr name == selectNameStr name2
 comp _ _ = False
 
-selectNameStr :: HSE.Name () -> String
-selectNameStr (HSE.Ident  _ str) = str
-selectNameStr (HSE.Symbol _ str) = str
+selectNameStr :: S.Name a -> String
+selectNameStr (S.Ident  _ str) = str
+selectNameStr (S.Symbol _ str) = str
 
-getMatchName :: [HSE.Match ()] -> HSE.Name ()
+getMatchName :: [S.Match a] -> S.Name a
 getMatchName [] = error "no match in getMatchName"
-getMatchName ((HSE.Match _ mname _ _ _) : _) = mname
-getMatchName ((HSE.InfixMatch _ _ mname _ _ _) : _) = mname
+getMatchName ((S.Match _ mname _ _ _) : _) = mname
+getMatchName ((S.InfixMatch _ _ mname _ _ _) : _) = mname
 
 
 -- A function which determines if a group of Matches contains GuardedRhs
 hasGuards
-  :: [HSE.Match ()] -- one function
+  :: [S.Match a] -- one function
   -> Bool
 hasGuards = any hasGuards'
  where
-  hasGuards' :: HSE.Match () -> Bool
-  hasGuards' (HSE.Match _ _ _ rhs _       ) = isGuardedRhs rhs
-  hasGuards' (HSE.InfixMatch _ _ _ _ rhs _) = isGuardedRhs rhs
+  hasGuards' :: S.Match a -> Bool
+  hasGuards' (S.Match _ _ _ rhs _       ) = isGuardedRhs rhs
+  hasGuards' (S.InfixMatch _ _ _ _ rhs _) = isGuardedRhs rhs
 
-isGuardedRhs :: HSE.Rhs () -> Bool
-isGuardedRhs (HSE.GuardedRhss  _ _) = True
-isGuardedRhs (HSE.UnGuardedRhs _ e) = containsGuardedRhsExp e
+isGuardedRhs :: S.Rhs a -> Bool
+isGuardedRhs (S.GuardedRhss  _ _) = True
+isGuardedRhs (S.UnGuardedRhs _ e) = containsGuardedRhsExp e
 
 -- TODO decide if guard is in matches or in matches
-containsGuardedRhsExp :: HSE.Exp () -> Bool
+containsGuardedRhsExp :: S.Exp a -> Bool
 containsGuardedRhsExp e = case e of
-  HSE.InfixApp _ e1 _ e2 ->
-    containsGuardedRhsExp e1 || containsGuardedRhsExp e2
-  HSE.App    _ e1 e2 -> containsGuardedRhsExp e1 || containsGuardedRhsExp e2
-  HSE.Lambda _ _  e' -> containsGuardedRhsExp e'
-  HSE.Let    _ _  e' -> containsGuardedRhsExp e'
-  HSE.If _ e1 e2 e3  -> any containsGuardedRhsExp [e1, e2, e3]
-  HSE.Case _ e' alts ->
+  S.InfixApp _ e1 _ e2 -> containsGuardedRhsExp e1 || containsGuardedRhsExp e2
+  S.App    _ e1 e2     -> containsGuardedRhsExp e1 || containsGuardedRhsExp e2
+  S.Lambda _ _  e'     -> containsGuardedRhsExp e'
+  S.Let    _ _  e'     -> containsGuardedRhsExp e'
+  S.If _ e1 e2 e3      -> any containsGuardedRhsExp [e1, e2, e3]
+  S.Case _ e' alts ->
     containsGuardedRhsExp e' || any containsGuardedRhsAlt alts
-  HSE.Tuple _ _ es -> any containsGuardedRhsExp es
-  HSE.List _ es    -> any containsGuardedRhsExp es
-  HSE.ListComp _ _ _ ->
-    error "containsGuardedRhsExp: ListComp not yet supported"
-  _ -> False
+  S.Tuple _ _ es -> any containsGuardedRhsExp es
+  S.List _ es    -> any containsGuardedRhsExp es
+  _              -> False
 
-containsGuardedRhsAlt :: HSE.Alt () -> Bool
-containsGuardedRhsAlt (HSE.Alt _ _ rhs _) = isGuardedRhs rhs
+containsGuardedRhsAlt :: S.Alt a -> Bool
+containsGuardedRhsAlt (S.Alt _ _ rhs _) = isGuardedRhs rhs

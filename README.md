@@ -1,4 +1,4 @@
-﻿# haskell-src-transformations
+# haskell-src-transformations
 
 <!-- Badges -->
 ![CI Pipeline](https://github.com/FreeProving/haskell-src-transformations/workflows/CI%20Pipeline/badge.svg)
@@ -13,12 +13,13 @@ This tool was implemented as part of a bachelor thesis (by Malte Clement at Kiel
 3. [Getting Started](#getting-started)
     1. [Required Software](#required-software)
     2. [Executable Installation](#executable-installation)
-    3. [Library Installation](#library-installation)
+    3. [Running without Installation](#running-without-installation)
+    4. [Library Installation](#library-installation)
 4. [Usage](#usage)
 5. [Get Involved](#get-involved)
 6. [License](#license)
 
-# Haskell to Haskell Transformation Tool
+## Haskell to Haskell Transformation Tool
 
 This is a tool to translate different language features of Haskell into simpler expressions.
 
@@ -56,17 +57,38 @@ The tool has been tested with the following software versions.
 
 ### Executable Installation
 
-In order to install the command line interface, navigate to the root directory of the project and run
+In order to install the command line interface, navigate to the root directory of the project and run the following command.
 
 ```bash
 cabal new-install exe:haskell-src-transformations
 ```
 
-You can also run the executable directly without installing it first.
+The command above builds the executable pattern matching compiler's command line interface and creates a symbolic link in `~/.cabal/bin`.
+To test whether the installation was successful, make sure the `~/.cabal/bin` is in your `PATH` environment variable and run the following command.
+
+```
+haskell-src-transformations --help
+```
+
+### Running without Installation
+
+If you want to run the command line interface without installing the package on your machine (e.g., for debugging purposes), execute the following command in the root directory of the project instead of using the `haskell-src-transformations` executable.
 
 ```bash
 cabal new-run exe:haskell-src-transformations -- [options...] <input-files...>
 ```
+
+The two dashes are needed to separate the arguments to pass to the pattern matching compiler from Cabal's arguments.
+Alternatively, you can use the `./tool/run.sh` bash script.
+
+```bash
+./tool/run.sh [options...]
+```
+
+In addition to running the Cabal `new-run` command, the script also sets the `-Wwarn` flag of the GHC automatically.
+This flag ensures that warnings are not reported as errors by GHC which is convenient during development.
+In production, there should be no compiler warnings.
+Thus, the CI pipeline does not use the `./tool/run.sh` script but tests the compiler with the `-Werror` flag set.
 
 ### Library Installation
 

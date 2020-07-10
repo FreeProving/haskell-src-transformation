@@ -76,6 +76,9 @@ library
                     , HST.Effect.Report
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
+                    , HST.Frontend.Syntax
+                    , HST.Frontend.FromHSE
+                    , HST.Frontend.ToHSE
   other-modules:      HST.Environment.Renaming
 
 -- Build configuration for the command line interface.
@@ -98,10 +101,13 @@ test-suite haskell-src-transformations-unit-tests
   hs-source-dirs:     src/test
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
-  other-modules:      HST.CoreAlgorithmTests
+  other-modules:      HST.ApplicationTests
+                    , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
                     , HST.Effect.ReportTests
-  build-depends:      haskell-src-transformations
+  build-depends:      base
+                    , haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8
+                    , mtl
                     , QuickCheck        >= 2.14 && < 2.15
