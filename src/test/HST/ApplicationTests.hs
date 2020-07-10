@@ -28,8 +28,8 @@ import           HST.Application                ( processModule
 import           HST.Environment.FreshVars      ( PMState(..)
                                                 , evalPM
                                                 )
-import qualified HST.Frontend.FromHSE as FromHSE
-import qualified HST.Frontend.ToHSE as ToHSE
+import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | Tests for the "HST.Application" module.
 applicationTests :: Spec
@@ -58,7 +58,8 @@ testProcessModule = context "processModule" $ do
   it "should accept a simple function" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "f :: a -> a", "f x = x"]
-    let mod2' = evalPM (processModule (FromHSE.transformModule mod1)) defaultState
+    let mod2' =
+          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
         mod2 = ToHSE.transformModule mod1 mod2'
     mod2 `prettyShouldBe` mod1
   it "should transform pattern matching into case expressions" $ do
@@ -75,13 +76,15 @@ testProcessModule = context "processModule" $ do
       , "  []    -> 0"
       , "  a1:a2 -> 1 + lengthL a2"
       ]
-    let mod2' = evalPM (processModule (FromHSE.transformModule mod1)) defaultState
+    let mod2' =
+          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
         mod2 = ToHSE.transformModule mod1 mod2'
     expected `prettyShouldBe` mod2
   it "should transform pattern matching in a partial function" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "head :: [a] -> a", "head (x:xs) = x"]
-    let mod2' = evalPM (processModule (FromHSE.transformModule mod1)) defaultState
+    let mod2' =
+          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
         mod2 = ToHSE.transformModule mod1 mod2'
     expected <- parseTestModule $ unlines
       [ "module A where"
@@ -94,7 +97,8 @@ testProcessModule = context "processModule" $ do
   it "should accept a simple guarded expression" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "id :: a -> a", "id x | otherwise = x"]
-    let mod2' = evalPM (processModule (FromHSE.transformModule mod1)) defaultState
+    let mod2' =
+          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
         mod2 = ToHSE.transformModule mod1 mod2'
     expected <- parseTestModule $ unlines
       [ "module A where"
@@ -113,7 +117,8 @@ testProcessModule = context "processModule" $ do
       , "useless p x y | p x       = x"
       , "              | otherwise = y"
       ]
-    let mod2' = evalPM (processModule (FromHSE.transformModule mod1)) defaultState
+    let mod2' =
+          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
         mod2 = ToHSE.transformModule mod1 mod2'
     expected <- parseTestModule $ unlines
       [ "module A where"
