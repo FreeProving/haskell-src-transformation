@@ -10,7 +10,7 @@ where                                   -- TODO Apply GE to GuardedRhs in case e
                                                                                 -- TODO only apply to the parts with guards (not on matches if in case)
                                                                                     -- not false by semantics
 
-import qualified HST.CoreAlgorithm             as A
+import qualified HST.CoreAlgorithm             as CA
                                                 ( err
                                                 , translatePVar
                                                 )
@@ -37,7 +37,7 @@ eliminateL vs err eqs = do
   let errDecl = toDecl lastPat err -- error has to be bound to last new var
   return $ S.Let S.NoSrcSpan
                  (S.BDecls S.NoSrcSpan (errDecl : decls))
-                 (A.translatePVar startVar)
+                 (CA.translatePVar startVar)
 
 toDecl :: S.Pat a -> S.Exp a -> S.Decl a
 toDecl (S.PVar _ name) e = S.FunBind
@@ -62,7 +62,7 @@ createDecl
   -> PM a ([S.Decl a], S.Pat a) -- var bindings , variable for next match
 createDecl vs (decl, p) (ps, rhs) = do
   nVar <- newVar
-  let varExp = A.translatePVar nVar
+  let varExp = CA.translatePVar nVar
   iexp <- rhsToIf rhs varExp
   let cexp  = createCase iexp varExp (zip vs ps)
   let ndecl = toDecl p cexp
@@ -77,12 +77,12 @@ createCase
   -> S.Exp a
 -- createCase i next vps
 --   = foldr (\(v,p) next ->
---       Case () (A.translatePVar v)
+--       Case () (translatePVar v)
 --               [S.alt p res, S.alt B.wildcard next]) i vps
 createCase i _    []             = i
 createCase i next ((v, p) : vps) = S.Case
   S.NoSrcSpan
-  (A.translatePVar v)
+  (CA.translatePVar v)
   [S.alt p (createCase i next vps), S.alt (S.PWildCard S.NoSrcSpan) next]
 
 -- Converts a rhs into an if then else expression as mentioned in the semantics
@@ -144,7 +144,7 @@ applyGEAlts as = if any (\(S.Alt _ _ rhs _) -> isGuardedRhs rhs) as
   then do
     let gexps = map (\(S.Alt _ p rhs _) -> ([p], rhs)) as
     newVar'  <- newVar
-    e        <- eliminateL [newVar'] A.err gexps
+    e        <- eliminateL [newVar'] CA.err gexps
     matchVar <- newVar
     return [S.Alt S.NoSrcSpan matchVar (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
   else return as
@@ -187,7 +187,7 @@ applyGE ms = do
       geqs     = map (\(S.Match _ _ pats rhs _) -> (pats, rhs)) ms
       funArity = (length . fst . head) geqs
   nVars <- newVars funArity
-  nExp  <- eliminateL nVars A.err geqs
+  nExp  <- eliminateL nVars CA.err geqs
   return $ S.Match S.NoSrcSpan
                    mname
                    nVars

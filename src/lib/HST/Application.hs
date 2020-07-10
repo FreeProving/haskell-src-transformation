@@ -12,8 +12,7 @@ import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , isCons
                                                 )
-import qualified HST.Feature.CaseCompletion    as CC
-                                                ( applyCCModule )
+import           HST.Feature.CaseCompletion     ( applyCCModule )
 import           HST.Environment.FreshVars      ( Constructor
                                                 , PM
                                                 , addConstrMap
@@ -21,8 +20,7 @@ import           HST.Environment.FreshVars      ( Constructor
                                                 , gets
                                                 , newVars
                                                 )
-import qualified HST.Feature.GuardElimination  as GE
-                                                ( comp
+import           HST.Feature.GuardElimination   ( comp
                                                 , getMatchName
                                                 , applyGEModule
                                                 )
@@ -48,7 +46,7 @@ useAlgoDecl v = return v
 useAlgoMatches :: S.EqAST a => [S.Match a] -> PM a [S.Match a]
 useAlgoMatches []       = return []
 useAlgoMatches (m : ms) = do
-  let (oneFun, r) = span (GE.comp m) ms
+  let (oneFun, r) = span (comp m) ms
   if not (null oneFun) || hasCons (m : oneFun)
     then do
       x  <- useAlgo (m : oneFun)
@@ -74,25 +72,18 @@ useAlgo
   => [S.Match a]          -- all matches for one function name
   -> PM a (S.Match a) -- contains one match
 useAlgo ms = do
-  let mname    = GE.getMatchName ms
+  let mname    = getMatchName ms
   let eqs = map (\(S.Match _ _ pats rhs _) -> (pats, selectExp rhs)) ms
   let funArity = (length . fst . head) eqs
   nVars <- newVars funArity
   nExp  <- match nVars eqs err
-  b     <- gets opt
-  if b
-    then do
-      oExp <- optimize nExp
-      return $ S.Match S.NoSrcSpan
-                       mname
-                       nVars
-                       (S.UnGuardedRhs S.NoSrcSpan oExp)
-                       Nothing
-    else return $ S.Match S.NoSrcSpan
-                          mname
-                          nVars
-                          (S.UnGuardedRhs S.NoSrcSpan nExp)
-                          Nothing
+  doOpt <- gets opt
+  nExp' <- if doOpt then optimize nExp else return nExp
+  return $ S.Match S.NoSrcSpan
+                   mname
+                   nVars
+                   (S.UnGuardedRhs S.NoSrcSpan nExp')
+                   Nothing
  where
   selectExp :: S.Rhs a -> S.Exp a
   selectExp (S.UnGuardedRhs _ e) = e
@@ -146,8 +137,8 @@ fromName (S.Symbol _ str) = str
 processModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
 processModule m = do
   collectDataInfo m -- TODO  maybe unused
-  eliminatedM    <- GE.applyGEModule m
-  caseCompletedM <- CC.applyCCModule eliminatedM
+  eliminatedM    <- applyGEModule m
+  caseCompletedM <- applyCCModule eliminatedM
   useAlgoModule caseCompletedM
 
 -- | 'specialCons' is a map for the sugared data types in Haskell, since they

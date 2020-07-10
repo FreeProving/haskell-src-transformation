@@ -8,3 +8,10 @@
 # In the renaming module substitutions are modeled as functions.
 # The usage of lambda abstractions actually improves the readability.
 - ignore: {name: "Redundant lambda", within: ["HST.Environment.Renaming"]}
+
+# Aliases for qualified imports.
+- modules:
+  - {name: [ HST.CoreAlgorithm ], as: CA}
+  - {name: [ HST.Frontend.Syntax ], as: S}
+  - {name: [ HST.Frontend.FromHSE ], as: FromHSE}
+  - {name: [ HST.Frontend.ToHSE ], as: ToHSE}
