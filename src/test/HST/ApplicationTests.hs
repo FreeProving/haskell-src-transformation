@@ -97,7 +97,7 @@ testProcessModule = context "processModule" $ do
       , "id a0 = let a2 = undefined"
       , "            a1 = case a0 of"
       , "              a3 -> if otherwise then a3"
-      , "                    else a2"
+      , "                                 else a2"
       , "         in a1"
       ]
     mod2 `prettyShouldBe` expected
