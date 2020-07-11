@@ -73,6 +73,7 @@ library
                     , HST.Feature.GuardElimination
                     , HST.Feature.CaseCompletion
                     , HST.Effect.Cancel
+                    , HST.Effect.Env
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
                     , HST.Effect.Report
