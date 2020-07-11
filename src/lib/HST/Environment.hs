@@ -57,4 +57,5 @@ data Environment = Environment
 
 -- | An empty 'Environment'.
 emptyEnv :: Environment
-emptyEnv = Environment { envConEntries = Map.empty }
+emptyEnv =
+  Environment { envConEntries = Map.empty, envMatchedPats = Map.empty }
