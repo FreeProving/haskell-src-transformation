@@ -70,8 +70,9 @@ library
   hs-source-dirs:     src/lib
   exposed-modules:    HST.Application
                     , HST.CoreAlgorithm
-                    , HST.Feature.GuardElimination
                     , HST.Feature.CaseCompletion
+                    , HST.Feature.GuardElimination
+                    , HST.Feature.Optimization
                     , HST.Effect.Cancel
                     , HST.Effect.Env
                     , HST.Effect.Fresh
@@ -79,9 +80,8 @@ library
                     , HST.Effect.Report
                     , HST.Environment
                     , HST.Environment.FreshVars
-                    , HST.Feature.Optimization
+                    , HST.Environment.Renaming
                     , HST.Options
-  other-modules:      HST.Environment.Renaming
 
 -- Build configuration for the command line interface.
 executable haskell-src-transformations
