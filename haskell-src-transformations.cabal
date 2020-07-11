@@ -75,6 +75,7 @@ library
                     , HST.Effect.Report
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
+                    , HST.Options
   other-modules:      HST.Environment.Renaming
 
 -- Build configuration for the command line interface.
