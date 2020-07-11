@@ -76,6 +76,7 @@ library
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
                     , HST.Effect.Report
+                    , HST.Environment
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
                     , HST.Options
