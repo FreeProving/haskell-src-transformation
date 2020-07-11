@@ -24,6 +24,9 @@ type TypeName = String
 -- | The name of a data constructor.
 type ConName = S.QName ()
 
+-- | The name of a variable.
+type VarName = S.QName ()
+
 -------------------------------------------------------------------------------
 -- Environment Entries                                                       --
 -------------------------------------------------------------------------------
@@ -39,14 +42,17 @@ data ConEntry = ConEntry
   , conEntryType    ::  TypeName
     -- ^ The name of the data type that the constructor belongs to.
   }
-
 -------------------------------------------------------------------------------
 -- Environment                                                               --
 -------------------------------------------------------------------------------
 
 -- | A data type for the state of the pattern matching compiler.
 data Environment = Environment
-  { envConEntries :: Map TypeName [ConEntry]
+  { envConEntries  :: Map TypeName [ConEntry]
+    -- ^ Maps names of data types to entries for their constructors.
+  , envMatchedPats :: Map VarName (S.Pat ())
+    -- ^ Maps names of local variables to patterns they have been matched
+    --   against.
   }
 
 -- | An empty 'Environment'.
