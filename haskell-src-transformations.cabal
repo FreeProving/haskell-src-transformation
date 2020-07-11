@@ -72,6 +72,7 @@ library
                     , HST.Feature.GuardElimination
                     , HST.Feature.CaseCompletion
                     , HST.Effect.Cancel
+                    , HST.Effect.GetOpt
                     , HST.Effect.Report
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
