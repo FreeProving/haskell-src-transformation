@@ -38,20 +38,20 @@ import           HST.Environment                ( Environment
 
 -- | An effect capable of reading and writing the pattern matching compiler's
 --   environment.
-data Env m a where
-  GetEnv ::Env m Environment
-  PutEnv ::Environment -> Env m ()
+data Env a m b where
+  GetEnv ::Env a m (Environment a)
+  PutEnv ::(Environment a) -> Env a m ()
 
 makeSem ''Env
 
 -- | Gets a specific component of the current environment by using the
 --   supplied projection function.
-inEnv :: Member Env r => (Environment -> a) -> Sem r a
+inEnv :: Member (Env a) r => (Environment a -> b) -> Sem r b
 inEnv f = f <$> getEnv
 
 -- | Modifies the environment by applying the given transformation on the
 --   current environment.
-modifyEnv :: Member Env r => (Environment -> Environment) -> Sem r ()
+modifyEnv :: Member (Env a) r => (Environment a -> Environment a) -> Sem r ()
 modifyEnv f = do
   env <- getEnv
   putEnv (f env)
@@ -62,16 +62,16 @@ modifyEnv f = do
 
 -- | Handles a computation by providing an initially empty environment to
 --   read from and write to.
-runEnv :: Sem (Env ': r) a -> Sem r a
+runEnv :: Sem (Env a ': r) b -> Sem r b
 runEnv = runWithEnv emptyEnv
 
 -- | Handles a computation by providing the supplied environment to read from
 --   and write to.
-runWithEnv :: Environment -> Sem (Env ': r) a -> Sem r a
+runWithEnv :: Environment a -> Sem (Env a ': r) b -> Sem r b
 runWithEnv initialEnv = evalState initialEnv . envToState
  where
   -- | Reinterprets 'Env' in terms of 'State'.
-  envToState :: Sem (Env ': r) a -> Sem (State Environment ': r) a
+  envToState :: Sem (Env a ': r) b -> Sem (State (Environment a) ': r) b
   envToState = reinterpret \case
     GetEnv      -> get
     PutEnv env' -> put env'

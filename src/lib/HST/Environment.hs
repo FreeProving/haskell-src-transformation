@@ -27,36 +27,36 @@ import qualified HST.Frontend.Syntax           as S
 -------------------------------------------------------------------------------
 
 -- | The name of a data type.
-type TypeName = S.QName ()
+type TypeName a = S.QName a
 
 -- | The name of a data constructor.
-type ConName = S.QName ()
+type ConName a = S.QName a
 
 -- | The name of a variable.
-type VarName = S.QName ()
+type VarName a = S.QName a
 
 -------------------------------------------------------------------------------
 -- Environment Entries                                                       --
 -------------------------------------------------------------------------------
 
 -- | An entry of the 'Environment' for a data constructor that is in scope.
-data ConEntry = ConEntry
-  { conEntryName    :: ConName
+data ConEntry a = ConEntry
+  { conEntryName    :: ConName a
     -- ^ The name of the constructor.
   , conEntryArity   :: Int
     -- ^ The number of fields of the constructor.
   , conEntryIsInfix :: Bool
     -- ^ Whether the constructor should be written in infix notation or not.
-  , conEntryType    ::  TypeName
+  , conEntryType    ::  TypeName a
     -- ^ The name of the data type that the constructor belongs to.
   }
 
 -- | An entry of the 'Environment' for a data type whose constructors are in
 --   scope.
-data DataEntry = DataEntry
-  { dataEntryName :: TypeName
+data DataEntry a = DataEntry
+  { dataEntryName :: TypeName a
     -- ^ The name of the data type.
-  , dataEntryCons :: [ConName]
+  , dataEntryCons :: [ConName a]
     -- ^ The names of the data type's constructors.
   }
 
@@ -65,18 +65,18 @@ data DataEntry = DataEntry
 -------------------------------------------------------------------------------
 
 -- | A data type for the state of the pattern matching compiler.
-data Environment = Environment
-  { envConEntries  :: Map ConName ConEntry
+data Environment a = Environment
+  { envConEntries  :: Map (ConName a) (ConEntry a)
     -- ^ Maps names of constructors to their 'ConEntry's.
-  , envDataEntries :: Map TypeName DataEntry
+  , envDataEntries :: Map (TypeName a) (DataEntry a)
     -- ^ Maps names of data types to their 'DataEntry's.
-  , envMatchedPats :: Map VarName (S.Pat ())
+  , envMatchedPats :: Map (VarName a) (S.Pat a)
     -- ^ Maps names of local variables to patterns they have been matched
     --   against.
   }
 
 -- | An empty 'Environment'.
-emptyEnv :: Environment
+emptyEnv :: Environment a
 emptyEnv = Environment { envConEntries  = Map.empty
                        , envDataEntries = Map.empty
                        , envMatchedPats = Map.empty
@@ -90,13 +90,13 @@ emptyEnv = Environment { envConEntries  = Map.empty
 --   environment.
 --
 --   Returns @Nothing@ if the data constructor is not in scope.
-lookupConEntry :: ConName -> Environment -> Maybe ConEntry
+lookupConEntry :: ConName a -> Environment a -> Maybe (ConEntry a)
 lookupConEntry name = Map.lookup name . envConEntries
 
 -- | Looks up the entry of a data type with the given name in the environment.
 --
 --   Returns @Nothing@ if the data type is not in scope.
-lookupDataEntry :: TypeName -> Environment -> Maybe DataEntry
+lookupDataEntry :: TypeName a -> Environment a -> Maybe (DataEntry a)
 lookupDataEntry name = Map.lookup name . envDataEntries
 
 -------------------------------------------------------------------------------
@@ -104,13 +104,13 @@ lookupDataEntry name = Map.lookup name . envDataEntries
 -------------------------------------------------------------------------------
 
 -- | Inserts the given entry for a data constructor into the environment.
-insertConEntry :: ConEntry -> Environment -> Environment
+insertConEntry :: ConEntry a -> Environment a -> Environment a
 insertConEntry entry env = env
   { envConEntries = Map.insert (conEntryName entry) entry (envConEntries env)
   }
 
 -- | Inserts the given entry for a data type into the environment.
-insertDataEntry :: DataEntry -> Environment -> Environment
+insertDataEntry :: DataEntry a -> Environment a -> Environment a
 insertDataEntry entry env = env
   { envDataEntries = Map.insert (dataEntryName entry) entry (envDataEntries env)
   }
