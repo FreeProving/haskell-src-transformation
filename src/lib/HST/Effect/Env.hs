@@ -57,10 +57,11 @@ runEnv :: Sem (Env ': r) a -> Sem r a
 runEnv = runWithEnv emptyEnv
 
 -- | Handles a computation by providing the supplied environment to read from
---   and write to. 
+--   and write to.
 runWithEnv :: Environment -> Sem (Env ': r) a -> Sem r a
 runWithEnv initialEnv = evalState initialEnv . envToState
  where
+  -- | Reinterprets 'Env' in terms of 'State'.
   envToState :: Sem (Env ': r) a -> Sem (State Environment ': r) a
   envToState = reinterpret \case
     GetEnv      -> get

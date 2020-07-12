@@ -45,6 +45,7 @@ makeSem ''Fresh
 runFresh :: Sem (Fresh ': r) a -> Sem r a
 runFresh = evalState Map.empty . freshToState
  where
+  -- | Reinterprets 'Fresh' in terms of 'State'.
   freshToState :: Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
   freshToState = reinterpret \case
     FreshVar prefix -> do

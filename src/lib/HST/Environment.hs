@@ -42,6 +42,7 @@ data ConEntry = ConEntry
   , conEntryType    ::  TypeName
     -- ^ The name of the data type that the constructor belongs to.
   }
+
 -------------------------------------------------------------------------------
 -- Environment                                                               --
 -------------------------------------------------------------------------------
