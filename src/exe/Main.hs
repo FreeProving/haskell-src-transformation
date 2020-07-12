@@ -45,6 +45,8 @@ import           HST.Effect.Report              ( Message(Message)
                                                 , exceptionToReport
                                                 )
 import           HST.Effect.Cancel              ( cancelToExit )
+import           HST.Effect.Env                 ( runEnv )
+import           HST.Effect.Fresh               ( runFresh )
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
@@ -144,9 +146,10 @@ processInputFile
   :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFile = do
   input <- embed $ readFile inputFile
-  state <- initPMState
-  let inputModule  = HSE.fromParseResult (HSE.parseModule input)
-      outputModule = evalPM (processModule (void inputModule)) state
+  let inputModule = HSE.fromParseResult (HSE.parseModule input)
+  outputModule <- runEnv . runFresh $ do
+    state <- initPMState
+    return $ evalPM (processModule (void inputModule)) state
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
