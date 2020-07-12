@@ -18,7 +18,6 @@ module HST.Effect.GetOpt
   )
 where
 
-import           Control.Monad                  ( (>=>) )
 import           Polysemy                       ( Member
                                                 , Members
                                                 , Sem

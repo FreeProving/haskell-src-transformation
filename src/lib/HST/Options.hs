@@ -17,22 +17,13 @@ import           System.Console.GetOpt          ( OptDescr(Option)
                                                 , ArgDescr(NoArg, ReqArg)
                                                 , ArgOrder(Permute)
                                                 , getOpt
-                                                , usageInfo
                                                 )
 
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity
-                                                  ( Internal
-                                                  , Error
-                                                  , Debug
-                                                  )
-                                                , msgSeverity
+                                                , Severity(Error)
                                                 , report
                                                 , reportFatal
-                                                , reportToHandleOrCancel
-                                                , filterReportedMessages
-                                                , exceptionToReport
                                                 )
 
 -- | A data type that contains the parsed command line options.
