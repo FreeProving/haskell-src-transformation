@@ -1,9 +1,11 @@
--- | This module contains tests for "HST.Effect.Cancel".
+-- | This module contains tests for "HST.Effect.Report".
 
 module HST.Effect.ReportTests
   ( testReportEffect
   )
 where
+
+import           Control.Exception              ( finally )
 
 import           HST.Effect.Cancel              ( runCancel )
 import           HST.Effect.Report              ( Message(..)
@@ -12,6 +14,7 @@ import           HST.Effect.Report              ( Message(..)
                                                 , filterReportedMessages
                                                 , report
                                                 , reportFatal
+                                                , reportToHandleOrCancel
                                                 , reportToOutputOrCancel
                                                 , runReport
                                                 )
@@ -19,14 +22,23 @@ import           HST.Effect.Report              ( Message(..)
 import           Polysemy                       ( Member
                                                 , Sem
                                                 , run
+                                                , runM
                                                 )
 import           Polysemy.Output                ( runOutputList )
+
+import           System.Directory               ( getTemporaryDirectory
+                                                , removeFile
+                                                )
+import           System.IO
+import           System.IO.Error                ( catchIOError )
+
 
 import           Test.Hspec                     ( Spec
                                                 , context
                                                 , describe
                                                 , it
                                                 , shouldBe
+                                                , shouldReturn
                                                 )
 
 
@@ -35,6 +47,7 @@ testReportEffect :: Spec
 testReportEffect = describe "HST.Effect.Report" $ do
   testRunReport
   testReportToOutputOrCancel
+  testReportToHandleOrCancel
   testFilterReportedMessages
 
 -- | Test group for 'runReport' tests.
@@ -88,6 +101,60 @@ testReportToOutputOrCancel = context "reportToOutputOrCancel" $ do
     outputRun comp `shouldBe` ([msg1, msg2], Just 42)
   where outputRun = run . runOutputList . runCancel . reportToOutputOrCancel
 
+-- | Test group for 'reportToHandleOrCancel' tests.
+testReportToHandleOrCancel :: Spec
+testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
+  it "should write no message to the handle if nothing is reported"
+    $ processCompHandle "tempFile"
+    $ \h -> do
+        let comp :: Member Report r => Sem r Int
+            comp = return 42
+        (runM . runCancel . reportToHandleOrCancel h) comp
+          `shouldReturn` Just 42
+        hSeek h AbsoluteSeek 0
+        c <- hGetContents h
+        null c `shouldBe` True
+  it
+      (  "should return Nothing and write a single message to the handle "
+      ++ "if a fatal message was reported"
+      )
+    $ do
+        processCompHandle "tempFile" $ \h -> do
+          let msg = Message Error "Some Error"
+              comp :: Member Report r => Sem r Int
+              comp = reportFatal msg >> return 42
+          val <- (runM . runCancel . reportToHandleOrCancel h) comp
+          hSeek h AbsoluteSeek 0
+          c <- hGetContents h
+          val `shouldBe` Nothing
+          lines c `shouldBe` ["Error: Some Error"]
+  it
+      (  "should return Just a value and write a single message to the handle "
+      ++ "if a single message was reported"
+      )
+    $ do
+        processCompHandle "tempFile" $ \h -> do
+          let msg = Message Warning "Some Warning"
+              comp :: Member Report r => Sem r Int
+              comp = report msg >> return 42
+          val <- (runM . runCancel . reportToHandleOrCancel h) comp
+          hSeek h AbsoluteSeek 0
+          c <- hGetContents h
+          val `shouldBe` Just 42
+          lines c `shouldBe` ["Warning: Some Warning"]
+  it "should write reported messages to the handle in the right order"
+    $ processCompHandle "tempFile"
+    $ \h -> do
+        let msg1 = Message Info "Some Info"
+        let msg2 = Message Warning "Some Warning"
+            comp :: Member Report r => Sem r Int
+            comp = report msg1 >> report msg2 >> return 42
+        val <- (runM . runCancel . reportToHandleOrCancel h) comp
+        hSeek h AbsoluteSeek 0
+        c <- hGetContents h
+        val `shouldBe` Just 42
+        lines c `shouldBe` ["Info: Some Info", "Warning: Some Warning"]
+
 -- | Test group for 'filterReportedMessages' tests.
 testFilterReportedMessages :: Spec
 testFilterReportedMessages = context "filterReportedMessages" $ do
@@ -130,3 +197,15 @@ testFilterReportedMessages = context "filterReportedMessages" $ do
  where
   runFilter p = run . runReport . filterReportedMessages p
   isWarn = (== Warning) . msgSeverity
+
+-- | Opens a temporary file, then processes it and deletes it afterwards.
+processCompHandle :: String -> (Handle -> IO a) -> IO a
+processCompHandle pat comp = do
+  tempdir           <- catchIOError getTemporaryDirectory (\_ -> return ".")
+  (tempfile, temph) <- openTempFile tempdir pat
+  finally
+    (comp temph)
+    (do
+      hClose temph
+      removeFile tempfile
+    )

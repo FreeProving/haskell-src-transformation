@@ -33,6 +33,7 @@ flag PolysemyPluginEnabled {
 common deps
   build-depends:       base             >= 4.12  && < 4.13
                      , containers       >= 0.6   && < 0.7
+                     , directory        >= 1.3   && < 1.4
                      , extra            >= 1.7   && < 1.8
                      , haskell-src-exts >= 1.23  && < 1.24
                      , mtl              >= 2.2   && < 2.3
@@ -73,6 +74,9 @@ library
                     , HST.Feature.CaseCompletion
                     , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
+                    , HST.Frontend.Syntax
+                    , HST.Frontend.FromHSE
+                    , HST.Frontend.ToHSE
                     , HST.Effect.Cancel
                     , HST.Effect.Env
                     , HST.Effect.Fresh
@@ -92,7 +96,6 @@ executable haskell-src-transformations
   main-is:            Main.hs
   hs-source-dirs:     src/exe
   build-depends:      filepath          >= 1.4 && < 1.5
-                    , directory         >= 1.3 && < 1.4
                     , haskell-src-transformations
 
 -- Build configuration for the unit tests of the library.
@@ -103,10 +106,12 @@ test-suite haskell-src-transformations-unit-tests
   hs-source-dirs:     src/test
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
-  other-modules:      HST.CoreAlgorithmTests
+  other-modules:      HST.ApplicationTests
+                    , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
                     , HST.Effect.ReportTests
-  build-depends:      haskell-src-transformations
+  build-depends:      base
+                    , haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8
                     , QuickCheck        >= 2.14 && < 2.15

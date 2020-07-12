@@ -9,7 +9,6 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
-import           Control.Monad                  ( void )
 import           Data.List.Extra                ( splitOn )
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
@@ -59,6 +58,8 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , opt
                                                 , evalPM
                                                 )
+import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.ToHSE            as ToHSE
 import           HST.Options                    ( optShowHelp
                                                 , optInputFiles
                                                 , optOutputDir
@@ -147,9 +148,11 @@ processInputFile
 processInputFile inputFile = do
   input <- embed $ readFile inputFile
   let inputModule = HSE.fromParseResult (HSE.parseModule input)
+      intermediateModule = FromHSE.transformModule inputModule
   outputModule <- runEnv . runFresh $ do
     state <- initPMState
-    return $ evalPM (processModule (void inputModule)) state
+    let intermediateModule' = evalPM (processModule intermediateModule) state
+    return $ ToHSE.transformModule inputModule intermediateModule'
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -159,7 +162,7 @@ processInputFile inputFile = do
     Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
 
 -- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Member GetOpt r => Sem r PMState
+initPMState :: Member GetOpt r => Sem r (PMState a)
 initPMState = do
   trivialCase  <- getOpt optTrivialCase
   optimizeCase <- getOpt optOptimizeCase
@@ -201,7 +204,7 @@ makeOutputFileName inputFile inputModule = outputFileName <.> "hs"
   moduleName _ = Nothing
 
 -- | Pretty prints the given Haskell module.
-prettyPrintModule :: HSE.Module () -> String
+prettyPrintModule :: HSE.Module HSE.SrcSpanInfo -> String
 prettyPrintModule = HSE.prettyPrintStyleMode
   (HSE.Style { HSE.mode           = HSE.PageMode
              , HSE.lineLength     = 120
