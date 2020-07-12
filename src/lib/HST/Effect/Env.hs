@@ -11,12 +11,14 @@ module HST.Effect.Env
   , getEnv
   , putEnv
   , inEnv
+  , modifyEnv
     -- * Interpretations
   , runEnv
   )
 where
 
-import           Polysemy                       ( Sem
+import           Polysemy                       ( Member
+                                                , Sem
                                                 , makeSem
                                                 , reinterpret
                                                 )
@@ -44,8 +46,15 @@ makeSem ''Env
 
 -- | Gets a specific component of the current environment by using the
 --   supplied projection function.
-inEnv :: (Environment -> a) -> Sem (Env ': r) a
-inEnv selector = selector <$> getEnv
+inEnv :: Member Env r => (Environment -> a) -> Sem r a
+inEnv f = f <$> getEnv
+
+-- | Modifies the environment by applying the given transformation on the
+--   current environment.
+modifyEnv :: Member Env r => (Environment -> Environment) -> Sem r ()
+modifyEnv f = do
+  env <- getEnv
+  putEnv (f env)
 
 -------------------------------------------------------------------------------
 -- Interpretations                                                           --
