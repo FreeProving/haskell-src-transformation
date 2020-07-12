@@ -10,14 +10,31 @@ where
 -- TODO too many variables generated
 -- TODO only tuples supported
 
+import           Polysemy                       ( Member
+                                                , Members
+                                                , Sem
+                                                )
+
 import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , isCons
                                                 )
+import           HST.Environment                ( ConEntry(..)
+                                                , DataEntry(..)
+                                                , insertConEntry
+                                                , insertDataEntry
+                                                )
+import           HST.Effect.Env                 ( Env
+                                                , modifyEnv
+                                                )
+import           HST.Effect.GetOpt              ( GetOpt
+                                                , getOpt
+                                                )
 import           HST.Feature.CaseCompletion     ( applyCCModule )
 import           HST.Environment.FreshVars      ( Constructor
+                                                , PMState(..)
                                                 , PM
-                                                , addConstrMap
+                                                , evalPM
                                                 , opt
                                                 , gets
                                                 , newVars
@@ -27,6 +44,9 @@ import           HST.Feature.GuardElimination   ( getMatchName
                                                 )
 import           HST.Feature.Optimization       ( optimize )
 import qualified HST.Frontend.Syntax           as S
+import           HST.Options                    ( optTrivialCase
+                                                , optOptimizeCase
+                                                )
 
 -------------------------------------------------------------------------------
 -- Application of Core Algorithm                                             --
@@ -37,12 +57,15 @@ import qualified HST.Frontend.Syntax           as S
 --   module.
 --
 --   Returns a new module with the transformed functions.
-processModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
+processModule
+  :: (Members '[Env a, GetOpt] r, S.EqAST a) => S.Module a -> Sem r (S.Module a)
 processModule m = do
   collectDataInfo m
-  eliminatedM    <- applyGEModule m
-  caseCompletedM <- applyCCModule eliminatedM
-  useAlgoModule caseCompletedM
+  state <- initPMState
+  return $ flip evalPM state $ do
+    eliminatedM    <- applyGEModule m
+    caseCompletedM <- applyCCModule eliminatedM
+    useAlgoModule caseCompletedM
 
 -- | Applies the core algorithm on each declaration in the given module.
 useAlgoModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
@@ -101,7 +124,7 @@ useAlgo ms = do
 
 -- | Initializes the environment with the data types declared in the given
 --   module.
-collectDataInfo :: S.Module a -> PM a ()
+collectDataInfo :: Member (Env a) r => S.Module a -> Sem r ()
 collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
 
 -- | Inserts entries for the data type and constructors declared by the given
@@ -109,32 +132,42 @@ collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
 --
 --   Leaves the environment unchanged, if the given declaration is not a
 --   data type declaration.
-collectDataDecl :: S.Decl a -> PM a ()
-collectDataDecl (S.DataDecl dhead cDecls) =
-  addConstrMap (getDataName dhead, map getDataCons cDecls)
+collectDataDecl :: Member (Env a) r => S.Decl a -> Sem r ()
+collectDataDecl (S.DataDecl dhead conDecls) = do
+  let dataName   = getDataName dhead
+      conEntries = map (makeConEntry dataName) conDecls
+  modifyEnv $ insertDataEntry DataEntry
+    { dataEntryName = dataName
+    , dataEntryCons = map conEntryName conEntries
+    }
+  mapM_ (modifyEnv . insertConEntry) conEntries
 collectDataDecl _ = return ()
 
 -- | Extracts the name of the data type declared by a data type declaration
 --   with the given head.
-getDataName :: S.DeclHead a -> String -- add symbols?
-getDataName (S.DHead   dname) = fromName dname
+getDataName :: S.DeclHead a -> S.QName a
+getDataName (S.DHead   dname) = S.UnQual S.NoSrcSpan dname
 getDataName (S.DHApp   decl ) = getDataName decl
 getDataName (S.DHParen decl ) = getDataName decl
 -- TODO Test symbols and infix
 getDataName _ = error "getDataName: Symbol or infix in declaration"
 
--- | Inserts an entry for the given constructor declaration into the
---   environment.
-getDataCons :: S.ConDecl a -> Constructor a
-getDataCons (S.ConDecl cname types) =
-  (S.UnQual S.NoSrcSpan cname, length types, False)
-getDataCons (S.InfixConDecl _ cname _) = (S.UnQual S.NoSrcSpan cname, 2, True)
-getDataCons (S.RecDecl _) = error "record notation is not supported"
-
--- | Extracts the identifier or symbol from the given name.
-fromName :: S.Name a -> String
-fromName (S.Ident  _ str) = str
-fromName (S.Symbol _ str) = str
+-- | Creates an environment entry for a constructor declaration .
+makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
+makeConEntry dataName (S.ConDecl cname types) = ConEntry
+  { conEntryName    = S.UnQual S.NoSrcSpan cname
+  , conEntryArity   = length types
+  , conEntryIsInfix = False
+  , conEntryType    = dataName
+  }
+makeConEntry dataName (S.InfixConDecl _ cname _) = ConEntry
+  { conEntryName    = S.UnQual S.NoSrcSpan cname
+  , conEntryArity   = 2
+  , conEntryIsInfix = True
+  , conEntryType    = dataName
+  }
+makeConEntry _ (S.RecDecl _) =
+  error "makeConEntry: record notation is not supported"
 
 -- | Map of special constructors that cannot be defined in a module manually.
 specialCons :: [(String, [Constructor a])]
@@ -151,3 +184,15 @@ specialCons =
     )    -- TODO Tuples
   , ("wildcard", [(S.Special S.NoSrcSpan (S.ExprHole S.NoSrcSpan), 0, False)])
   ]
+
+-- | Creates the initial 'PMState' from the given command line options.
+initPMState :: Member GetOpt r => Sem r (PMState a)
+initPMState = do
+  trivialCase  <- getOpt optTrivialCase
+  optimizeCase <- getOpt optOptimizeCase
+  return $ PMState { nextId     = 0
+                   , constrMap  = specialCons
+                   , matchedPat = []
+                   , trivialCC  = trivialCase
+                   , opt        = optimizeCase
+                   }

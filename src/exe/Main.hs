@@ -11,8 +11,7 @@ import           Control.Exception              ( SomeException
                                                 )
 import           Data.List.Extra                ( splitOn )
 import qualified Language.Haskell.Exts         as HSE
-import           Polysemy                       ( Member
-                                                , Members
+import           Polysemy                       ( Members
                                                 , Sem
                                                 )
 import           Polysemy.Embed                 ( Embed
@@ -32,9 +31,7 @@ import           System.FilePath                ( (</>)
                                                 )
 import           System.IO                      ( stderr )
 
-import           HST.Application                ( processModule
-                                                , specialCons
-                                                )
+import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
                                                 , Severity(Internal, Debug)
@@ -50,22 +47,12 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
                                                 )
-import           HST.Environment.FreshVars      ( PMState(PMState)
-                                                , nextId
-                                                , constrMap
-                                                , matchedPat
-                                                , trivialCC
-                                                , opt
-                                                , evalPM
-                                                )
 import qualified HST.Frontend.FromHSE          as FromHSE
 import qualified HST.Frontend.ToHSE            as ToHSE
 import           HST.Options                    ( optShowHelp
                                                 , optInputFiles
                                                 , optOutputDir
                                                 , optEnableDebug
-                                                , optTrivialCase
-                                                , optOptimizeCase
                                                 , optionDescriptors
                                                 )
 
@@ -147,11 +134,10 @@ processInputFile
   :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFile = do
   input <- embed $ readFile inputFile
-  let inputModule = HSE.fromParseResult (HSE.parseModule input)
+  let inputModule        = HSE.fromParseResult (HSE.parseModule input)
       intermediateModule = FromHSE.transformModule inputModule
   outputModule <- runEnv . runFresh $ do
-    state <- initPMState
-    let intermediateModule' = evalPM (processModule intermediateModule) state
+    intermediateModule' <- processModule intermediateModule
     return $ ToHSE.transformModule inputModule intermediateModule'
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
@@ -160,18 +146,6 @@ processInputFile inputFile = do
       embed $ createDirectoryIfMissing True (takeDirectory outputFile)
       embed $ writeFile outputFile (prettyPrintModule outputModule)
     Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
-
--- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Member GetOpt r => Sem r (PMState a)
-initPMState = do
-  trivialCase  <- getOpt optTrivialCase
-  optimizeCase <- getOpt optOptimizeCase
-  return $ PMState { nextId     = 0
-                   , constrMap  = specialCons
-                   , matchedPat = []
-                   , trivialCC  = trivialCase
-                   , opt        = optimizeCase
-                   }
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
