@@ -12,7 +12,8 @@ import           Control.Exception              ( SomeException
 import           Control.Monad                  ( void )
 import           Data.List.Extra                ( splitOn )
 import qualified Language.Haskell.Exts         as HSE
-import           Polysemy                       ( Members
+import           Polysemy                       ( Member
+                                                , Members
                                                 , Sem
                                                 )
 import           Polysemy.Embed                 ( Embed
@@ -22,9 +23,7 @@ import           Polysemy.Final                 ( embedToFinal
                                                 , runFinal
                                                 )
 import           System.Console.GetOpt          ( usageInfo )
-import           System.Environment             ( getProgName
-                                                , getArgs
-                                                )
+import           System.Environment             ( getProgName )
 import           System.Directory               ( createDirectoryIfMissing )
 import           System.FilePath                ( (</>)
                                                 , (<.>)
@@ -46,6 +45,10 @@ import           HST.Effect.Report              ( Message(Message)
                                                 , exceptionToReport
                                                 )
 import           HST.Effect.Cancel              ( cancelToExit )
+import           HST.Effect.GetOpt              ( GetOpt
+                                                , getOpt
+                                                , runWithArgsIO
+                                                )
 import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , nextId
                                                 , constrMap
@@ -54,16 +57,13 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , opt
                                                 , evalPM
                                                 )
-import           HST.Options                    ( Options
-                                                  ( optShowHelp
-                                                  , optInputFiles
-                                                  , optOutputDir
-                                                  , optEnableDebug
-                                                  , optTrivialCase
-                                                  , optOptimizeCase
-                                                  )
+import           HST.Options                    ( optShowHelp
+                                                , optInputFiles
+                                                , optOutputDir
+                                                , optEnableDebug
+                                                , optTrivialCase
+                                                , optOptimizeCase
                                                 , optionDescriptors
-                                                , parseArgs
                                                 )
 
 -------------------------------------------------------------------------------
@@ -102,6 +102,7 @@ main =
     . cancelToExit
     . reportToHandleOrCancel stderr
     . exceptionToReport exceptionToMessage
+    . runWithArgsIO
     $ application
  where
   exceptionToMessage :: SomeException -> Message
@@ -113,19 +114,19 @@ main =
 --   applied on the parsed input module and a state constructed from the
 --   command line arguments. The output is either printed to the console
 --   or a file.
-application :: Members '[Report, Embed IO] r => Sem r ()
+application :: Members '[Embed IO, GetOpt, Report] r => Sem r ()
 application = do
-  args <- embed getArgs
-  opts <- parseArgs args
-
   -- Filter reported message based on @--debug@ flag.
-  filterReportedMessages
-      (\msg -> optEnableDebug opts || msgSeverity msg /= Debug)
-    $ -- Show usage information when the @--help@ flag is specified or there is no
-      -- input file.
-      if optShowHelp opts || null (optInputFiles opts)
-        then embed putUsageInfo
-        else mapM_ (processInputFile opts) (optInputFiles opts)
+  debuggingEnabled <- getOpt optEnableDebug
+  filterReportedMessages (\msg -> debuggingEnabled || msgSeverity msg /= Debug)
+    $ do
+        -- Show usage information when the @--help@ flag is specified or there is no
+        -- input file.
+        showHelp   <- getOpt optShowHelp
+        inputFiles <- getOpt optInputFiles
+        if showHelp || null inputFiles
+          then embed putUsageInfo
+          else mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -140,13 +141,14 @@ application = do
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
 processInputFile
-  :: Members '[Report, Embed IO] r => Options -> FilePath -> Sem r ()
-processInputFile opts inputFile = do
+  :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
+processInputFile inputFile = do
   input <- embed $ readFile inputFile
-  let state        = initPMState opts
-      inputModule  = HSE.fromParseResult (HSE.parseModule input)
+  state <- initPMState
+  let inputModule  = HSE.fromParseResult (HSE.parseModule input)
       outputModule = evalPM (processModule (void inputModule)) state
-  case optOutputDir opts of
+  maybeOutputDir <- getOpt optOutputDir
+  case maybeOutputDir of
     Just outputDir -> do
       let outputFile = outputDir </> makeOutputFileName inputFile inputModule
       embed $ createDirectoryIfMissing True (takeDirectory outputFile)
@@ -154,13 +156,16 @@ processInputFile opts inputFile = do
     Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
 
 -- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Options -> PMState
-initPMState opts = PMState { nextId     = 0
-                           , constrMap  = specialCons
-                           , matchedPat = []
-                           , trivialCC  = optTrivialCase opts
-                           , opt        = optOptimizeCase opts
-                           }
+initPMState :: Member GetOpt r => Sem r PMState
+initPMState = do
+  trivialCase  <- getOpt optTrivialCase
+  optimizeCase <- getOpt optOptimizeCase
+  return $ PMState { nextId     = 0
+                   , constrMap  = specialCons
+                   , matchedPat = []
+                   , trivialCC  = trivialCase
+                   , opt        = optimizeCase
+                   }
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
