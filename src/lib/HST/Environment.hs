@@ -4,6 +4,7 @@
 module HST.Environment
   ( -- * Environment Entries
     ConEntry(..)
+  , DataEntry(..)
     -- * Environment
   , Environment
   , emptyEnv
@@ -43,14 +44,25 @@ data ConEntry = ConEntry
     -- ^ The name of the data type that the constructor belongs to.
   }
 
+-- | An entry of the 'Environment' for a data type whose constructors are in
+--   scope.
+data DataEntry = DataEntry
+  { dataEntryName :: TypeName
+    -- ^ The name of the data type.
+  , dataEntryCons :: [ConName]
+    -- ^ The names of the data type's constructors.
+  }
+
 -------------------------------------------------------------------------------
 -- Environment                                                               --
 -------------------------------------------------------------------------------
 
 -- | A data type for the state of the pattern matching compiler.
 data Environment = Environment
-  { envConEntries  :: Map TypeName [ConEntry]
-    -- ^ Maps names of data types to entries for their constructors.
+  { envConEntries  :: Map ConName [ConEntry]
+    -- ^ Maps names of constructors to their 'ConEntry's.
+  , envDataEntries :: Map TypeName [DataEntry]
+    -- ^ Maps names of data types to their 'DataEntry's.
   , envMatchedPats :: Map VarName (S.Pat ())
     -- ^ Maps names of local variables to patterns they have been matched
     --   against.
@@ -58,5 +70,7 @@ data Environment = Environment
 
 -- | An empty 'Environment'.
 emptyEnv :: Environment
-emptyEnv =
-  Environment { envConEntries = Map.empty, envMatchedPats = Map.empty }
+emptyEnv = Environment { envConEntries  = Map.empty
+                       , envDataEntries = Map.empty
+                       , envMatchedPats = Map.empty
+                       }
