@@ -4,7 +4,6 @@
 module HST.Application
   ( processModule
   , specialCons
-  , useAlgoModule
   )
 where
 
@@ -23,53 +22,57 @@ import           HST.Environment.FreshVars      ( Constructor
                                                 , gets
                                                 , newVars
                                                 )
-import           HST.Feature.GuardElimination   ( comp
-                                                , getMatchName
+import           HST.Feature.GuardElimination   ( getMatchName
                                                 , applyGEModule
                                                 )
 import           HST.Feature.Optimization       ( optimize )
 import qualified HST.Frontend.Syntax           as S
 
--- | The function 'useAlgo' applies the algorithm on each declaration in
---   the module.
+-------------------------------------------------------------------------------
+-- Application of Core Algorithm                                             --
+-------------------------------------------------------------------------------
+
+-- | Sequentially applies the different transformations to the given module
+--   after initializing the environment with the data types declared in the
+--   module.
+--
+--   Returns a new module with the transformed functions.
+processModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
+processModule m = do
+  collectDataInfo m
+  eliminatedM    <- applyGEModule m
+  caseCompletedM <- applyCCModule eliminatedM
+  useAlgoModule caseCompletedM
+
+-- | Applies the core algorithm on each declaration in the given module.
 useAlgoModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
 useAlgoModule (S.Module ds) = do
   dcls <- mapM useAlgoDecl ds
   return $ S.Module dcls
 
--- | The function 'useAlgoDecl' applies the algorithm on the the FunBinds
+-- | Applies the core algorithm on the given declaration.
 useAlgoDecl :: S.EqAST a => S.Decl a -> PM a (S.Decl a)
 useAlgoDecl (S.FunBind _ ms) = do
-  nms <- useAlgoMatches ms
-  return (S.FunBind S.NoSrcSpan nms)
+  m' <- useAlgoMatches ms
+  return (S.FunBind S.NoSrcSpan [m'])
 useAlgoDecl v = return v
 
--- TODO maybe refactor to fun decl or check if oneFun stuff is needed or
--- always true
-useAlgoMatches :: S.EqAST a => [S.Match a] -> PM a [S.Match a]
-useAlgoMatches []       = return []
-useAlgoMatches (m : ms) = do
-  let (oneFun, r) = span (comp m) ms
-  if not (null oneFun) || hasCons (m : oneFun)
-    then do
-      x  <- useAlgo (m : oneFun)
-      xs <- useAlgoMatches r
-      return (x : xs)
-    else do
-      xs <- useAlgoMatches r
-      return (m : xs)
+-- | Applies the core algorithm on a function declaration with the given
+--   matches.
+--
+--   If the function has only one rule and no pattern is a constructor
+--   pattern, the algorithm is is left unchanged.
+useAlgoMatches :: S.EqAST a => [S.Match a] -> PM a (S.Match a)
+useAlgoMatches [m] | not (hasCons m) = return m
+useAlgoMatches ms                    = useAlgo ms
 
--- | Checks a given list of Matches for constructor pattern.
---   Returns True if the list contains more than one Match or if any of the
---   pattern is a constructor pattern.
-hasCons :: [S.Match a] -> Bool
-hasCons [m] = case m of
-  S.Match _ _ ps _ _         -> any isCons ps
-  S.InfixMatch _ p1 _ ps _ _ -> any isCons (p1 : ps)
-hasCons _ = True -- False?
+-- | Tests whether the given match of a function declaration contains
+--   a constructor pattern.
+hasCons :: S.Match a -> Bool
+hasCons (S.Match _ _ ps _ _        ) = any isCons ps
+hasCons (S.InfixMatch _ p1 _ ps _ _) = any isCons (p1 : ps)
 
--- | The function 'useAlgo' applies the match function to a list of matches
---   returning a single Match.
+-- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo
   :: S.EqAST a
   => [S.Match a]          -- all matches for one function name
@@ -92,28 +95,27 @@ useAlgo ms = do
   selectExp (S.UnGuardedRhs _ e) = e
   selectExp _                    = error "no UnGuardedRhs in selectExp"
 
--- a general version of add
-addG :: (b -> PM a ()) -> Maybe b -> PM a ()
-addG = maybe (return ())
--- addG f ma = maybe (return()) f ma
+-------------------------------------------------------------------------------
+-- Environment Initialization                                                --
+-------------------------------------------------------------------------------
 
--- | The function 'collectDataInfo' takes a module and writes all datatype
---   declarations into the State with their name and constructors.
+-- | Initializes the environment with the data types declared in the given
+--   module.
 collectDataInfo :: S.Module a -> PM a ()
-collectDataInfo (S.Module decls) = do
-  mas <- mapM collectDataDecl decls
-  mapM_ (addG addConstrMap) mas
+collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
 
--- | The function 'collectDataDecl' takes a Declaration and returns a pair of
---   a datatype name and a list of cunstructors if the declaration was a
---   DataDecl. Returns Nothing otherwise.
-collectDataDecl :: S.Decl a -> PM a (Maybe (String, [Constructor a]))
+-- | Inserts entries for the data type and constructors declared by the given
+--   declaration into the environment.
+--
+--   Leaves the environment unchanged, if the given declaration is not a
+--   data type declaration.
+collectDataDecl :: S.Decl a -> PM a ()
 collectDataDecl (S.DataDecl dhead cDecls) =
-  return $ Just (getDataName dhead, map getDataCons cDecls)
-collectDataDecl _ = return Nothing
+  addConstrMap (getDataName dhead, map getDataCons cDecls)
+collectDataDecl _ = return ()
 
--- | The function 'getDataName' takes a DeclHead and returns a string with the
---   name of the data type.
+-- | Extracts the name of the data type declared by a data type declaration
+--   with the given head.
 getDataName :: S.DeclHead a -> String -- add symbols?
 getDataName (S.DHead   dname) = fromName dname
 getDataName (S.DHApp   decl ) = getDataName decl
@@ -121,33 +123,20 @@ getDataName (S.DHParen decl ) = getDataName decl
 -- TODO Test symbols and infix
 getDataName _ = error "getDataName: Symbol or infix in declaration"
 
--- | The function 'getDataName' takes a QualConDecl and returns the contained
---   constructor.
+-- | Inserts an entry for the given constructor declaration into the
+--   environment.
 getDataCons :: S.ConDecl a -> Constructor a
 getDataCons (S.ConDecl cname types) =
   (S.UnQual S.NoSrcSpan cname, length types, False)
 getDataCons (S.InfixConDecl _ cname _) = (S.UnQual S.NoSrcSpan cname, 2, True)
 getDataCons (S.RecDecl _) = error "record notation is not supported"
 
--- |The function 'fromName' takes a Name and returns its String.
+-- | Extracts the identifier or symbol from the given name.
 fromName :: S.Name a -> String
 fromName (S.Ident  _ str) = str
 fromName (S.Symbol _ str) = str
 
--- | The function 'processModule' sequentially applies the different
---   transformations to the given module after collecting the data types.
---   Returns a new module with the transformed functions.
-processModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
-processModule m = do
-  collectDataInfo m -- TODO  maybe unused
-  eliminatedM    <- applyGEModule m
-  caseCompletedM <- applyCCModule eliminatedM
-  useAlgoModule caseCompletedM
-
--- | 'specialCons' is a map for the sugared data types in Haskell, since they
---   can not be defined in a module by hand.
---   This map is the default 'FreshVars.constrMap' for the 'FreshVars.PMState'
---   used in @Main.hs@
+-- | Map of special constructors that cannot be defined in a module manually.
 specialCons :: [(String, [Constructor a])]
 specialCons =
   [ ("unit", [(S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan), 0, False)])
