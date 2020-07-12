@@ -2,9 +2,6 @@
 
 module HST.Environment.Renaming where
 
-import           HST.Environment.FreshVars      ( PM
-                                                , freshVar
-                                                )
 import qualified Language.Haskell.Exts.Syntax  as HSE
 
 -- | A substitution (or "renaming") is a mapping of variable names to variable
@@ -141,26 +138,3 @@ instance Rename HSE.Rhs where
   rename s rhs = case rhs of
     HSE.UnGuardedRhs l e -> HSE.UnGuardedRhs l $ rename s e
     HSE.GuardedRhss  _ _ -> error "Rename: GuardedRhss not supported"
-
--- | Creates a new fresh variable pattern for the given variable pattern.
-renamePVar :: HSE.Pat l -> PM (HSE.Pat l)
-renamePVar (HSE.PVar l name) = do
-  nname <- newName name
-  return (HSE.PVar l nname)
-renamePVar _ = error "no variable in renamePVar"
-
--- | Generates a fresh variable name with an ID from the state.
---
---   The given argument must be an identifier. Only the annotation of the
---   identifier is preserved.
-newName :: HSE.Name l -> PM (HSE.Name l)
-newName (HSE.Ident l _) = do
-  var <- freshVar
-  return (HSE.Ident l ('a' : show var))
-newName _ = error "no Ident in newName"
-
--- | Generates a fresh variable name with an ID from the state.
-genVar :: PM (HSE.Name ())
-genVar = do
-  x <- freshVar
-  return (HSE.Ident () ('a' : show x))
