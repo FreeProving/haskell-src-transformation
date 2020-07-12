@@ -73,7 +73,7 @@ match vars@(x : xs) eqs er
     -- and others start with a constructor pattern.
     --
     -- TODO This is probably causing the infinite loops when there are
-    -- unsupported patterns.
+    --      unsupported patterns.
     otherwise = createRekMatch vars er (groupPat eqs)
 match [] _ _ = error "match: equations have different number of arguments"
 
@@ -207,7 +207,7 @@ findDataType cname = foldr
   (\c sc -> if cname `elem` map getConstrName (snd c) then c else sc)
   (error
     ("findDataType: could not find data type for constructor " ++ show cname)
-  ) -- todo fst und snd als synonym
+  ) -- TODO fst und snd als synonym
 
 -- | Gets the name of the constructor matched by the given @case@ expression
 --   alternative.
@@ -351,7 +351,7 @@ translateApp (HSE.PList _ ps) = HSE.List () $ map translatePVar ps
 translateApp pat = error ("translateApp does not support: " ++ show pat)
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
--- oldpats
+--      oldpats
 
 -- | Replaces the child patterns of a constructor pattern with fresh variable
 --   patterns.

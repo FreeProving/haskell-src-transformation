@@ -6,8 +6,11 @@ module HST.Application
   , specialCons
   , useAlgoModule
   )
-where                                      -- TODO too many variables generated
-                                                                                -- TODO only tuples supported
+where
+
+-- TODO too many variables generated
+-- TODO only tuples supported
+
 import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , isCons

@@ -48,7 +48,8 @@ instance TermSubst HSE.Exp where
     HSE.Let    l b  e  -> HSE.Let l b $ substitute s e
     HSE.If l e1 e2 e3 ->
       HSE.If l (substitute s e1) (substitute s e2) (substitute s e3)
-    HSE.Case  l e   as   -> HSE.Case l e (map (substitute s) as)   -- TODO no subst for debugging (substitute s e)
+    -- TODO no subst for debugging (substitute s e)
+    HSE.Case  l e   as   -> HSE.Case l e (map (substitute s) as)
     HSE.Tuple l bxd es   -> HSE.Tuple l bxd (map (substitute s) es)
     HSE.List  l es       -> HSE.List l (map (substitute s) es)
     HSE.Paren l e        -> HSE.Paren l (substitute s e)

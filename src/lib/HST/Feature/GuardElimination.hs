@@ -6,9 +6,11 @@ module HST.Feature.GuardElimination
   , comp
   , getMatchName
   )
-where                                   -- TODO Apply GE to GuardedRhs in case expressions
-                                                                                -- TODO only apply to the parts with guards (not on matches if in case)
-                                                                                    -- not false by semantics
+where
+
+-- TODO Apply GE to GuardedRhs in case expressions
+-- TODO only apply to the parts with guards (not on matches if in case)
+--      not false by semantics
 
 import qualified HST.CoreAlgorithm             as A
                                                 ( err
