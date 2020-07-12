@@ -19,14 +19,15 @@ where
 
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import qualified Language.Haskell.Exts.Syntax  as S
+
+import qualified HST.Frontend.Syntax           as S
 
 -------------------------------------------------------------------------------
 -- Aliases for Names in the Environment                                      --
 -------------------------------------------------------------------------------
 
 -- | The name of a data type.
-type TypeName = String
+type TypeName = S.QName ()
 
 -- | The name of a data constructor.
 type ConName = S.QName ()
