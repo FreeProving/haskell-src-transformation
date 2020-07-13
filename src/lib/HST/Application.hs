@@ -160,8 +160,6 @@ makeConEntry dataQName (S.InfixConDecl _ cname _) = ConEntry
   , conEntryIsInfix = True
   , conEntryType    = dataQName
   }
-makeConEntry _ (S.RecDecl _) =
-  error "makeConEntry: record notation is not supported"
 
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --

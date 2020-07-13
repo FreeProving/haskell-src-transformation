@@ -79,7 +79,6 @@ deriving instance ShowAST a => Show (Decl a)
 --   transformed back.
 data ConDecl a = ConDecl (Name a) [TypeExp a]
                | InfixConDecl (TypeExp a) (Name a) (TypeExp a)
-               | RecDecl (Name a)
 deriving instance EqAST a => Eq (ConDecl a)
 deriving instance ShowAST a => Show (ConDecl a)
 
