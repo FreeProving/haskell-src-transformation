@@ -34,6 +34,9 @@ import           HST.Application                ( processModule )
 import           HST.Effect.Env                 ( Env
                                                 , runEnv
                                                 )
+import           HST.Effect.Fresh               ( Fresh
+                                                , runFresh
+                                                )
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , runWithArgs
                                                 )
@@ -57,8 +60,9 @@ parseTestModule modStr = case parseModule modStr of
 
 -- | Runs the given computation with an empty environment and no additional
 --   command line arguments.
-runTest :: Sem '[Env a, GetOpt, Embed IO] b -> IO b
-runTest = runM . reportToExpectation . runWithArgs [] . raiseUnder . runEnv
+runTest :: Sem '[Env a, Fresh, GetOpt, Embed IO] b -> IO b
+runTest =
+  runM . reportToExpectation . runWithArgs [] . raiseUnder . runFresh . runEnv
 
 -------------------------------------------------------------------------------
 -- Expectation Setters                                                       --

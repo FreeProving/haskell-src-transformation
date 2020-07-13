@@ -70,7 +70,8 @@ processModule
 processModule m = do
   insertPreludeEntries
   collectDataInfo m
-  state <- initPMState
+  eliminatedM <- applyGEModule m
+  state       <- initPMState
   return $ flip evalPM state $ do
     caseCompletedM <- applyCCModule eliminatedM
     useAlgoModule caseCompletedM
