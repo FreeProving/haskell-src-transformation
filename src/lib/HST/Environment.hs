@@ -17,16 +17,12 @@ module HST.Environment
   , insertDataEntry
   , pushMatchedPat
   , popMatchedPat
-    -- * Backward Compatibility
-  , envToConstrMap
   )
 where
 
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( mapMaybe )
 
-import           HST.Environment.FreshVars      ( Constructor )
 import qualified HST.Frontend.Syntax           as S
 
 -------------------------------------------------------------------------------
@@ -150,46 +146,3 @@ popMatchedPat varName env = env
   maybeTail :: [a] -> Maybe [a]
   maybeTail []       = Nothing
   maybeTail (_ : xs) = Just xs
--------------------------------------------------------------------------------
--- Backward Compatibility                                                    --
--------------------------------------------------------------------------------
-
--- | Converts an environment to the old constructor map of the
---   'HST.Envionrment.FreshVars.PM' monad.
-envToConstrMap :: Environment a -> [(String, [Constructor a])]
-envToConstrMap env = map mkConstrMapEntry (Map.elems (envDataEntries env))
- where
-    {- mkConstrMapEntry :: DataEntry a -> (String, [Constructor a])
-    -}
-  mkConstrMapEntry entry =
-    ( fromQName (dataEntryName entry)
-    , mapMaybe lookupConstructor (dataEntryCons entry)
-    )
-
-  {- lookupConstructor :: ConName a -> Maybe (Constructor a) -}
-  lookupConstructor name = do
-    entry <- lookupConEntry name env
-    return (conEntryName entry, conEntryArity entry, conEntryIsInfix entry)
-
-  fromQName :: S.QName a -> String
-  fromQName (S.Qual _ modName name) =
-    fromModName modName ++ "." ++ fromName name
-  fromQName (S.UnQual  _ name) = fromName name
-  fromQName (S.Special _ con ) = fromSpecialCon con
-
-  fromModName :: S.ModuleName a -> String
-  fromModName (S.ModuleName _ modName) = modName
-
-  fromName :: S.Name a -> String
-  fromName (S.Ident  _ str) = str
-  fromName (S.Symbol _ str) = str
-
-  fromSpecialCon :: S.SpecialCon a -> String
-  fromSpecialCon (S.UnitCon _             ) = "()"
-  fromSpecialCon (S.ListCon _             ) = "[]"
-  fromSpecialCon (S.FunCon  _             ) = "(->)"
-  fromSpecialCon (S.TupleCon _ S.Boxed   n) = "(" ++ replicate n ',' ++ ")"
-  fromSpecialCon (S.TupleCon _ S.Unboxed n) = "(#" ++ replicate n ',' ++ "#)"
-  fromSpecialCon (S.Cons             _    ) = "(:)"
-  fromSpecialCon (S.UnboxedSingleCon _    ) = "(##)"
-  fromSpecialCon (S.ExprHole         _    ) = "_"

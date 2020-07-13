@@ -22,10 +22,8 @@ import           HST.CoreAlgorithm              ( match
                                                 )
 import           HST.Effect.Env                 ( Env
                                                 , modifyEnv
-                                                , inEnv
                                                 )
 import           HST.Effect.Fresh               ( Fresh
-                                                , freshIndex
                                                 , freshVarPat
                                                 , genericFreshPrefix
                                                 )
@@ -36,15 +34,6 @@ import           HST.Environment                ( ConEntry(..)
                                                 , DataEntry(..)
                                                 , insertConEntry
                                                 , insertDataEntry
-                                                , envToConstrMap
-                                                )
-import           HST.Environment.FreshVars      ( Constructor
-                                                , PMState(..)
-                                                , PM
-                                                , evalPM
-                                                , opt
-                                                , gets
-                                                , newVars
                                                 )
 import           HST.Environment.Prelude        ( insertPreludeEntries )
 import           HST.Feature.CaseCompletion     ( applyCCModule )
@@ -53,9 +42,7 @@ import           HST.Feature.GuardElimination   ( getMatchName
                                                 )
 import           HST.Feature.Optimization       ( optimize )
 import qualified HST.Frontend.Syntax           as S
-import           HST.Options                    ( optTrivialCase
-                                                , optOptimizeCase
-                                                )
+import           HST.Options                    ( optOptimizeCase )
 
 -------------------------------------------------------------------------------
 -- Application of Core Algorithm                                             --
@@ -175,25 +162,3 @@ makeConEntry dataQName (S.InfixConDecl _ cname _) = ConEntry
   , conEntryIsInfix = True
   , conEntryType    = dataQName
   }
-
--------------------------------------------------------------------------------
--- Backward Compatibility                                                    --
--------------------------------------------------------------------------------
-
--- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Members '[Env a, Fresh, GetOpt] r => Sem r (PMState a)
-initPMState = do
-  trivialCase  <- getOpt optTrivialCase
-  optimizeCase <- getOpt optOptimizeCase
-  constrMap'   <- initConstrMap
-  nextId'      <- freshIndex genericFreshPrefix
-  return $ PMState { nextId     = nextId'
-                   , constrMap  = constrMap'
-                   , matchedPat = []
-                   , trivialCC  = trivialCase
-                   , opt        = optimizeCase
-                   }
-
--- | Creates the 'constrMap' of the 'PMState' created by 'initPMState'.
-initConstrMap :: Member (Env a) r => Sem r [(String, [Constructor a])]
-initConstrMap = inEnv envToConstrMap

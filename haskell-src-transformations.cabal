@@ -83,7 +83,6 @@ library
                     , HST.Effect.GetOpt
                     , HST.Effect.Report
                     , HST.Environment
-                    , HST.Environment.FreshVars
                     , HST.Environment.Prelude
                     , HST.Environment.Renaming
                     , HST.Options
