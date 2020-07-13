@@ -4,6 +4,14 @@ module HST.ApplicationTests
   )
 where
 
+import           Polysemy                       ( Member
+                                                , Sem
+                                                , raiseUnder
+                                                , runM
+                                                )
+import           Polysemy.Embed                 ( Embed
+                                                , embed
+                                                )
 import           Test.Hspec                     ( Spec
                                                 , Expectation
                                                 , context
@@ -22,18 +30,23 @@ import           Language.Haskell.Exts.Pretty   ( Pretty
                                                 , prettyPrint
                                                 )
 
-import           HST.Application                ( processModule
-                                                , specialCons
+import           HST.Application                ( processModule )
+import           HST.Effect.Env                 ( Env
+                                                , runEnv
                                                 )
-import           HST.Environment.FreshVars      ( PMState(..)
-                                                , evalPM
+import           HST.Effect.GetOpt              ( GetOpt
+                                                , runWithArgs
+                                                )
+import           HST.Effect.Report              ( Report
+                                                , runReport
+                                                , showPrettyMessage
                                                 )
 import qualified HST.Frontend.FromHSE          as FromHSE
 import qualified HST.Frontend.ToHSE            as ToHSE
 
--- | Tests for the "HST.Application" module.
-testApplication :: Spec
-testApplication = describe "HST.Application" testProcessModule
+-------------------------------------------------------------------------------
+-- Utility Functions                                                         --
+-------------------------------------------------------------------------------
 
 -- | Parses a given string to a module and fails if parsing is not
 --   successful.
@@ -42,14 +55,40 @@ parseTestModule modStr = case parseModule modStr of
   ParseOk modul        -> return modul
   ParseFailed _ errMsg -> assertFailure errMsg
 
--- | The default state used for pattern matching.
-defaultState :: PMState a
-defaultState = PMState { nextId     = 0
-                       , constrMap  = specialCons
-                       , matchedPat = []
-                       , trivialCC  = False
-                       , opt        = True
-                       }
+-- | Runs the given computation with an empty environment and no additional
+--   command line arguments.
+runTest :: Sem '[Env a, GetOpt, Embed IO] b -> IO b
+runTest = runM . reportToExpectation . runWithArgs [] . raiseUnder . runEnv
+
+-------------------------------------------------------------------------------
+-- Expectation Setters                                                       --
+-------------------------------------------------------------------------------
+
+-- | Pretty prints both values and tests whether the resulting strings are
+--   equal modulo whitespace.
+prettyShouldBe :: (Pretty a, Pretty b) => a -> b -> Expectation
+prettyShouldBe x y = prettyPrint x `shouldBe` prettyPrint y
+
+reportToExpectation :: Member (Embed IO) r => Sem (Report ': r) a -> Sem r a
+reportToExpectation comp = do
+  (ms, mx) <- runReport comp
+  case mx of
+    Nothing -> embed
+      (assertFailure
+        (unlines
+          ("The following messages were reported:" : map showPrettyMessage ms)
+        )
+      )
+    Just x -> return x
+
+-------------------------------------------------------------------------------
+-- Tests                                                                     --
+-------------------------------------------------------------------------------
+
+-- | Tests for the "HST.Application" module.
+testApplication :: Spec
+testApplication = describe "HST.Application" $ do
+  testProcessModule
 
 -- | Test cases for 'processModule'.
 testProcessModule :: Spec
@@ -57,9 +96,8 @@ testProcessModule = context "processModule" $ do
   it "should accept a simple function" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "f :: a -> a", "f x = x"]
-    let mod2' =
-          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
-        mod2 = ToHSE.transformModule mod1 mod2'
+    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
+    let mod2 = ToHSE.transformModule mod1 mod2'
     mod2 `prettyShouldBe` mod1
   it "should transform pattern matching into case expressions" $ do
     mod1 <- parseTestModule $ unlines
@@ -75,16 +113,14 @@ testProcessModule = context "processModule" $ do
       , "  []    -> 0"
       , "  a1:a2 -> 1 + lengthL a2"
       ]
-    let mod2' =
-          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
-        mod2 = ToHSE.transformModule mod1 mod2'
+    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
+    let mod2 = ToHSE.transformModule mod1 mod2'
     expected `prettyShouldBe` mod2
   it "should transform pattern matching in a partial function" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "head :: [a] -> a", "head (x:xs) = x"]
-    let mod2' =
-          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
-        mod2 = ToHSE.transformModule mod1 mod2'
+    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
+    let mod2 = ToHSE.transformModule mod1 mod2'
     expected <- parseTestModule $ unlines
       [ "module A where"
       , "head :: [a] -> a"
@@ -96,9 +132,8 @@ testProcessModule = context "processModule" $ do
   it "should accept a simple guarded expression" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "id :: a -> a", "id x | otherwise = x"]
-    let mod2' =
-          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
-        mod2 = ToHSE.transformModule mod1 mod2'
+    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
+    let mod2 = ToHSE.transformModule mod1 mod2'
     expected <- parseTestModule $ unlines
       [ "module A where"
       , "id :: a -> a"
@@ -116,9 +151,8 @@ testProcessModule = context "processModule" $ do
       , "useless p x y | p x       = x"
       , "              | otherwise = y"
       ]
-    let mod2' =
-          evalPM (processModule (FromHSE.transformModule mod1)) defaultState
-        mod2 = ToHSE.transformModule mod1 mod2'
+    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
+    let mod2 = ToHSE.transformModule mod1 mod2'
     expected <- parseTestModule $ unlines
       [ "module A where"
       , "useless :: (a -> Bool) -> a -> a -> a"
@@ -133,12 +167,3 @@ testProcessModule = context "processModule" $ do
       , "  in a3"
       ]
     mod2 `prettyShouldBe` expected
-
--------------------------------------------------------------------------------
--- Pretty printing comparison                                                --
--------------------------------------------------------------------------------
-
--- | Pretty prints both values and tests whether the resulting strings are
---   equal modulo whitespace.
-prettyShouldBe :: (Pretty a, Pretty b) => a -> b -> Expectation
-prettyShouldBe x y = prettyPrint x `shouldBe` prettyPrint y
