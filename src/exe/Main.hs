@@ -9,6 +9,7 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
+import           Data.Char                      ( toLower )
 import           Data.List.Extra                ( splitOn )
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
@@ -70,8 +71,8 @@ import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | A data type for all frontends that can be used for parsing the given input
 --   program in @haskell.src.transformations@.
-data Frontend = HSE | GHCLib
-  deriving (Eq, Show, Read)
+data Frontend = HSE | GHClib
+  deriving (Eq, Show)
 
 -- | A data type that contains the parsed command line options.
 data Options = Options
@@ -101,7 +102,7 @@ defaultOptions = Options { optShowHelp     = False
                          , optEnableDebug  = False
                          , optTrivialCase  = False
                          , optOptimizeCase = True
-                         , optFrontend = HSE
+                         , optFrontend     = HSE
                          }
 
 -- | Descriptors for the supported command line options.
@@ -133,13 +134,21 @@ optionDescriptors =
     (  "Optional. Path to output directory.\n"
     ++ "Prints to the console by default."
     )
-    , Option
-      ['f']
-      ["frontend"]
-      (ReqArg (\f opts -> opts { optFrontend = read f :: Frontend }) "FRONTEND")
-      (  "Optional. Frontend to use for parsing the input program.\n"
-      ++ "Uses haskell-src-extensions by default" )
+  , Option
+    ['f']
+    ["frontend"]
+    (ReqArg (\f opts -> opts { optFrontend = parseFrontend f }) "FRONTEND")
+    (  "Optional. Frontend to use for input parsing.\n"
+    ++ "Uses haskell-src-extensions by default"
+    )
   ]
+ where
+  -- | Parses a given string to one of the frontents. Returns @HSE@ by
+  --   default.
+  parseFrontend :: String -> Frontend
+  parseFrontend s = if map toLower s == "ghclib" || map toLower s == "ghc-lib"
+    then GHClib
+    else HSE
 
 -- | Parses the given command line arguments.
 --
@@ -239,17 +248,41 @@ processInputFile
   :: Members '[Report, Embed IO] r => Options -> FilePath -> Sem r ()
 processInputFile opts inputFile = do
   input <- embed $ readFile inputFile
-  let state       = initPMState opts
-      inputModule = HSE.fromParseResult (HSE.parseModule input)
-      intermediateModule =
-        evalPM (processModule (FromHSE.transformModule inputModule)) state
-      outputModule = ToHSE.transformModule inputModule intermediateModule
+  let state             = initPMState opts
+      (output, modName) = processInput input state (optFrontend opts)
+--      inputModule = HSE.fromParseResult (HSE.parseModule input
+--      intermediateModule =
+--        evalPM (processModule (FromHSE.transformModule inputModule)) state
+--      outputModule = ToHSE.transformModule inputModule intermediateModule
   case optOutputDir opts of
     Just outputDir -> do
-      let outputFile = outputDir </> makeOutputFileName inputFile inputModule
+      let outputFile = outputDir </> makeOutputFileName inputFile modName
       embed $ createDirectoryIfMissing True (takeDirectory outputFile)
-      embed $ writeFile outputFile (prettyPrintModule outputModule)
-    Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
+      embed $ writeFile outputFile output -- (prettyPrintModule outputModule)
+    Nothing -> embed $ putStrLn output --(prettyPrintModule outputModule)
+
+-- | Processes a given module as a string with the corresponding frontend.
+--   Returns the output as a string and the module name.
+processInput
+  :: String -> PMState FromHSE.HSE -> Frontend -> (String, Maybe String)
+processInput input state frontend = case frontend of
+  HSE ->
+    let inputModule = HSE.fromParseResult (HSE.parseModule input)
+        intermediateModule =
+            evalPM (processModule (FromHSE.transformModule inputModule)) state
+        outputModule = ToHSE.transformModule inputModule intermediateModule
+    in  (prettyPrintModule outputModule, moduleName inputModule)
+  GHClib -> error "Not yet implemented"
+ where
+  -- | Gets the module name of the given module.
+  --
+  --   Returns @Nothing@ if there is no module header or the module type is
+  --   not supported.
+  moduleName :: HSE.Module l -> Maybe String
+  moduleName (HSE.Module _ (Just moduleHead) _ _ _) = case moduleHead of
+    (HSE.ModuleHead _ (HSE.ModuleName _ modName) _ _) -> Just modName
+  moduleName _ = Nothing
+
 
 -- | Creates the initial 'PMState' from the given command line options.
 initPMState :: Options -> PMState a
@@ -271,24 +304,15 @@ initPMState opts = PMState { nextId     = 0
 --   module name. Otherwise, the base name of the input file is used.
 makeOutputFileName
   :: FilePath     -- ^ The name of the input file.
-  -> HSE.Module l -- ^ The module to make the output file name of.
+  -> Maybe String -- ^ The name of the module to make the output file name of.
   -> FilePath     -- ^ The name of the output file.
-makeOutputFileName inputFile inputModule = outputFileName <.> "hs"
+makeOutputFileName inputFile modName = outputFileName <.> "hs"
  where
   -- | The output file name without file extension.
   outputFileName :: FilePath
-  outputFileName = maybe (takeBaseName inputFile)
-                         (joinPath . splitOn ".")
-                         (moduleName inputModule)
+  outputFileName =
+    maybe (takeBaseName inputFile) (joinPath . splitOn ".") modName
 
-  -- | Gets the module name of the given module.
-  --
-  --   Returns @Nothing@ if there is no module header or the module type is not
-  --   supported.
-  moduleName :: HSE.Module l -> Maybe String
-  moduleName (HSE.Module _ (Just moduleHead) _ _ _) = case moduleHead of
-    (HSE.ModuleHead _ (HSE.ModuleName _ modName) _ _) -> Just modName
-  moduleName _ = Nothing
 
 -- | Pretty prints the given Haskell module.
 prettyPrintModule :: HSE.Module HSE.SrcSpanInfo -> String
