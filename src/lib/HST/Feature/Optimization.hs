@@ -6,13 +6,22 @@ module HST.Feature.Optimization
   )
 where
 
+import           Polysemy                       ( Member
+                                                , Members
+                                                , Sem
+                                                )
+
 import           HST.CoreAlgorithm              ( getPVarName
                                                 , getQNamePat
                                                 )
-import           HST.Environment.FreshVars      ( PM
-                                                , matchedPat
-                                                , modify
-                                                , gets
+import           HST.Effect.Env                 ( Env
+                                                , inEnv
+                                                , modifyEnv
+                                                )
+import           HST.Effect.Fresh               ( Fresh )
+import           HST.Environment                ( lookupMatchedPat
+                                                , pushMatchedPat
+                                                , popMatchedPat
                                                 )
 import           HST.Environment.Renaming       ( subst
                                                 , rename
@@ -22,7 +31,7 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
-optimize :: S.EqAST a => S.Exp a -> PM a (S.Exp a)
+optimize :: (Members '[Env a, Fresh] r, S.EqAST a) => S.Exp a -> Sem r (S.Exp a)
 optimize ex = case ex of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- optimize e1
@@ -61,23 +70,20 @@ optimize ex = case ex of
 --   If the scrutinee is a variable that has been matched already, the
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
-optimizeCase :: S.EqAST a => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
-optimizeCase e alts
-  | isVarExp e = do
-    mpats <- gets matchedPat
-    case lookup e mpats of               -- lookupBy ?
-      Just pat -> renameAndOpt pat alts  -- look for the correct pattern replace, case exp and rename
-      Nothing  -> addAndOpt e alts
-  |      -- stackwise add it to first place and then remove first
-    otherwise = do
-    e'    <- optimize e
-    alts' <- optimizeAlts alts
-    return $ S.Case S.NoSrcSpan e' alts'
-
--- | Tests whether the given expression is a variable expression.
-isVarExp :: S.Exp a -> Bool
-isVarExp (S.Var _ _) = True
-isVarExp _           = False
+optimizeCase
+  :: (Members '[Env a, Fresh] r, S.EqAST a)
+  => S.Exp a
+  -> [S.Alt a]
+  -> Sem r (S.Exp a)
+optimizeCase (S.Var _ varName) alts = do
+  mpat <- inEnv $ lookupMatchedPat varName
+  case mpat of
+    Just pat -> renameAndOpt pat alts
+    Nothing  -> addAndOpt varName alts
+optimizeCase e alts = do
+  e'    <- optimize e
+  alts' <- mapM optimizeAlt alts
+  return $ S.Case S.NoSrcSpan e' alts'
 
 -- TODO generalise
 
@@ -86,25 +92,21 @@ isVarExp _           = False
 --   alternative to the names of the corresponding variable patterns of the
 --   given pattern and applies 'optimize'.
 renameAndOpt
-  :: S.EqAST a
+  :: (Members '[Env a, Fresh] r, S.EqAST a)
   => S.Pat a   -- ^ A pattern of a parent @case@ expression on the same scrutinee.
   -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
-  -> PM a (S.Exp a)
+  -> Sem r (S.Exp a)
 renameAndOpt pat alts =
   let aPaR     = map (\(S.Alt _ p r _) -> (p, r)) alts
       patQ     = getQNamePat pat
       sameCons = filter (\(p, _) -> cheatEq (getQNamePat p) patQ) aPaR
   in  case sameCons of
         []           -> error "Found name in case, but in alts"
-            --  ("Found in case but not found in alts : Tried"
-            -- ++ show patQ
-            -- ++ " Searched in "
-            -- ++ show (map fst aPaR))
         ((p, r) : _) -> do
           let e  = selectExp r
               p1 = selectPats pat
               p2 = selectPats p
-          res <- renameAll (zip p2 p1) e  -- Fixes the renaming bug -> was p1 p2 before
+          res <- renameAll (zip p2 p1) e
           optimize res
 
 -- | Compares the given 'S.QName's ignoring the distinction between 'S.Ident's
@@ -127,7 +129,8 @@ selectExp _                    = error "selectExp: only unguarded rhs"
 
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.
-renameAll :: [(S.Pat a, S.Pat a)] -> S.Exp a -> PM a (S.Exp a)
+renameAll
+  :: Member Fresh r => [(S.Pat a, S.Pat a)] -> S.Exp a -> Sem r (S.Exp a)
 -- TODO refactor higher order foldr
 -- TODO generate one Subst and apply only once
 renameAll []               e = return e
@@ -142,26 +145,24 @@ renameAll ((from, to) : r) e = do
 --
 --   While an alternative is optimized, the state contains a 'matchedPat'
 --   entry for the current pair of scrutinee and pattern.
-addAndOpt :: S.EqAST a => S.Exp a -> [S.Alt a] -> PM a (S.Exp a)
-addAndOpt e alts = do
-  alts' <- mapM (bindAndOpt e) alts
-  return $ S.Case S.NoSrcSpan e alts'
+addAndOpt
+  :: (Members '[Env a, Fresh] r, S.EqAST a)
+  => S.QName a
+  -> [S.Alt a]
+  -> Sem r (S.Exp a)
+addAndOpt v alts = do
+  alts' <- mapM bindAndOpt alts
+  return $ S.Case S.NoSrcSpan (S.Var S.NoSrcSpan v) alts'
  where
-  -- uses the list of Exp Pat as a stack
-  bindAndOpt :: S.EqAST a => S.Exp a -> S.Alt a -> PM a (S.Alt a)
-  bindAndOpt v a@(S.Alt _ p _ _) = do
-    stack <- gets matchedPat
-    modify $ \state -> state { matchedPat = (v, p) : stack }
+  bindAndOpt a@(S.Alt _ p _ _) = do
+    modifyEnv $ pushMatchedPat v p
     alt' <- optimizeAlt a
-    modify $ \state -> state { matchedPat = stack }
+    modifyEnv $ popMatchedPat v
     return alt'
 
--- | Applies 'optimizeAlt' to all given @case@ expression alternatives.
-optimizeAlts :: S.EqAST a => [S.Alt a] -> PM a [S.Alt a]
-optimizeAlts = mapM optimizeAlt
-
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
-optimizeAlt :: S.EqAST a => S.Alt a -> PM a (S.Alt a)
+optimizeAlt
+  :: (Members '[Env a, Fresh] r, S.EqAST a) => S.Alt a -> Sem r (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
   let (S.UnGuardedRhs _ e) = rhs
   e' <- optimize e

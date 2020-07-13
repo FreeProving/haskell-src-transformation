@@ -9,6 +9,8 @@ where
 -- TODO too many variables generated
 -- TODO only tuples supported
 
+import           Control.Monad                  ( replicateM )
+import           Control.Monad.Extra            ( ifM )
 import           Polysemy                       ( Member
                                                 , Members
                                                 , Sem
@@ -24,6 +26,7 @@ import           HST.Effect.Env                 ( Env
                                                 )
 import           HST.Effect.Fresh               ( Fresh
                                                 , freshIndex
+                                                , freshVarPat
                                                 , genericFreshPrefix
                                                 )
 import           HST.Effect.GetOpt              ( GetOpt
@@ -70,20 +73,24 @@ processModule
 processModule m = do
   insertPreludeEntries
   collectDataInfo m
-  eliminatedM <- applyGEModule m
-  state       <- initPMState
-  return $ flip evalPM state $ do
-    caseCompletedM <- applyCCModule eliminatedM
-    useAlgoModule caseCompletedM
+  eliminatedM    <- applyGEModule m
+  caseCompletedM <- applyCCModule eliminatedM
+  useAlgoModule caseCompletedM
 
 -- | Applies the core algorithm on each declaration in the given module.
-useAlgoModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
+useAlgoModule
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => S.Module a
+  -> Sem r (S.Module a)
 useAlgoModule (S.Module ds) = do
   dcls <- mapM useAlgoDecl ds
   return $ S.Module dcls
 
 -- | Applies the core algorithm on the given declaration.
-useAlgoDecl :: S.EqAST a => S.Decl a -> PM a (S.Decl a)
+useAlgoDecl
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => S.Decl a
+  -> Sem r (S.Decl a)
 useAlgoDecl (S.FunBind _ ms) = do
   m' <- useAlgoMatches ms
   return (S.FunBind S.NoSrcSpan [m'])
@@ -94,7 +101,10 @@ useAlgoDecl v = return v
 --
 --   If the function has only one rule and no pattern is a constructor
 --   pattern, the algorithm is is left unchanged.
-useAlgoMatches :: S.EqAST a => [S.Match a] -> PM a (S.Match a)
+useAlgoMatches
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => [S.Match a]
+  -> Sem r (S.Match a)
 useAlgoMatches [m] | not (hasCons m) = return m
 useAlgoMatches ms                    = useAlgo ms
 
@@ -106,17 +116,16 @@ hasCons (S.InfixMatch _ p1 _ ps _ _) = any isCons (p1 : ps)
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo
-  :: S.EqAST a
-  => [S.Match a]          -- all matches for one function name
-  -> PM a (S.Match a) -- contains one match
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => [S.Match a]
+  -> Sem r (S.Match a)
 useAlgo ms = do
   let mname    = getMatchName ms
   let eqs = map (\(S.Match _ _ pats rhs _) -> (pats, selectExp rhs)) ms
   let funArity = (length . fst . head) eqs
-  nVars <- newVars funArity
+  nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
   nExp  <- match nVars eqs err
-  doOpt <- gets opt
-  nExp' <- if doOpt then optimize nExp else return nExp
+  nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return $ S.Match S.NoSrcSpan
                    mname
                    nVars
