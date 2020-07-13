@@ -9,6 +9,7 @@ module HST.Effect.Fresh
     Fresh
     -- * Actions
   , freshIdent
+  , freshIndex
   , freshName
   , freshQName
   , freshVar
@@ -42,6 +43,9 @@ import qualified HST.Frontend.Syntax           as S
 -- | An effect capable of generating names for a fresh variable.
 data Fresh m a where
   FreshIdent ::String -> Fresh m String
+
+  -- TODO Remove me. This action is for backward compatibility only.
+  FreshIndex ::String -> Fresh m Int
 
 makeSem ''Fresh
 
@@ -77,6 +81,7 @@ runFresh = evalState Map.empty . freshToState
       nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
       modify $ Map.insert prefix (nextId + 1)
       return (prefix ++ show nextId)
+    FreshIndex prefix -> gets $ Map.findWithDefault (0 :: Int) prefix
 
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --

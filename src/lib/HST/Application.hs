@@ -22,6 +22,10 @@ import           HST.Effect.Env                 ( Env
                                                 , modifyEnv
                                                 , inEnv
                                                 )
+import           HST.Effect.Fresh               ( Fresh
+                                                , freshIndex
+                                                , genericFreshPrefix
+                                                )
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 )
@@ -60,13 +64,14 @@ import           HST.Options                    ( optTrivialCase
 --
 --   Returns a new module with the transformed functions.
 processModule
-  :: (Members '[Env a, GetOpt] r, S.EqAST a) => S.Module a -> Sem r (S.Module a)
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => S.Module a
+  -> Sem r (S.Module a)
 processModule m = do
   insertPreludeEntries
   collectDataInfo m
   state <- initPMState
   return $ flip evalPM state $ do
-    eliminatedM    <- applyGEModule m
     caseCompletedM <- applyCCModule eliminatedM
     useAlgoModule caseCompletedM
 
@@ -166,12 +171,13 @@ makeConEntry dataQName (S.InfixConDecl _ cname _) = ConEntry
 -------------------------------------------------------------------------------
 
 -- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Members '[Env a, GetOpt] r => Sem r (PMState a)
+initPMState :: Members '[Env a, Fresh, GetOpt] r => Sem r (PMState a)
 initPMState = do
   trivialCase  <- getOpt optTrivialCase
   optimizeCase <- getOpt optOptimizeCase
   constrMap'   <- initConstrMap
-  return $ PMState { nextId     = 0
+  nextId'      <- freshIndex genericFreshPrefix
+  return $ PMState { nextId     = nextId'
                    , constrMap  = constrMap'
                    , matchedPat = []
                    , trivialCC  = trivialCase
