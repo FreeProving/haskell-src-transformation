@@ -68,6 +68,11 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
 import qualified HST.Frontend.FromHSE          as FromHSE
 import qualified HST.Frontend.ToHSE            as ToHSE
 
+-- | A data type for all frontends that can be used for parsing the given input
+--   program in @haskell.src.transformations@.
+data Frontend = HSE | GHCLib
+  deriving (Eq, Show, Read)
+
 -- | A data type that contains the parsed command line options.
 data Options = Options
   { optShowHelp     :: Bool
@@ -84,6 +89,8 @@ data Options = Options
   , optOptimizeCase :: Bool
     -- ^ Flag that indicates whether optimization for case expressions is
     --   enabled or not.
+  , optFrontend :: Frontend
+    -- ^ The frontend used for parsing the input program.
   }
 
 -- | The options to use by default if there are no command line arguments.
@@ -94,6 +101,7 @@ defaultOptions = Options { optShowHelp     = False
                          , optEnableDebug  = False
                          , optTrivialCase  = False
                          , optOptimizeCase = True
+                         , optFrontend = HSE
                          }
 
 -- | Descriptors for the supported command line options.
@@ -125,6 +133,12 @@ optionDescriptors =
     (  "Optional. Path to output directory.\n"
     ++ "Prints to the console by default."
     )
+    , Option
+      ['f']
+      ["frontend"]
+      (ReqArg (\f opts -> opts { optFrontend = read f :: Frontend }) "FRONTEND")
+      (  "Optional. Frontend to use for parsing the input program.\n"
+      ++ "Uses haskell-src-extensions by default" )
   ]
 
 -- | Parses the given command line arguments.
