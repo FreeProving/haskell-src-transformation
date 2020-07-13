@@ -1,6 +1,5 @@
 module HST.CoreAlgorithmTests where
 
-import           Control.Monad                  ( void )
 import qualified Language.Haskell.Exts         as HSE
 import           Test.Hspec                     ( Spec
                                                 , Expectation
@@ -10,7 +9,8 @@ import           Test.Hspec                     ( Spec
                                                 )
 import           Test.HUnit.Base                ( assertFailure )
 
-import           HST.CoreAlgorithm
+import           HST.CoreAlgorithm              ( compareCons )
+import qualified HST.Frontend.FromHSE          as FromHSE
 
 -- | Tests for the "Algo" module.
 testAlgo :: Spec
@@ -18,16 +18,17 @@ testAlgo = describe "Algo" testCompareCons
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
-parseTestPat :: String -> IO (HSE.Pat ())
+parseTestPat :: String -> IO (HSE.Pat HSE.SrcSpanInfo)
 parseTestPat patStr = case HSE.parsePat patStr of
-  HSE.ParseOk pat          -> return $ void pat
+  HSE.ParseOk pat          -> return pat
   HSE.ParseFailed _ errMsg -> assertFailure errMsg
 
 -- | Sets the expectation that the given patterns should have matching
 --   constructors.
-shouldMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
+shouldMatchCons
+  :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
 shouldMatchCons pat1 pat2
-  | compareCons pat1 pat2
+  | compareCons (FromHSE.transformPat pat1) (FromHSE.transformPat pat2)
   = return ()
   | otherwise
   = assertFailure
@@ -39,9 +40,10 @@ shouldMatchCons pat1 pat2
 
 -- | Sets the expectation that the given patterns should not have matching
 --   constructors.
-shouldNotMatchCons :: HSE.Pat () -> HSE.Pat () -> Expectation
+shouldNotMatchCons
+  :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
 shouldNotMatchCons pat1 pat2
-  | compareCons pat1 pat2
+  | compareCons (FromHSE.transformPat pat1) (FromHSE.transformPat pat2)
   = assertFailure
     $  "\""
     ++ HSE.prettyPrint pat1
