@@ -24,6 +24,7 @@ build-type:          Simple
 common deps
   build-depends:       base             >= 4.12 && < 4.13
                      , haskell-src-exts >= 1.23 && < 1.24
+                     , ghc-lib-parser   >= 8.6  && < 9.0
 
   -- Base language which the package is written in.
   default-language:    Haskell2010
@@ -43,6 +44,7 @@ library
                     , HST.Frontend.Syntax
                     , HST.Frontend.FromHSE
                     , HST.Frontend.ToHSE
+                    , HST.Frontend.FromGHC
   other-modules:      HST.Environment.Renaming
 
   build-depends:      mtl               >= 2.2 && < 2.3
