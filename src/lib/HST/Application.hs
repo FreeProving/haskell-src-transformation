@@ -3,7 +3,6 @@
 
 module HST.Application
   ( processModule
-  , specialCons
   )
 where
 
@@ -19,18 +18,19 @@ import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , isCons
                                                 )
-import           HST.Environment                ( ConEntry(..)
-                                                , DataEntry(..)
-                                                , insertConEntry
-                                                , insertDataEntry
-                                                )
 import           HST.Effect.Env                 ( Env
                                                 , modifyEnv
+                                                , inEnv
                                                 )
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 )
-import           HST.Feature.CaseCompletion     ( applyCCModule )
+import           HST.Environment                ( ConEntry(..)
+                                                , DataEntry(..)
+                                                , insertConEntry
+                                                , insertDataEntry
+                                                , envToConstrMap
+                                                )
 import           HST.Environment.FreshVars      ( Constructor
                                                 , PMState(..)
                                                 , PM
@@ -39,6 +39,8 @@ import           HST.Environment.FreshVars      ( Constructor
                                                 , gets
                                                 , newVars
                                                 )
+import           HST.Environment.Prelude        ( insertPreludeEntries )
+import           HST.Feature.CaseCompletion     ( applyCCModule )
 import           HST.Feature.GuardElimination   ( getMatchName
                                                 , applyGEModule
                                                 )
@@ -60,6 +62,7 @@ import           HST.Options                    ( optTrivialCase
 processModule
   :: (Members '[Env a, GetOpt] r, S.EqAST a) => S.Module a -> Sem r (S.Module a)
 processModule m = do
+  insertPreludeEntries
   collectDataInfo m
   state <- initPMState
   return $ flip evalPM state $ do
@@ -169,30 +172,23 @@ makeConEntry dataName (S.InfixConDecl _ cname _) = ConEntry
 makeConEntry _ (S.RecDecl _) =
   error "makeConEntry: record notation is not supported"
 
--- | Map of special constructors that cannot be defined in a module manually.
-specialCons :: [(String, [Constructor a])]
-specialCons =
-  [ ("unit", [(S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan), 0, False)])
-  , ( "list"
-    , [ (S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan), 0, False)
-      , (S.Special S.NoSrcSpan (S.Cons S.NoSrcSpan)   , 2, True)
-      ]
-    )
-  , ("fun", [(S.Special S.NoSrcSpan (S.FunCon S.NoSrcSpan), 2, True)])
-  , ( "pair"
-    , [(S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan S.Boxed 2), 2, False)]
-    )    -- TODO Tuples
-  , ("wildcard", [(S.Special S.NoSrcSpan (S.ExprHole S.NoSrcSpan), 0, False)])
-  ]
+-------------------------------------------------------------------------------
+-- Backward Compatibility                                                    --
+-------------------------------------------------------------------------------
 
 -- | Creates the initial 'PMState' from the given command line options.
-initPMState :: Member GetOpt r => Sem r (PMState a)
+initPMState :: Members '[Env a, GetOpt] r => Sem r (PMState a)
 initPMState = do
   trivialCase  <- getOpt optTrivialCase
   optimizeCase <- getOpt optOptimizeCase
+  constrMap'   <- initConstrMap
   return $ PMState { nextId     = 0
-                   , constrMap  = specialCons
+                   , constrMap  = constrMap'
                    , matchedPat = []
                    , trivialCC  = trivialCase
                    , opt        = optimizeCase
                    }
+
+-- | Creates the 'constrMap' of the 'PMState' created by 'initPMState'.
+initConstrMap :: Member (Env a) r => Sem r [(String, [Constructor a])]
+initConstrMap = inEnv envToConstrMap
