@@ -44,8 +44,6 @@ transformModule _ = error "Unsupported Module type"
 transformDecl :: HSE.Decl HSE.SrcSpanInfo -> Maybe (S.Decl HSE)
 transformDecl (HSE.DataDecl _ (HSE.DataType _) _ dHead qcds _) =
   Just (S.DataDecl (transformDeclHead dHead) (map transformQualConDecl qcds))
-transformDecl (HSE.TypeSig s names typ) =
-  Just (S.TypeSig (transformSrcSpan s) (map transformName names) typ)
 transformDecl (HSE.FunBind s matches) =
   Just (S.FunBind (transformSrcSpan s) (map transformMatch matches))
 transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = Just
@@ -55,11 +53,11 @@ transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = Just
 transformDecl _ = Nothing
 
 -- | Transforms an HSE declaration head into an HST declaration head.
-transformDeclHead :: HSE.DeclHead HSE.SrcSpanInfo -> S.DeclHead HSE
-transformDeclHead (HSE.DHead _ dName    ) = S.DHead (transformName dName)
-transformDeclHead (HSE.DHInfix _ _ dName) = S.DHInfix (transformName dName)
-transformDeclHead (HSE.DHParen _ dHead  ) = S.DHParen (transformDeclHead dHead)
-transformDeclHead (HSE.DHApp _ dHead _  ) = S.DHApp (transformDeclHead dHead)
+transformDeclHead :: HSE.DeclHead HSE.SrcSpanInfo -> S.Name HSE
+transformDeclHead (HSE.DHead _ dName    ) = transformName dName
+transformDeclHead (HSE.DHInfix _ _ dName) = transformName dName
+transformDeclHead (HSE.DHParen _ dHead  ) = transformDeclHead dHead
+transformDeclHead (HSE.DHApp _ dHead _  ) = transformDeclHead dHead
 
 -- | Transforms an HSE binding group into an HST binding group.
 transformBinds :: HSE.Binds HSE.SrcSpanInfo -> S.Binds HSE

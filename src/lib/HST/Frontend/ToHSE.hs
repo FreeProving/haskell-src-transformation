@@ -42,8 +42,6 @@ transformModule _ _ = error "Unsupported Module type"
 transformDecl :: S.Decl HSE -> HSE.Decl HSE.SrcSpanInfo
 transformDecl (S.DataDecl _ _) =
   error "Data type declarations should not be transformed back"
-transformDecl (S.TypeSig s names typ) =
-  HSE.TypeSig (transformSrcSpan s) (map transformName names) typ
 transformDecl (S.FunBind s matches) =
   HSE.FunBind (transformSrcSpan s) (map transformMatch matches)
 

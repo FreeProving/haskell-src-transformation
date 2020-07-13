@@ -136,38 +136,29 @@ collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
 --   Leaves the environment unchanged, if the given declaration is not a
 --   data type declaration.
 collectDataDecl :: Member (Env a) r => S.Decl a -> Sem r ()
-collectDataDecl (S.DataDecl dhead conDecls) = do
-  let dataName   = getDataName dhead
-      conEntries = map (makeConEntry dataName) conDecls
+collectDataDecl (S.DataDecl dataName conDecls) = do
+  let dataQName  = S.UnQual S.NoSrcSpan dataName
+      conEntries = map (makeConEntry dataQName) conDecls
   modifyEnv $ insertDataEntry DataEntry
-    { dataEntryName = dataName
+    { dataEntryName = dataQName
     , dataEntryCons = map conEntryName conEntries
     }
   mapM_ (modifyEnv . insertConEntry) conEntries
 collectDataDecl _ = return ()
 
--- | Extracts the name of the data type declared by a data type declaration
---   with the given head.
-getDataName :: S.DeclHead a -> S.QName a
-getDataName (S.DHead   dname) = S.UnQual S.NoSrcSpan dname
-getDataName (S.DHApp   decl ) = getDataName decl
-getDataName (S.DHParen decl ) = getDataName decl
--- TODO Test symbols and infix
-getDataName _ = error "getDataName: Symbol or infix in declaration"
-
 -- | Creates an environment entry for a constructor declaration .
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
-makeConEntry dataName (S.ConDecl cname types) = ConEntry
+makeConEntry dataQName (S.ConDecl cname types) = ConEntry
   { conEntryName    = S.UnQual S.NoSrcSpan cname
   , conEntryArity   = length types
   , conEntryIsInfix = False
-  , conEntryType    = dataName
+  , conEntryType    = dataQName
   }
-makeConEntry dataName (S.InfixConDecl _ cname _) = ConEntry
+makeConEntry dataQName (S.InfixConDecl _ cname _) = ConEntry
   { conEntryName    = S.UnQual S.NoSrcSpan cname
   , conEntryArity   = 2
   , conEntryIsInfix = True
-  , conEntryType    = dataName
+  , conEntryType    = dataQName
   }
 makeConEntry _ (S.RecDecl _) =
   error "makeConEntry: record notation is not supported"
