@@ -75,7 +75,7 @@ haskell-src-transformations --help
 If you want to run the command line interface without installing the package on your machine (e.g., for debugging purposes), execute the following command in the root directory of the project instead of using the `haskell-src-transformations` executable.
 
 ```bash
-cabal new-run exe:haskell-src-transformations -- [options...]
+cabal new-run exe:haskell-src-transformations -- [options...] <input-files...>
 ```
 
 The two dashes are needed to separate the arguments to pass to the pattern matching compiler from Cabal's arguments.

@@ -1,6 +1,6 @@
 -- | This module contains basic tests for "HST.Application".
 module HST.ApplicationTests
-  ( applicationTests
+  ( testApplication
   )
 where
 
@@ -32,8 +32,8 @@ import qualified HST.Frontend.FromHSE          as FromHSE
 import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | Tests for the "HST.Application" module.
-applicationTests :: Spec
-applicationTests = describe "HST.Application" testProcessModule
+testApplication :: Spec
+testApplication = describe "HST.Application" testProcessModule
 
 -- | Parses a given string to a module and fails if parsing is not
 --   successful.
@@ -44,12 +44,11 @@ parseTestModule modStr = case parseModule modStr of
 
 -- | The default state used for pattern matching.
 defaultState :: PMState a
-defaultState = PMState { nextId      = 0
-                       , constrMap   = specialCons
-                       , matchedPat  = []
-                       , trivialCC   = False
-                       , opt         = True
-                       , debugOutput = ""
+defaultState = PMState { nextId     = 0
+                       , constrMap  = specialCons
+                       , matchedPat = []
+                       , trivialCC  = False
+                       , opt        = True
                        }
 
 -- | Test cases for 'processModule'.

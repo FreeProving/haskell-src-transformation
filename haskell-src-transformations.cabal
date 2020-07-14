@@ -20,14 +20,48 @@ maintainer:          jan.christiansen@hs-flensburg.de
 -- Build configuration.
 build-type:          Simple
 
+-- A flag that controls whether the Polysemy plugin should be enabled or not.
+-- The plugin is disabled by the `./tool/make-docs.sh` script since Haddock
+-- does not support plugins.
+flag PolysemyPluginEnabled {
+  Description: Enable polysemy plugin
+  Default:     True
+  Manual:      False
+}
+
 -- Common settings and dependencies that are used by all stanzas below.
 common deps
-  build-depends:       base             >= 4.12 && < 4.13
-                     , haskell-src-exts >= 1.23 && < 1.24
+  build-depends:       base             >= 4.12    && < 4.13
+                     , haskell-src-exts >= 1.23    && < 1.24
+                     , directory        >= 1.3.3.0 && < 1.3.3.1
+                     , extra            >= 1.7     && < 1.8
+                     , mtl              >= 2.2     && < 2.3
+                     , polysemy         >= 1.3     && < 1.4
+                     , polysemy-plugin  >= 0.2.5   && < 0.2.6
 
   -- Base language which the package is written in.
+  --
+  -- Polysemy needs a lot of language extensions. The language extensions
+  -- which are required in every computation that uses Polysemy effects
+  -- are enabled globally. Language extensions such as `TemplateHaskell`
+  -- which are needed for the definition of custom effects only are enabled
+  -- for individual files.
   default-language:    Haskell2010
+  extensions:          DataKinds
+                     , FlexibleContexts
+                     , GADTs
+                     , PolyKinds
+                     , TypeOperators
   ghc-options:         -Wall
+
+  -- The Polysemy plugin is currently not supported by Haddock. Thus, the
+  -- plugin needs to be disabled when building the documentation. The
+  -- resulting type errors have to be ignored.
+  if flag(PolysemyPluginEnabled)
+    ghc-options:       -fplugin=Polysemy.Plugin
+  else
+    ghc-options:       -fdefer-type-errors
+                       -fno-warn-deferred-type-errors
 
 -- Build configuration for the actual `haskell-src-transformations` library.
 library
@@ -38,14 +72,14 @@ library
                     , HST.CoreAlgorithm
                     , HST.Feature.GuardElimination
                     , HST.Feature.CaseCompletion
+                    , HST.Effect.Cancel
+                    , HST.Effect.Report
                     , HST.Environment.FreshVars
                     , HST.Feature.Optimization
                     , HST.Frontend.Syntax
                     , HST.Frontend.FromHSE
                     , HST.Frontend.ToHSE
   other-modules:      HST.Environment.Renaming
-
-  build-depends:      mtl               >= 2.2 && < 2.3
 
 -- Build configuration for the command line interface.
 executable haskell-src-transformations
@@ -56,6 +90,7 @@ executable haskell-src-transformations
   main-is:            Main.hs
   hs-source-dirs:     src/exe
   build-depends:      filepath          >= 1.4 && < 1.5
+                    , directory         >= 1.3 && < 1.4
                     , haskell-src-transformations
 
 -- Build configuration for the unit tests of the library.
@@ -66,11 +101,13 @@ test-suite haskell-src-transformations-unit-tests
   hs-source-dirs:     src/test
   main-is:            Spec.hs
   ghc-options:        -main-is Spec
-  other-modules:      HST.CoreAlgorithmTests
-                    , HST.ApplicationTests
+  other-modules:      HST.ApplicationTests
+                    , HST.CoreAlgorithmTests
+                    , HST.Effect.CancelTests
+                    , HST.Effect.ReportTests
   build-depends:      base
                     , haskell-src-transformations
-                    , HUnit
-                    , hspec
+                    , HUnit             >= 1.6  && < 1.7
+                    , hspec             >= 2.7  && < 2.8
                     , mtl
-                    , QuickCheck
+                    , QuickCheck        >= 2.14 && < 2.15

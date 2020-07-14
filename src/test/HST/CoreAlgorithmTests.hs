@@ -1,4 +1,7 @@
-module HST.CoreAlgorithmTests where
+module HST.CoreAlgorithmTests
+  ( testCoreAlgorithm
+  )
+where
 
 import qualified Language.Haskell.Exts         as HSE
 import           Test.Hspec                     ( Spec
@@ -12,9 +15,10 @@ import           Test.HUnit.Base                ( assertFailure )
 import           HST.CoreAlgorithm              ( compareCons )
 import qualified HST.Frontend.FromHSE          as FromHSE
 
--- | Tests for the "Algo" module.
-testAlgo :: Spec
-testAlgo = describe "Algo" testCompareCons
+-- | Tests for the "HST.CoreAlgorithm" module.
+testCoreAlgorithm :: Spec
+testCoreAlgorithm = describe "HST.CoreAlgorithm" $ do
+  testCompareCons
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.

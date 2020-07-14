@@ -9,6 +9,14 @@
 # The usage of lambda abstractions actually improves the readability.
 - ignore: {name: "Redundant lambda", within: ["HST.Environment.Renaming"]}
 
+# When reporting errors and in the test suite we are using `$` and `do` to
+# format code correctly.
+- ignore: {name: "Redundant $"}
+- ignore: {name: "Redundant do"}
+
+# Duplication makes the test code easier to read.
+- ignore: {name: "Reduce duplication", within: ["HST.Effect.ReportTests"]}
+
 # Aliases for qualified imports.
 - modules:
   - {name: [ HST.CoreAlgorithm ], as: CA}

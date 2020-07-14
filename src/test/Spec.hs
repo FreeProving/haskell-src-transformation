@@ -2,10 +2,14 @@ module Spec where
 
 import           Test.Hspec                     ( hspec )
 
-import           HST.CoreAlgorithmTests         ( testAlgo )
-import           HST.ApplicationTests           ( applicationTests )
+import           HST.ApplicationTests           ( testApplication )
+import           HST.CoreAlgorithmTests         ( testCoreAlgorithm )
+import           HST.Effect.CancelTests         ( testCancelEffect )
+import           HST.Effect.ReportTests         ( testReportEffect )
 
 main :: IO ()
 main = hspec $ do
-  testAlgo
-  applicationTests
+  testApplication
+  testCoreAlgorithm
+  testCancelEffect
+  testReportEffect
