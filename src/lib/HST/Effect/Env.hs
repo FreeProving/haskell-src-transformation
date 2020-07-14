@@ -40,7 +40,7 @@ import           HST.Environment                ( Environment
 --   environment.
 data Env a m b where
   GetEnv ::Env a m (Environment a)
-  PutEnv ::(Environment a) -> Env a m ()
+  PutEnv ::Environment a -> Env a m ()
 
 makeSem ''Env
 
