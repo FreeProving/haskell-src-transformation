@@ -140,8 +140,8 @@ renameAll ((from, to) : r) e = do
 -- | Applies 'optimizeAlt' to the given @case@ expression alternatives and
 --   constructs a @case@ expression from the optimized alternatives.
 --
---   While an alternative is optimized, the state contains a 'matchedPat'
---   entry for the current pair of scrutinee and pattern.
+--   While an alternative is optimized, the pattern is pushed to the stack
+--   of matched patterns for the scrutinee in the environment.
 addAndOpt
   :: Members '[Env a, Fresh] r => S.QName a -> [S.Alt a] -> Sem r (S.Exp a)
 addAndOpt v alts = do
