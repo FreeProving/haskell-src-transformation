@@ -31,7 +31,7 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
-optimize :: (Members '[Env a, Fresh] r, S.EqAST a) => S.Exp a -> Sem r (S.Exp a)
+optimize :: Members '[Env a, Fresh] r => S.Exp a -> Sem r (S.Exp a)
 optimize ex = case ex of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- optimize e1
@@ -71,10 +71,7 @@ optimize ex = case ex of
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
 optimizeCase
-  :: (Members '[Env a, Fresh] r, S.EqAST a)
-  => S.Exp a
-  -> [S.Alt a]
-  -> Sem r (S.Exp a)
+  :: Members '[Env a, Fresh] r => S.Exp a -> [S.Alt a] -> Sem r (S.Exp a)
 optimizeCase (S.Var _ varName) alts = do
   mpat <- inEnv $ lookupMatchedPat varName
   case mpat of
@@ -92,7 +89,7 @@ optimizeCase e alts = do
 --   alternative to the names of the corresponding variable patterns of the
 --   given pattern and applies 'optimize'.
 renameAndOpt
-  :: (Members '[Env a, Fresh] r, S.EqAST a)
+  :: Members '[Env a, Fresh] r
   => S.Pat a   -- ^ A pattern of a parent @case@ expression on the same scrutinee.
   -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
   -> Sem r (S.Exp a)
@@ -146,10 +143,7 @@ renameAll ((from, to) : r) e = do
 --   While an alternative is optimized, the state contains a 'matchedPat'
 --   entry for the current pair of scrutinee and pattern.
 addAndOpt
-  :: (Members '[Env a, Fresh] r, S.EqAST a)
-  => S.QName a
-  -> [S.Alt a]
-  -> Sem r (S.Exp a)
+  :: Members '[Env a, Fresh] r => S.QName a -> [S.Alt a] -> Sem r (S.Exp a)
 addAndOpt v alts = do
   alts' <- mapM bindAndOpt alts
   return $ S.Case S.NoSrcSpan (S.Var S.NoSrcSpan v) alts'
@@ -161,8 +155,7 @@ addAndOpt v alts = do
     return alt'
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
-optimizeAlt
-  :: (Members '[Env a, Fresh] r, S.EqAST a) => S.Alt a -> Sem r (S.Alt a)
+optimizeAlt :: Members '[Env a, Fresh] r => S.Alt a -> Sem r (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
   let (S.UnGuardedRhs _ e) = rhs
   e' <- optimize e

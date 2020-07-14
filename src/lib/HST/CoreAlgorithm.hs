@@ -74,8 +74,7 @@ err =
 --   All equations must have the same number of patterns as the given list
 --   of fresh variable patterns.
 match
-  :: Members '[Env a, Fresh, GetOpt] r
-  => S.EqAST a
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
   => [S.Pat a] -- ^ Fresh variable patterns.
   -> [Eqs a]   -- ^ The equations of the function declaration.
   -> S.Exp a   -- ^ The error expression for pattern-matching failures.
