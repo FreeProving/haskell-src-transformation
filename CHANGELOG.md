@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Added command line option for front end selection**
+  - A front end can be specified with `--frontend=FRONTEND ` or `-f FRONTEND`.
+  - Allowed values are: `haskell-src-extensions`, `ghc-lib.`
+  - `haskell-source-extensions` is used by default.
+  - Added `ghc-lib` frontend.
+
 ## 0.1.1.0 / 2020-04-19
 
  - **Fixed compile-time warnings**  
