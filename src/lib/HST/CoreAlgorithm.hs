@@ -386,7 +386,8 @@ translateApp _              = error "translateApp: Unsupported pattern"
 --
 --   Returns the constructor with replaced child patterns and a list of
 --   new and old variable patterns.
-decomposeConPat :: Member Fresh r => S.Pat a -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
+decomposeConPat
+  :: Member Fresh r => S.Pat a -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
 decomposeConPat (S.PApp _ qname ps) = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
