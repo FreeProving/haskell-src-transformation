@@ -73,16 +73,16 @@ runTest =
 prettyShouldBe :: (Pretty a, Pretty b) => a -> b -> Expectation
 prettyShouldBe x y = prettyPrint x `shouldBe` prettyPrint y
 
+-- | Handles the 'Report' effect by asserting that no fatal message is reported.
+--
+--   If there is a fatal message, all reported messages are included in
+--   the error message.
 reportToExpectation :: Member (Embed IO) r => Sem (Report ': r) a -> Sem r a
 reportToExpectation comp = do
   (ms, mx) <- runReport comp
   case mx of
-    Nothing -> embed
-      (assertFailure
-        (unlines
-          ("The following messages were reported:" : map showPrettyMessage ms)
-        )
-      )
+    Nothing -> embed $ assertFailure $ unlines
+      ("The following messages were reported:" : map showPrettyMessage ms)
     Just x -> return x
 
 -------------------------------------------------------------------------------
