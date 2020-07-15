@@ -60,8 +60,8 @@ processModule
 processModule m = do
   insertPreludeEntries
   collectDataInfo m
-  eliminatedM    <- applyGEModule m
-  caseCompletedM <- applyCCModule eliminatedM
+  guardEliminatedM <- applyGEModule m
+  caseCompletedM   <- applyCCModule guardEliminatedM
   useAlgoModule caseCompletedM
 
 -- | Applies the core algorithm on each declaration in the given module.
