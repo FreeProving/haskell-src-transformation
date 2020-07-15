@@ -39,7 +39,7 @@ import qualified HST.Frontend.Syntax           as S
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
 
--- | An effect capable of generating names for a fresh variable.
+-- | An effect capable of generating names for fresh variables.
 data Fresh m a where
   FreshIdent ::String -> Fresh m String
 
