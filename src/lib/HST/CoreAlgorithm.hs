@@ -244,7 +244,7 @@ getQNamePat _ = error "getQNamePat unsuported Pattern"
 createAltsFromConstr
   :: (Member Fresh r, S.EqAST a)
   => S.Pat a         -- ^ The fresh variable matched by the @case@ expression.
-  -> [ConEntry a] -- ^ The missing constructors to generate alternatives for.
+  -> [ConEntry a]    -- ^ The missing constructors to generate alternatives for.
   -> S.Exp a         -- ^ The error expression for pattern-matching failures.
   -> Sem r [S.Alt a]
 createAltsFromConstr x cs er = mapM (createAltFromConstr x er) cs

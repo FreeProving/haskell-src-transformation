@@ -20,7 +20,7 @@ import           HST.Environment                ( ConEntry(..)
                                                 )
 import qualified HST.Frontend.Syntax           as S
 
--- | Inserts entries for build-in data types and data constructors into the
+-- | Inserts entries for built-in data types and data constructors into the
 --   environment.
 insertPreludeEntries :: Member (Env a) r => Sem r ()
 insertPreludeEntries = do

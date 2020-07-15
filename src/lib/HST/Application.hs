@@ -87,7 +87,7 @@ useAlgoDecl v = return v
 --   matches.
 --
 --   If the function has only one rule and no pattern is a constructor
---   pattern, the algorithm is is left unchanged.
+--   pattern, the function is is left unchanged.
 useAlgoMatches
   :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
   => [S.Match a]
@@ -148,7 +148,7 @@ collectDataDecl (S.DataDecl dataName conDecls) = do
   mapM_ (modifyEnv . insertConEntry) conEntries
 collectDataDecl _ = return ()
 
--- | Creates an environment entry for a constructor declaration .
+-- | Creates an environment entry for a constructor declaration.
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
 makeConEntry dataQName (S.ConDecl cname types) = ConEntry
   { conEntryName    = S.UnQual S.NoSrcSpan cname

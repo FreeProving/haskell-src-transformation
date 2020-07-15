@@ -34,9 +34,9 @@ type GExp a = ([S.Pat a], S.Rhs a)
 -- to be evaluated causing a the sequential structure.
 eliminateL
   :: Members '[Fresh] r
-  => [S.Pat a]  -- fresh Vars
-  -> S.Exp a  -- error
-  -> [GExp a] -- pairs of pattern and guarded rhs
+  => [S.Pat a] -- fresh Vars
+  -> S.Exp a   -- error
+  -> [GExp a]  -- pairs of pattern and guarded rhs
   -> Sem r (S.Exp a)
 eliminateL vs err eqs = do
   startVar         <- freshVarPat genericFreshPrefix
@@ -55,9 +55,9 @@ toDecl _ _ = error "GuardElimination.toDecl: Variable pattern expected"
 -- Folds the list of GExps to declarations.
 foldGEqs
   :: Member Fresh r
-  => [S.Pat a]                 -- fresh variables for the case exps
-  -> ([S.Decl a], S.Pat a) -- startcase ([], first generated Pattern)
-  -> [GExp a]                -- list of pattern + rhs pair
+  => [S.Pat a]                   -- fresh variables for the case exps
+  -> ([S.Decl a], S.Pat a)       -- startcase ([], first generated Pattern)
+  -> [GExp a]                    -- list of pattern + rhs pair
   -> Sem r ([S.Decl a], S.Pat a) -- a list of declarations for the let binding
                                           -- and a free Variable for the error case
 foldGEqs vs = foldM (createDecl vs)
@@ -65,9 +65,9 @@ foldGEqs vs = foldM (createDecl vs)
 -- Generates a varbinding and a new variable for the next var binding
 createDecl
   :: Member Fresh r
-  => [S.Pat a]                 -- generated varibles
-  -> ([S.Decl a], S.Pat a) -- (current decls , variable for let binding)
-  -> GExp a                  -- pairs of pattern to match against and a guarded Rhs
+  => [S.Pat a]                   -- generated variables
+  -> ([S.Decl a], S.Pat a)       -- (current decls , variable for let binding)
+  -> GExp a                      -- pairs of pattern to match against and a guarded Rhs
   -> Sem r ([S.Decl a], S.Pat a) -- var bindings , variable for next match
 createDecl vs (decl, p) (ps, rhs) = do
   nVar <- freshVarPat genericFreshPrefix
@@ -97,16 +97,16 @@ createCase i next ((v, p) : vps) = S.Case
 -- Converts a rhs into an if then else expression as mentioned in the semantics
 rhsToIf
   :: Member Fresh r
-  => S.Rhs a      -- the (maybe guarded) righthandside
-  -> S.Exp a      -- next case
+  => S.Rhs a         -- the (maybe guarded) right hand side
+  -> S.Exp a         -- next case
   -> Sem r (S.Exp a) -- creates the if p_1 then . . . .
 rhsToIf (S.UnGuardedRhs _ e   ) _    = applyGEExp e
 rhsToIf (S.GuardedRhss  _ grhs) next = buildIf next grhs
  where
   buildIf
-    :: S.Exp a               -- next rule
-    -> [S.GuardedRhs a]      -- guarded rhs to fold
-    -> Sem r (S.Exp a)    -- if then else expr
+    :: S.Exp a          -- next rule
+    -> [S.GuardedRhs a] -- guarded rhs to fold
+    -> Sem r (S.Exp a)  -- if then else expr
   buildIf nx gs = foldM
     (\res (S.GuardedRhs _ e1 e2) -> return (S.If S.NoSrcSpan e1 e2 res))
     nx
