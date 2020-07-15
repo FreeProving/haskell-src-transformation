@@ -97,7 +97,7 @@ createCase i next ((v, p) : vps) = S.Case
 -- Converts a rhs into an if then else expression as mentioned in the semantics
 rhsToIf
   :: Member Fresh r
-  => S.Rhs a         -- the (maybe guarded) right hand side
+  => S.Rhs a         -- the (maybe guarded) right-hand side
   -> S.Exp a         -- next case
   -> Sem r (S.Exp a) -- creates the if p_1 then . . . .
 rhsToIf (S.UnGuardedRhs _ e   ) _    = applyGEExp e
