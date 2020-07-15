@@ -54,20 +54,11 @@ deriving instance ShowAST a => Show (Module a)
 --
 --   The only supported kind of pattern bindings, variable patterns, are
 --   represented by function bindings.
-data Decl a = DataDecl (DeclHead a) [ConDecl a]
+data Decl a = DataDecl (Name a) [ConDecl a]
             | TypeSig (SrcSpan a) [Name a] (TypeExp a)
             | FunBind (SrcSpan a) [Match a]
 deriving instance EqAST a => Eq (Decl a)
 deriving instance ShowAST a => Show (Decl a)
-
--- | The head of a data declaration. Does not include a source span or type
---   variable bindings and should not be transformed back.
-data DeclHead a = DHead (Name a)
-                | DHInfix (Name a)
-                | DHParen (DeclHead a)
-                | DHApp (DeclHead a)
-  deriving Eq
-deriving instance ShowAST a => Show (DeclHead a)
 
 -- | A binding group (for example after a @where@ clause).
 data Binds a = BDecls (SrcSpan a) [Decl a]

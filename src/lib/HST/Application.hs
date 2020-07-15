@@ -106,17 +106,8 @@ collectDataInfo (S.Module decls) = do
 --   DataDecl. Returns Nothing otherwise.
 collectDataDecl :: S.Decl a -> PM a (Maybe (String, [Constructor a]))
 collectDataDecl (S.DataDecl dhead cDecls) =
-  return $ Just (getDataName dhead, map getDataCons cDecls)
+  return $ Just (fromName dhead, map getDataCons cDecls)
 collectDataDecl _ = return Nothing
-
--- | The function 'getDataName' takes a DeclHead and returns a string with the
---   name of the data type.
-getDataName :: S.DeclHead a -> String -- add symbols?
-getDataName (S.DHead   dname) = fromName dname
-getDataName (S.DHApp   decl ) = getDataName decl
-getDataName (S.DHParen decl ) = getDataName decl
--- TODO Test symbols and infix
-getDataName _ = error "getDataName: Symbol or infix in declaration"
 
 -- | The function 'getDataName' takes a QualConDecl and returns the contained
 --   constructor.
