@@ -139,10 +139,10 @@ testProcessModule = context "processModule" $ do
     expected <- parseTestModule $ unlines
       [ "module A where"
       , "id :: a -> a"
-      , "id a0 = let a2 = undefined"
-      , "            a1 = case a0 of"
+      , "id a0 = let a1 = case a0 of"
       , "              a3 -> if otherwise then a3"
       , "                                 else a2"
+      , "            a2 = undefined"
       , "         in a1"
       ]
     mod2 `prettyShouldBe` expected
@@ -159,13 +159,13 @@ testProcessModule = context "processModule" $ do
       [ "module A where"
       , "useless :: (a -> Bool) -> a -> a -> a"
       , "useless a0 a1 a2 ="
-      , "  let a4 = undefined"
-      , "      a3 = case a0 of"
+      , "  let a3 = case a0 of"
       , "        a5 -> case a1 of"
       , "          a6 -> case a2 of"
       , "            a7 -> if a5 a6 then a6"
       , "                           else if otherwise then a7"
       , "                                             else a4"
+      , "      a4 = undefined"
       , "  in a3"
       ]
     mod2 `prettyShouldBe` expected

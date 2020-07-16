@@ -6,9 +6,7 @@ module HST.Feature.GuardElimination
   )
 where
 
-import           Control.Monad                  ( foldM
-                                                , replicateM
-                                                )
+import           Control.Monad                  ( replicateM )
 import           Polysemy                       ( Member
                                                 , Members
                                                 , Sem
@@ -24,76 +22,63 @@ import           HST.Effect.Fresh               ( Fresh
                                                 )
 import qualified HST.Frontend.Syntax           as S
 
--- | A pair of patterns to match and a right-hand side.
-type GExp a = ([S.Pat a], S.Rhs a)
+-- | A pair of patterns to match and a right-hand side to use when all
+--   patterns match.
+data GExp a = GExp { gExpPats :: [S.Pat a], gExpRhs :: S.Rhs a }
 
 -- | Converts a rule of a function declaration to a 'GExp'.
 matchToGExp :: S.Match a -> GExp a
-matchToGExp (S.Match _ _ pats rhs _         ) = (pats, rhs)
-matchToGExp (S.InfixMatch _ pat _ pats rhs _) = (pat : pats, rhs)
+matchToGExp (S.Match _ _ pats rhs _         ) = GExp pats rhs
+matchToGExp (S.InfixMatch _ pat _ pats rhs _) = GExp (pat : pats) rhs
 
 -- | Converts an alternative of a @case@ expression to a 'GExp'.
 altToGExp :: S.Alt a -> GExp a
-altToGExp (S.Alt _ p rhs _) = ([p], rhs)
+altToGExp (S.Alt _ pat rhs _) = GExp [pat] rhs
 
 -------------------------------------------------------------------------------
 -- @let@ Expressions                                                         --
 -------------------------------------------------------------------------------
 
--- Generates an expression with a let binding for each pattern + guard pair.
--- As defined in the semantics the first match of both pattern and guard has
--- to be evaluated causing a the sequential structure.
-eliminateL
+-- | Converts rules of function definitions or @case@ expression alternatives
+--   to @let@ bindings of @case@ and @if@ expressions.
+--
+--   There is one @let@ binding for each rule or alternative and an additional
+--   binding for the error expression. The @i@-th binding uses the @(i + 1)@-th
+--   binding as an error expression.
+generateLet
   :: Members '[Fresh] r
-  => [S.Exp a] -- fresh Vars
-  -> S.Exp a   -- error
-  -> [GExp a]  -- pairs of pattern and guarded rhs
+  => [S.Exp a] -- ^ Variables to match.
+  -> S.Exp a   -- ^ Expression to use if patterns don't match or the guard is
+               --   not satisfied.
+  -> [GExp a]  -- ^ Patters to match and the corrsponding right-hand sides.
   -> Sem r (S.Exp a)
-eliminateL vs err eqs = do
-  startVar         <- freshName genericFreshPrefix
-  (decls, lastPat) <- foldGEqs vs ([], startVar) eqs
-  let errDecl = makeVarBinding lastPat err -- error has to be bound to last new var
-  return $ S.Let S.NoSrcSpan
-                 (S.BDecls S.NoSrcSpan (errDecl : decls))
-                 (S.var startVar)
+generateLet vs err gExps = do
+  varNames <- replicateM (length gExps + 1) (freshName genericFreshPrefix)
+  let startVarExpr : nextVarExprs = map S.var varNames
+      ifExprs = zipWith (rhsToIf . gExpRhs) gExps nextVarExprs
+  ifExprs' <- mapM applyGEExp ifExprs
+  let exprPats  = map (zip vs . gExpPats) gExps
+      caseExprs = zipWith3 generateNestedCases ifExprs' nextVarExprs exprPats
+      decls     = zipWith makeVarBinding varNames (caseExprs ++ [err])
+  return $ S.Let S.NoSrcSpan (S.BDecls S.NoSrcSpan decls) startVarExpr
 
 -- | Creates a function declaration for a @let@ binding of a variable with the
 --   given name to the given expression.
 makeVarBinding :: S.Name a -> S.Exp a -> S.Decl a
-makeVarBinding name e = S.FunBind
+makeVarBinding name expr = S.FunBind
   S.NoSrcSpan
-  [S.Match S.NoSrcSpan name [] (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
-
--- Folds the list of GExps to declarations.
-foldGEqs
-  :: Member Fresh r
-  => [S.Exp a]                    -- fresh variables for the case exps
-  -> ([S.Decl a], S.Name a)       -- startcase ([], first generated Pattern)
-  -> [GExp a]                     -- list of pattern + rhs pair
-  -> Sem r ([S.Decl a], S.Name a) -- a list of declarations for the let binding
-                                  -- and a free Variable for the error case
-foldGEqs vs = foldM (createDecl vs)
-
--- Generates a varbinding and a new variable for the next var binding
-createDecl
-  :: Member Fresh r
-  => [S.Exp a]                    -- generated variables
-  -> ([S.Decl a], S.Name a)       -- (current decls , variable for let binding)
-  -> GExp a                       -- pairs of pattern to match against and a guarded Rhs
-  -> Sem r ([S.Decl a], S.Name a) -- var bindings , variable for next match
-createDecl vs (decls, varName) (ps, rhs) = do
-  nextVarName <- freshName genericFreshPrefix
-  let nextVarExp = S.var nextVarName
-  iexp <- rhsToIf rhs nextVarExp
-  let cexp  = generateNestedCases iexp nextVarExp (zip vs ps)
-  let ndecl = makeVarBinding varName cexp
-  return (ndecl : decls, nextVarName)
+  [S.Match S.NoSrcSpan name [] (S.UnGuardedRhs S.NoSrcSpan expr) Nothing]
 
 -------------------------------------------------------------------------------
 -- @case@ Expressions                                                        --
 -------------------------------------------------------------------------------
 
 -- | Generates nested case expression for each variable and pattern pair.
+--
+--   @'generateNestedCases' e f [(x₁, p₁), …, (xₙ, pₙ)]@ produces an expression
+--   of the following form.
+--
+--   > case x₁ of { p₁ -> (… case xₙ of { pₙ -> e ; _ -> f }  …) ; _ -> f }
 generateNestedCases
   :: S.Exp a              -- ^ Expression to use if all pattern match.
   -> S.Exp a              -- ^ Expression to use if any pattern does not match.
@@ -112,15 +97,24 @@ generateNestedCases successExpr failExpr = foldr generateNestedCase successExpr
 
 -- | Converts a right-hand side to an @if@ expression.
 --
---    TODO Guards in unguarded expressions are eliminated recursively. But why
---    arent't guards in guarded right-hand sides eliminated recursively?
+--   Guarded right-hand sides of the form
+--
+--   > | m₁ -> e₁
+--   > | …
+--   > | mₙ -> eₙ
+--
+--   are converted to @if@ expressions of the following form where @f@ is the
+--   second argument passed to 'rhsToIf'.
+--
+--   > if m₁ then e₁
+--   >       else … if mₙ then eₙ
+--   >                    else f
 rhsToIf
-  :: Member Fresh r
-  => S.Rhs a         -- ^ The right-hand side to convert.
-  -> S.Exp a         -- ^ The next expression if no guard matches.
-  -> Sem r (S.Exp a)
-rhsToIf (S.UnGuardedRhs _ e   ) _    = applyGEExp e
-rhsToIf (S.GuardedRhss  _ grhs) next = return (foldr guardedRhsToIf next grhs)
+  :: S.Rhs a -- ^ The right-hand side to convert.
+  -> S.Exp a -- ^ The next expression if no guard is satisfied.
+  -> S.Exp a
+rhsToIf (S.UnGuardedRhs _ expr) _    = expr
+rhsToIf (S.GuardedRhss  _ grhs) next = foldr guardedRhsToIf next grhs
 
 -- | Converts a guarded right-hand side to an @if@ expression.
 --
@@ -184,8 +178,8 @@ applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
 applyGEAlts alts
   | any hasGuardsAlt alts = do
     let gexps = map altToGExp alts
-    newVar'  <- freshVarPat genericFreshPrefix
-    e        <- eliminateL [translatePVar newVar'] defaultErrorExp gexps
+    newVar' <- freshVarPat genericFreshPrefix
+    e       <- generateLet [translatePVar newVar'] defaultErrorExp gexps
     return [S.Alt S.NoSrcSpan newVar' (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
   | otherwise = return alts
 
@@ -219,10 +213,10 @@ applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
 applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
 applyGE ms = do
   let mname    = getMatchName ms
-      geqs     = map matchToGExp ms
-      funArity = (length . fst . head) geqs
+      gexps    = map matchToGExp ms
+      funArity = (length . gExpPats . head) gexps
   nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
-  nExp  <- eliminateL (map translatePVar nVars) defaultErrorExp geqs
+  nExp  <- generateLet (map translatePVar nVars) defaultErrorExp gexps
   return $ S.Match S.NoSrcSpan
                    mname
                    nVars
