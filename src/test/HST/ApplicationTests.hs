@@ -117,7 +117,7 @@ testProcessModule = context "processModule" $ do
       ]
     mod2' <- runTest (processModule (FromHSE.transformModule mod1))
     let mod2 = ToHSE.transformModule mod1 mod2'
-    expected `prettyShouldBe` mod2
+    mod2 `prettyShouldBe` expected
   it "should transform pattern matching in a partial function" $ do
     mod1 <- parseTestModule
       $ unlines ["module A where", "head :: [a] -> a", "head (x:xs) = x"]

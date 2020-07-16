@@ -12,7 +12,7 @@ import           Polysemy                       ( Members
                                                 )
 
 import           HST.CoreAlgorithm              ( match
-                                                , err
+                                                , defaultErrorExp
                                                 , Eqs
                                                 )
 import           HST.Effect.Env                 ( Env )
@@ -35,7 +35,7 @@ completeCase insideLet (S.Case _ expr as) = do
   let eqs = map getEqFromAlt as
   eqs' <- mapM (\(p, ex) -> completeCase insideLet ex >>= \e -> return (p, e))
                eqs
-  res <- match [v] eqs' err
+  res <- match [v] eqs' defaultErrorExp
   if not insideLet
     then do
       let (S.Case _ _ resAs) = res
@@ -93,7 +93,7 @@ completeLambda ps e insideLet = do
   xs <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   e' <- completeCase insideLet e
   let eq = (ps, e')
-  res <- match xs [eq] err
+  res <- match xs [eq] defaultErrorExp
   return $ S.Lambda S.NoSrcSpan xs res
 
 applyCCModule

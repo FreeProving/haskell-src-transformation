@@ -18,7 +18,7 @@ import           Polysemy                       ( Member
 
 import           HST.CoreAlgorithm              ( Eqs
                                                 , match
-                                                , err
+                                                , defaultErrorExp
                                                 , isCons
                                                 )
 import           HST.Effect.Env                 ( Env
@@ -117,7 +117,7 @@ useAlgo ms = do
   eqs <- mapM matchToEquation ms
   let funArity = (length . fst . head) eqs
   nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
-  nExp  <- match nVars eqs err
+  nExp  <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return $ S.Match S.NoSrcSpan
                    mname

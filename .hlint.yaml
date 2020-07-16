@@ -19,7 +19,6 @@
 
 # Aliases for qualified imports.
 - modules:
-  - {name: [ HST.CoreAlgorithm ], as: CA}
   - {name: [ HST.Frontend.Syntax ], as: S}
   - {name: [ HST.Frontend.FromHSE ], as: FromHSE}
   - {name: [ HST.Frontend.ToHSE ], as: ToHSE}

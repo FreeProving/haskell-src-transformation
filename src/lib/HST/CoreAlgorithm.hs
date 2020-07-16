@@ -3,7 +3,7 @@
 
 module HST.CoreAlgorithm
   ( match
-  , err
+  , defaultErrorExp
   , translatePVar
   , Eqs
   , isPVar
@@ -63,8 +63,8 @@ import           HST.Options                    ( optTrivialCase )
 type Eqs a = ([S.Pat a], S.Exp a)
 
 -- | The default error expression to insert for pattern matching failures.
-err :: S.Exp a
-err =
+defaultErrorExp :: S.Exp a
+defaultErrorExp =
   S.Var S.NoSrcSpan (S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan "undefined"))
 
 -- | Compiles the given equations of a function declaration to a single
@@ -191,8 +191,8 @@ computeAlts x xs eqs er = do
     zs -> do
       b <- getOpt optTrivialCase
       if b
-        then -- TODO is 'err' correct? Why not 'er'?
-             return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) err]
+        then -- TODO is 'defaultErrorExp' correct? Why not 'er'?
+             return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
         else do
           z <- createAltsFromConstr x zs er
           -- TODO currently not sorted (reversed)
