@@ -113,14 +113,14 @@ useAlgo
   => [S.Match a]
   -> Sem r (S.Match a)
 useAlgo ms = do
-  let mname = getMatchName ms
   eqs <- mapM matchToEquation ms
-  let funArity = (length . fst . head) eqs
-  nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
+  let name  = getMatchName (head ms)
+      arity = length (fst (head eqs))
+  nVars <- replicateM arity (freshVarPat genericFreshPrefix)
   nExp  <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return $ S.Match S.NoSrcSpan
-                   mname
+                   name
                    nVars
                    (S.UnGuardedRhs S.NoSrcSpan nExp')
                    Nothing

@@ -8,7 +8,6 @@ where
 
 import           Control.Monad                  ( replicateM )
 import           Polysemy                       ( Member
-                                                , Members
                                                 , Sem
                                                 )
 
@@ -46,7 +45,7 @@ altToGExp (S.Alt _ pat rhs _) = GExp [pat] rhs
 --   binding for the error expression. The @i@-th binding uses the @(i + 1)@-th
 --   binding as an error expression.
 generateLet
-  :: Members '[Fresh] r
+  :: Member Fresh r
   => [S.Exp a] -- ^ Variables to match.
   -> S.Exp a   -- ^ Expression to use if patterns don't match or the guard is
                --   not satisfied.
@@ -212,22 +211,21 @@ applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
 -- | Applies guard elimination to the rules of a function declaration.
 applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
 applyGE ms = do
-  let mname    = getMatchName ms
-      gexps    = map matchToGExp ms
-      funArity = (length . gExpPats . head) gexps
-  nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
-  nExp  <- generateLet (map translatePVar nVars) defaultErrorExp gexps
+  let name  = getMatchName (head ms)
+      gexps = map matchToGExp ms
+      arity = length (gExpPats (head gexps))
+  varPats <- replicateM arity (freshVarPat genericFreshPrefix)
+  expr'   <- generateLet (map translatePVar varPats) defaultErrorExp gexps
   return $ S.Match S.NoSrcSpan
-                   mname
-                   nVars
-                   (S.UnGuardedRhs S.NoSrcSpan nExp)
+                   name
+                   varPats
+                   (S.UnGuardedRhs S.NoSrcSpan expr')
                    Nothing
 
--- | Gets the name of the function that is defined by the given rules.
-getMatchName :: [S.Match a] -> S.Name a
-getMatchName [] = error "no match in getMatchName"
-getMatchName (S.Match _ mname _ _ _ : _) = mname
-getMatchName (S.InfixMatch _ _ mname _ _ _ : _) = mname
+-- | Gets the name of the function that is defined by the given rule.
+getMatchName :: S.Match a -> S.Name a
+getMatchName (S.Match _ name _ _ _       ) = name
+getMatchName (S.InfixMatch _ _ name _ _ _) = name
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
