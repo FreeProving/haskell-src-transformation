@@ -6,7 +6,6 @@ where
 
 import           Polysemy                       ( Member
                                                 , Sem
-                                                , raiseUnder
                                                 , runM
                                                 )
 import           Polysemy.Embed                 ( Embed
@@ -60,9 +59,8 @@ parseTestModule modStr = case parseModule modStr of
 
 -- | Runs the given computation with an empty environment and no additional
 --   command line arguments.
-runTest :: Sem '[Env a, Fresh, GetOpt, Embed IO] b -> IO b
-runTest =
-  runM . reportToExpectation . runWithArgs [] . raiseUnder . runFresh . runEnv
+runTest :: Sem '[Env a, Fresh, GetOpt, Report, Embed IO] b -> IO b
+runTest = runM . reportToExpectation . runWithArgs [] . runFresh . runEnv
 
 -------------------------------------------------------------------------------
 -- Expectation Setters                                                       --

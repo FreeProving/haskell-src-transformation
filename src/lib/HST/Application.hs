@@ -16,7 +16,8 @@ import           Polysemy                       ( Member
                                                 , Sem
                                                 )
 
-import           HST.CoreAlgorithm              ( match
+import           HST.CoreAlgorithm              ( Eqs
+                                                , match
                                                 , err
                                                 , isCons
                                                 )
@@ -29,6 +30,11 @@ import           HST.Effect.Fresh               ( Fresh
                                                 )
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
+                                                )
+import           HST.Effect.Report              ( Message(Message)
+                                                , Report
+                                                , Severity(Internal)
+                                                , reportFatal
                                                 )
 import           HST.Environment                ( ConEntry(..)
                                                 , DataEntry(..)
@@ -54,7 +60,7 @@ import           HST.Options                    ( optOptimizeCase )
 --
 --   Returns a new module with the transformed functions.
 processModule
-  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Module a
   -> Sem r (S.Module a)
 processModule m = do
@@ -66,7 +72,7 @@ processModule m = do
 
 -- | Applies the core algorithm on each declaration in the given module.
 useAlgoModule
-  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Module a
   -> Sem r (S.Module a)
 useAlgoModule (S.Module ds) = do
@@ -75,7 +81,7 @@ useAlgoModule (S.Module ds) = do
 
 -- | Applies the core algorithm on the given declaration.
 useAlgoDecl
-  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Decl a
   -> Sem r (S.Decl a)
 useAlgoDecl (S.FunBind _ ms) = do
@@ -89,7 +95,7 @@ useAlgoDecl v = return v
 --   If the function has only one rule and no pattern is a constructor
 --   pattern, the function is is left unchanged.
 useAlgoMatches
-  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => [S.Match a]
   -> Sem r (S.Match a)
 useAlgoMatches [m] | not (hasCons m) = return m
@@ -103,12 +109,12 @@ hasCons (S.InfixMatch _ p1 _ ps _ _) = any isCons (p1 : ps)
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo
-  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => [S.Match a]
   -> Sem r (S.Match a)
 useAlgo ms = do
-  let mname    = getMatchName ms
-  let eqs = map (\(S.Match _ _ pats rhs _) -> (pats, selectExp rhs)) ms
+  let mname = getMatchName ms
+  eqs <- mapM matchToEquation ms
   let funArity = (length . fst . head) eqs
   nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
   nExp  <- match nVars eqs err
@@ -119,9 +125,22 @@ useAlgo ms = do
                    (S.UnGuardedRhs S.NoSrcSpan nExp')
                    Nothing
  where
-  selectExp :: S.Rhs a -> S.Exp a
-  selectExp (S.UnGuardedRhs _ e) = e
-  selectExp _                    = error "no UnGuardedRhs in selectExp"
+  -- | Converts a rule of a function declaration to an equation.
+  --
+  --   There must be no guards on the right-hand side.
+  matchToEquation :: Member Report r => S.Match a -> Sem r (Eqs a)
+  matchToEquation (S.Match _ _ pats rhs _) = do
+    expr <- fromUnguardedRhs rhs
+    return (pats, expr)
+  matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
+    expr <- fromUnguardedRhs rhs
+    return (pat : pats, expr)
+
+  -- | Gets the expressions of the given right-hand side of a rule.
+  fromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
+  fromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
+  fromUnguardedRhs (S.GuardedRhss _ _) =
+    reportFatal $ Message Internal "Expected unguarded right hand side."
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --
