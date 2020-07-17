@@ -91,7 +91,7 @@ data Options = Options
     -- ^ Flag that indicates whether optimization for case expressions is
     --   enabled or not.
   , optFrontend :: String
-    -- ^ The frontend used for parsing the input program.
+    -- ^ The front end used for parsing the input program.
   }
 
 -- | The options to use by default if there are no command line arguments.
@@ -150,7 +150,7 @@ parseFrontend s = case Map.lookup s frontendMap of
   Nothing ->
     reportFatal
       $  Message Error
-      $  "Unavailable frontend.\n"
+      $  "Unavailable front end.\n"
       ++ "Use '--help' for allowed values."
   Just f -> return f
  where
