@@ -2,6 +2,7 @@
 
 module HST.Frontend.FromGHC where
 
+import           Data.Data                      ( Data )
 import           Data.Maybe                     ( fromMaybe
                                                 , mapMaybe
                                                 )
@@ -17,6 +18,11 @@ import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC
 import qualified "ghc-lib-parser" TyCon        as GHC
 import qualified "ghc-lib-parser" Type         as GHC
+import qualified "ghc-lib-parser" DynFlags     as GHC
+import qualified "ghc-lib-parser" GHC.Hs.Dump  as GHC
+import qualified "ghc-lib-parser" Outputable   as GHC
+import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config
+                                               as GHC
 
 import qualified HST.Frontend.Syntax           as S
 
@@ -24,14 +30,41 @@ data GHC
 
 data LitWrapper = Lit (GHC.HsLit GHC.GhcPs)
                 | OverLit (GHC.HsOverLit GHC.GhcPs)
-                
-data TypeWrapper = InSig (GHC.LHsSigWcType GHC.GhcPs)
-                 | InExp (GHC.LHsSigWcType (GHC.NoGhcTc GHC.GhcPs))
-                 | InDataCon (GHC.LBangType GHC.GhcPs)
+  deriving Eq
+
+instance Show LitWrapper where
+  show (Lit     l) = defaultPrintShow l
+  show (OverLit l) = defaultPrintShow l
+
+data TypeWrapper = InDataCon (GHC.LBangType GHC.GhcPs)
+                 | InOther (GHC.LHsSigWcType GHC.GhcPs)
+
+instance Eq TypeWrapper where
+  InDataCon t1 == InDataCon t2 = defaultPrintEq t1 == defaultPrintEq t2
+  InOther   t1 == InOther   t2 = defaultPrintEq t1 == defaultPrintEq t2
+  _            == _            = False
+
+instance Show TypeWrapper where
+  show (InDataCon t) = defaultPrintShow t
+  show (InOther   t) = defaultPrintShow t
 
 type instance S.SrcSpanType GHC = GHC.SrcSpan
 type instance S.Literal GHC = LitWrapper
 type instance S.TypeExp GHC = TypeWrapper
+
+instance S.EqAST GHC
+instance S.ShowAST GHC
+
+defaultPrintEq :: Data a => a -> String
+defaultPrintEq d =
+  GHC.showSDoc defaultDynFlags (GHC.showAstData GHC.BlankSrcSpan d)
+
+defaultPrintShow :: Data a => a -> String
+defaultPrintShow d =
+  GHC.showSDocOneLine defaultDynFlags (GHC.showAstData GHC.NoBlankSrcSpan d)
+
+defaultDynFlags :: GHC.DynFlags
+defaultDynFlags = GHC.defaultDynFlags (GHC.fakeSettings) (GHC.fakeLlvmConfig)
 
 transformModule :: GHC.HsModule GHC.GhcPs -> S.Module GHC
 transformModule (GHC.HsModule { GHC.hsmodDecls = decls }) =
@@ -52,7 +85,7 @@ transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) = Just
 transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
   (S.TypeSig (transformSrcSpan s)
              (map transformRdrNameUnqual names)
-             (InSig sigType)
+             (InOther sigType)
   )
 -- VarBinds? But according to the documentation, those are only introduced by the type checker.
 transformDecl _ = Nothing
@@ -208,7 +241,7 @@ transformExpr (GHC.L s (GHC.ExplicitList _ _ es)) =
 transformExpr (GHC.L s (GHC.HsPar _ e)) =
   S.Paren (transformSrcSpan s) (transformExpr e)
 transformExpr (GHC.L s (GHC.ExprWithTySig _ e typeSig)) =
-  S.ExpTypeSig (transformSrcSpan s) (transformExpr e) (InExp typeSig)
+  S.ExpTypeSig (transformSrcSpan s) (transformExpr e) (InOther typeSig)
 transformExpr _ = error "Unsupported expression"
 
 transformTupleArg :: GHC.LHsTupArg GHC.GhcPs -> S.Exp GHC
