@@ -140,7 +140,7 @@ useAlgo ms = do
   fromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
   fromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
   fromUnguardedRhs (S.GuardedRhss _ _) =
-    reportFatal $ Message Internal "Expected unguarded right hand side."
+    reportFatal $ Message Internal "Expected unguarded right-hand side."
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --

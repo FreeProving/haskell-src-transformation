@@ -49,7 +49,7 @@ generateLet
   => [S.Exp a] -- ^ Variables to match.
   -> S.Exp a   -- ^ Expression to use if patterns don't match or the guard is
                --   not satisfied.
-  -> [GExp a]  -- ^ Patters to match and the corrsponding right-hand sides.
+  -> [GExp a]  -- ^ Patterns to match and the corresponding right-hand sides.
   -> Sem r (S.Exp a)
 generateLet vs err gExps = do
   varNames <- replicateM (length gExps + 1) (freshName genericFreshPrefix)
@@ -72,14 +72,14 @@ makeVarBinding name expr = S.FunBind
 -- @case@ Expressions                                                        --
 -------------------------------------------------------------------------------
 
--- | Generates nested case expression for each variable and pattern pair.
+-- | Generates a nested case expression for each variable and pattern pair.
 --
 --   @'generateNestedCases' e f [(x₁, p₁), …, (xₙ, pₙ)]@ produces an expression
 --   of the following form.
 --
 --   > case x₁ of { p₁ -> (… case xₙ of { pₙ -> e ; _ -> f }  …) ; _ -> f }
 generateNestedCases
-  :: S.Exp a              -- ^ Expression to use if all pattern match.
+  :: S.Exp a              -- ^ Expression to use if all patterns match.
   -> S.Exp a              -- ^ Expression to use if any pattern does not match.
   -> [(S.Exp a, S.Pat a)] -- ^ Expression/pattern pairs to match.
   -> S.Exp a
@@ -127,7 +127,7 @@ guardedRhsToIf (S.GuardedRhs _ e1 e2) = S.If S.NoSrcSpan e1 e2
 -- Guard Elimination                                                         --
 -------------------------------------------------------------------------------
 
--- | Applies guard elimination on @case@ expression in the given expression.
+-- | Applies guard elimination on @case@ expressions in the given expression.
 applyGEExp :: Member Fresh r => S.Exp a -> Sem r (S.Exp a)
 applyGEExp (S.InfixApp _ e1 qop e2) = do
   e1' <- applyGEExp e1

@@ -143,7 +143,7 @@ testProcessModule = context "processModule" $ do
       , "              a3 -> if otherwise then a3"
       , "                                 else a2"
       , "            a2 = undefined"
-      , "         in a1"
+      , "        in a1"
       ]
     mod2 `prettyShouldBe` expected
   it "should accept a more complex guarded function" $ do
