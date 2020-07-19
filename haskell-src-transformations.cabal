@@ -31,13 +31,14 @@ flag PolysemyPluginEnabled {
 
 -- Common settings and dependencies that are used by all stanzas below.
 common deps
-  build-depends:       base             >= 4.12    && < 4.13
-                     , haskell-src-exts >= 1.23    && < 1.24
-                     , directory        >= 1.3.3.0 && < 1.3.3.1
-                     , extra            >= 1.7     && < 1.8
-                     , mtl              >= 2.2     && < 2.3
-                     , polysemy         >= 1.3     && < 1.4
-                     , polysemy-plugin  >= 0.2.5   && < 0.2.6
+  build-depends:       base             >= 4.12  && < 4.13
+                     , containers       >= 0.6   && < 0.7
+                     , directory        >= 1.3   && < 1.4
+                     , extra            >= 1.7   && < 1.8
+                     , haskell-src-exts >= 1.23  && < 1.24
+                     , mtl              >= 2.2   && < 2.3
+                     , polysemy         >= 1.3   && < 1.4
+                     , polysemy-plugin  >= 0.2.5 && < 0.2.6
 
   -- Base language which the package is written in.
   --
@@ -70,16 +71,21 @@ library
   hs-source-dirs:     src/lib
   exposed-modules:    HST.Application
                     , HST.CoreAlgorithm
-                    , HST.Feature.GuardElimination
                     , HST.Feature.CaseCompletion
-                    , HST.Effect.Cancel
-                    , HST.Effect.Report
-                    , HST.Environment.FreshVars
+                    , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
                     , HST.Frontend.Syntax
                     , HST.Frontend.FromHSE
                     , HST.Frontend.ToHSE
-  other-modules:      HST.Environment.Renaming
+                    , HST.Effect.Cancel
+                    , HST.Effect.Env
+                    , HST.Effect.Fresh
+                    , HST.Effect.GetOpt
+                    , HST.Effect.Report
+                    , HST.Environment
+                    , HST.Environment.Prelude
+                    , HST.Environment.Renaming
+                    , HST.Options
 
 -- Build configuration for the command line interface.
 executable haskell-src-transformations
@@ -90,7 +96,6 @@ executable haskell-src-transformations
   main-is:            Main.hs
   hs-source-dirs:     src/exe
   build-depends:      filepath          >= 1.4 && < 1.5
-                    , directory         >= 1.3 && < 1.4
                     , haskell-src-transformations
 
 -- Build configuration for the unit tests of the library.
@@ -105,9 +110,7 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
                     , HST.Effect.ReportTests
-  build-depends:      base
-                    , haskell-src-transformations
+  build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8
-                    , mtl
                     , QuickCheck        >= 2.14 && < 2.15

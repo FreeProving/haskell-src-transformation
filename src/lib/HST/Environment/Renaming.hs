@@ -2,9 +2,6 @@
 
 module HST.Environment.Renaming where
 
-import           HST.Environment.FreshVars      ( PM
-                                                , freshVar
-                                                )
 import qualified HST.Frontend.Syntax           as S
 
 -- | A substitution (or "renaming") is a mapping of variable names to variable
@@ -51,7 +48,8 @@ instance TermSubst S.Exp where
     S.Let    l b  e  -> S.Let l b $ substitute s e
     S.If l e1 e2 e3 ->
       S.If l (substitute s e1) (substitute s e2) (substitute s e3)
-    S.Case  l e   as   -> S.Case l e (map (substitute s) as)   -- no subst for debugging (substitute s e)
+    S.Case  l e   as   -> S.Case l e (map (substitute s) as)
+    -- TODO no subst for debugging (substitute s e)
     S.Tuple l bxd es   -> S.Tuple l bxd (map (substitute s) es)
     S.List  l es       -> S.List l (map (substitute s) es)
     S.Paren l e        -> S.Paren l (substitute s e)
@@ -138,26 +136,3 @@ instance Rename (S.Rhs s) where
   rename s rhs = case rhs of
     S.UnGuardedRhs l e -> S.UnGuardedRhs l $ rename s e
     S.GuardedRhss  _ _ -> error "Rename: GuardedRhss not supported"
-
--- | Creates a new fresh variable pattern for the given variable pattern.
-renamePVar :: S.Pat a -> PM a (S.Pat a)
-renamePVar (S.PVar l name) = do
-  nname <- newName name
-  return (S.PVar l nname)
-renamePVar _ = error "no variable in renamePVar"
-
--- | Generates a fresh variable name with an ID from the state.
---
---   The given argument must be an identifier. Only the annotation of the
---   identifier is preserved.
-newName :: S.Name a -> PM a (S.Name a)
-newName (S.Ident l _) = do
-  var <- freshVar
-  return (S.Ident l ('a' : show var))
-newName _ = error "no Ident in newName"
-
--- | Generates a fresh variable name with an ID from the state.
-genVar :: PM a (S.Name a)
-genVar = do
-  x <- freshVar
-  return (S.Ident S.NoSrcSpan ('a' : show x))
