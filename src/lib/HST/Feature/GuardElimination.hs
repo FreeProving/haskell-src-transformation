@@ -195,7 +195,8 @@ applyGEDecl :: Member Fresh r => S.Decl a -> Sem r (S.Decl a)
 applyGEDecl (S.FunBind _ ms) = do
   ms' <- applyGEMatches ms
   return (S.FunBind S.NoSrcSpan ms')
-applyGEDecl decl@(S.DataDecl _ _) = return decl
+applyGEDecl decl@(S.TypeSig _ _ _) = return decl
+applyGEDecl decl@(S.DataDecl _ _ ) = return decl
 
 -- | Applies guard elimination to the rules of a function declaration.
 --
