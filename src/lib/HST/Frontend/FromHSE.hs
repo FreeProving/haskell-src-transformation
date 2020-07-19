@@ -80,7 +80,8 @@ transformConDecl (HSE.ConDecl _ cName types) =
   S.ConDecl (transformName cName) types
 transformConDecl (HSE.InfixConDecl _ t1 cName t2) =
   S.InfixConDecl t1 (transformName cName) t2
-transformConDecl (HSE.RecDecl _ cName _) = S.RecDecl (transformName cName)
+transformConDecl (HSE.RecDecl _ _ _) =
+  error "transformConDecl: record notation is not supported"
 
 -- | Transforms an HSE match into an HST match.
 transformMatch :: HSE.Match HSE.SrcSpanInfo -> S.Match HSE

@@ -6,18 +6,24 @@ module HST.Feature.GuardElimination
   , comp
   , getMatchName
   )
-where                                   -- TODO Apply GE to GuardedRhs in case expressions
-                                                                                -- TODO only apply to the parts with guards (not on matches if in case)
-                                                                                    -- not false by semantics
+where
+
+-- TODO Apply GE to GuardedRhs in case expressions
+-- TODO only apply to the parts with guards (not on matches if in case)
+--      not false by semantics
+
+import           Control.Monad                  ( foldM
+                                                , replicateM
+                                                )
+import           Polysemy                       ( Member
+                                                , Members
+                                                , Sem
+                                                )
 
 import qualified HST.CoreAlgorithm             as CA
-                                                ( err
-                                                , translatePVar
-                                                )
-import           Control.Monad                  ( foldM )
-import           HST.Environment.FreshVars      ( PM
-                                                , newVars
-                                                , newVar
+import           HST.Effect.Fresh               ( Fresh
+                                                , freshVarPat
+                                                , genericFreshPrefix
                                                 )
 import qualified HST.Frontend.Syntax           as S
 
@@ -27,12 +33,13 @@ type GExp a = ([S.Pat a], S.Rhs a)
 -- As defined in the semantics the first match of both pattern and guard has
 -- to be evaluated causing a the sequential structure.
 eliminateL
-  :: [S.Pat a]  -- fresh Vars
-  -> S.Exp a  -- error
-  -> [GExp a] -- pairs of pattern and guarded rhs
-  -> PM a (S.Exp a)
+  :: Members '[Fresh] r
+  => [S.Pat a] -- fresh Vars
+  -> S.Exp a   -- error
+  -> [GExp a]  -- pairs of pattern and guarded rhs
+  -> Sem r (S.Exp a)
 eliminateL vs err eqs = do
-  startVar         <- newVar
+  startVar         <- freshVarPat genericFreshPrefix
   (decls, lastPat) <- foldGEqs vs ([], startVar) eqs
   let errDecl = toDecl lastPat err -- error has to be bound to last new var
   return $ S.Let S.NoSrcSpan
@@ -47,21 +54,23 @@ toDecl _ _ = error "GuardElimination.toDecl: Variable pattern expected"
 
 -- Folds the list of GExps to declarations.
 foldGEqs
-  :: [S.Pat a]                 -- fresh variables for the case exps
-  -> ([S.Decl a], S.Pat a) -- startcase ([], first generated Pattern)
-  -> [GExp a]                -- list of pattern + rhs pair
-  -> PM a ([S.Decl a], S.Pat a) -- a list of declarations for the let binding
+  :: Member Fresh r
+  => [S.Pat a]                   -- fresh variables for the case exps
+  -> ([S.Decl a], S.Pat a)       -- startcase ([], first generated Pattern)
+  -> [GExp a]                    -- list of pattern + rhs pair
+  -> Sem r ([S.Decl a], S.Pat a) -- a list of declarations for the let binding
                                           -- and a free Variable for the error case
-foldGEqs vs = foldM (\(decls, p) geq -> createDecl vs (decls, p) geq)
+foldGEqs vs = foldM (createDecl vs)
 
 -- Generates a varbinding and a new variable for the next var binding
 createDecl
-  :: [S.Pat a]                 -- generated varibles
-  -> ([S.Decl a], S.Pat a) -- (current decls , variable for let binding)
-  -> GExp a                  -- pairs of pattern to match against and a guarded Rhs
-  -> PM a ([S.Decl a], S.Pat a) -- var bindings , variable for next match
+  :: Member Fresh r
+  => [S.Pat a]                   -- generated variables
+  -> ([S.Decl a], S.Pat a)       -- (current decls , variable for let binding)
+  -> GExp a                      -- pairs of pattern to match against and a guarded Rhs
+  -> Sem r ([S.Decl a], S.Pat a) -- var bindings , variable for next match
 createDecl vs (decl, p) (ps, rhs) = do
-  nVar <- newVar
+  nVar <- freshVarPat genericFreshPrefix
   let varExp = CA.translatePVar nVar
   iexp <- rhsToIf rhs varExp
   let cexp  = createCase iexp varExp (zip vs ps)
@@ -87,24 +96,25 @@ createCase i next ((v, p) : vps) = S.Case
 
 -- Converts a rhs into an if then else expression as mentioned in the semantics
 rhsToIf
-  :: S.Rhs a      -- the (maybe guarded) righthandside
-  -> S.Exp a      -- next case
-  -> PM a (S.Exp a) -- creates the if p_1 then . . . .
+  :: Member Fresh r
+  => S.Rhs a         -- the (maybe guarded) right-hand side
+  -> S.Exp a         -- next case
+  -> Sem r (S.Exp a) -- creates the if p_1 then . . . .
 rhsToIf (S.UnGuardedRhs _ e   ) _    = applyGEExp e
-rhsToIf (S.GuardedRhss  _ grhs) next = buildIF next grhs
+rhsToIf (S.GuardedRhss  _ grhs) next = buildIf next grhs
  where
-  buildIF
-    :: S.Exp a               -- next rule
-    -> [S.GuardedRhs a]      -- guarded rhs to fold
-    -> PM a (S.Exp a)    -- if then else expr
-  buildIF nx gs = foldM
+  buildIf
+    :: S.Exp a          -- next rule
+    -> [S.GuardedRhs a] -- guarded rhs to fold
+    -> Sem r (S.Exp a)  -- if then else expr
+  buildIf nx gs = foldM
     (\res (S.GuardedRhs _ e1 e2) -> return (S.If S.NoSrcSpan e1 e2 res))
     nx
     (reverse gs) -- reverse, since foldM is a foldl with side effect
 
 -- Applies guard elimination on an expression converting guarded rhs in cases
 -- into unguarded exps
-applyGEExp :: S.Exp a -> PM a (S.Exp a)
+applyGEExp :: Member Fresh r => S.Exp a -> Sem r (S.Exp a)
 applyGEExp e = case e of
   S.InfixApp _ e1 qop e2 -> do
     e1' <- applyGEExp e1
@@ -139,24 +149,24 @@ applyGEExp e = case e of
   x -> return x
 
 -- Applies guard elimination on alts by using eliminateL
-applyGEAlts :: [S.Alt a] -> PM a [S.Alt a]
+applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
 applyGEAlts as = if any (\(S.Alt _ _ rhs _) -> isGuardedRhs rhs) as
   then do
     let gexps = map (\(S.Alt _ p rhs _) -> ([p], rhs)) as
-    newVar'  <- newVar
+    newVar'  <- freshVarPat genericFreshPrefix
     e        <- eliminateL [newVar'] CA.err gexps
-    matchVar <- newVar
+    matchVar <- freshVarPat genericFreshPrefix
     return [S.Alt S.NoSrcSpan matchVar (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
   else return as
 
 -- Applies guard elimination to a module
-applyGEModule :: S.Module a -> PM a (S.Module a)
+applyGEModule :: Member Fresh r => S.Module a -> Sem r (S.Module a)
 applyGEModule (S.Module ds) = do
   dcls <- mapM applyGEDecl ds
   return $ S.Module dcls
 
 -- Applies guard elimination to a declaration
-applyGEDecl :: S.Decl a -> PM a (S.Decl a)
+applyGEDecl :: Member Fresh r => S.Decl a -> Sem r (S.Decl a)
 applyGEDecl (S.FunBind _ ms) = do
   nms <- applyGEMatches ms
   return (S.FunBind S.NoSrcSpan nms)
@@ -164,7 +174,7 @@ applyGEDecl v = return v
 
 -- mapM
 -- Applies guard elimination to a list of matches to generate one without guards
-applyGEMatches :: [S.Match a] -> PM a [S.Match a]
+applyGEMatches :: Member Fresh r => [S.Match a] -> Sem r [S.Match a]
 applyGEMatches []       = return []
 applyGEMatches (m : ms) = do
   let (oneFun, r) = span (comp m) ms
@@ -180,13 +190,14 @@ applyGEMatches (m : ms) = do
 
 -- Applies guard elimination to one function
 applyGE
-  :: [S.Match a] -- one fun group
-  -> PM a (S.Match a)
+  :: Member Fresh r
+  => [S.Match a] -- one fun group
+  -> Sem r (S.Match a)
 applyGE ms = do
   let mname    = getMatchName ms
       geqs     = map (\(S.Match _ _ pats rhs _) -> (pats, rhs)) ms
       funArity = (length . fst . head) geqs
-  nVars <- newVars funArity
+  nVars <- replicateM funArity (freshVarPat genericFreshPrefix)
   nExp  <- eliminateL nVars CA.err geqs
   return $ S.Match S.NoSrcSpan
                    mname
