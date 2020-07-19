@@ -44,6 +44,8 @@ transformModule _ = error "Unsupported Module type"
 transformDecl :: HSE.Decl HSE.SrcSpanInfo -> Maybe (S.Decl HSE)
 transformDecl (HSE.DataDecl _ (HSE.DataType _) _ dHead qcds _) =
   Just (S.DataDecl (transformDeclHead dHead) (map transformQualConDecl qcds))
+transformDecl (HSE.TypeSig s names typ) =
+  Just (S.TypeSig (transformSrcSpan s) (map transformName names) typ)
 transformDecl (HSE.FunBind s matches) =
   Just (S.FunBind (transformSrcSpan s) (map transformMatch matches))
 transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = Just
