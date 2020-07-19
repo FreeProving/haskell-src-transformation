@@ -82,6 +82,7 @@ library
                     , HST.Frontend.FromHSE
                     , HST.Frontend.ToHSE
                     , HST.Frontend.FromGHC
+                    , HST.Frontend.ToGHC
   other-modules:      HST.Environment.Renaming
 
 -- Build configuration for the command line interface.
