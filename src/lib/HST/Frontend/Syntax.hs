@@ -67,6 +67,7 @@ deriving instance ShowAST a => Show (Module a)
 --   The only supported kind of pattern bindings, variable patterns, are
 --   represented by function bindings.
 data Decl a = DataDecl (Name a) [ConDecl a]
+            | TypeSig (SrcSpan a) [Name a] (TypeExp a)
             | FunBind (SrcSpan a) [Match a]
 deriving instance EqAST a => Eq (Decl a)
 deriving instance ShowAST a => Show (Decl a)
