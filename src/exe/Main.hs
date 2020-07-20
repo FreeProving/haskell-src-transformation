@@ -9,7 +9,9 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
+import           Data.List                      ( intercalate )
 import           Data.List.Extra                ( splitOn )
+import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as Map
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
@@ -74,6 +76,19 @@ import qualified HST.Frontend.ToHSE            as ToHSE
 data Frontend = HSE | GHClib
   deriving (Eq, Show)
 
+-- | Name of the @haskell-src-extensions@ front end.
+hse :: String
+hse = "haskell-src-extensions"
+
+-- | Name of the @ghc-lib@ front end.
+ghclib :: String
+ghclib = "ghc-lib"
+
+-- | Map that maps strings to the corresponding front ends. Used for parsing
+--   front end option.
+frontendMap :: Map String Frontend
+frontendMap = Map.fromList [(hse, HSE), (ghclib, GHClib)]
+
 -- | A data type that contains the parsed command line options.
 data Options = Options
   { optShowHelp     :: Bool
@@ -102,7 +117,7 @@ defaultOptions = Options { optShowHelp     = False
                          , optEnableDebug  = False
                          , optTrivialCase  = False
                          , optOptimizeCase = True
-                         , optFrontend     = "haskell-src-extensions"
+                         , optFrontend     = hse
                          }
 
 -- | Descriptors for the supported command line options.
@@ -139,8 +154,8 @@ optionDescriptors =
     ["frontend"]
     (ReqArg (\f opts -> opts { optFrontend = f }) "FRONTEND")
     (  "Optional. Specifies the front end for the compiler to use.\n"
-    ++ "Allowed values are: `ghc-lib`, `haskell-src-extensions`.\n"
-    ++ "Uses haskell-src-extensions by default."
+    ++ "Allowed values are: " ++ intercalate "," (map ( (\s -> '`' : s ++ "`") . fst) (Map.toList frontendMap)) ++  ".\n"
+    ++ "Uses `" ++ hse ++ "` by default."
     )
   ]
 
@@ -153,9 +168,6 @@ parseFrontend s = case Map.lookup s frontendMap of
       $  "Unavailable frontend.\n"
       ++ "Use '--help' for allowed values."
   Just f -> return f
- where
-  frontendMap =
-    Map.fromList [("haskell-src-extensions", HSE), ("ghc-lib", GHClib)]
 
 -- | Parses the given command line arguments.
 --
