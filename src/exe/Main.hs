@@ -138,7 +138,7 @@ processInputFile inputFile = do
   intermediateModule <- FromHSE.transformModule inputModule
   outputModule       <- runEnv . runFresh $ do
     intermediateModule' <- processModule intermediateModule
-    return $ ToHSE.transformModule inputModule intermediateModule'
+    return $ ToHSE.transformModule intermediateModule'
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
