@@ -66,6 +66,18 @@ runTest = runM . reportToExpectation . runWithArgs [] . runFresh . runEnv
 -- Expectation Setters                                                       --
 -------------------------------------------------------------------------------
 
+-- | Parses the given modules, processes the input module with 'processModule'
+--   and sets the expectation that the given output module is produced.
+shouldTransformTo :: [String] -> [String] -> Expectation
+shouldTransformTo input expectedOutput = do
+  inputModule          <- parseTestModule (unlines input)
+  expectedOutputModule <- parseTestModule (unlines expectedOutput)
+  outputModule         <- runTest $ do
+    inputModule'  <- FromHSE.transformModule inputModule
+    outputModule' <- processModule inputModule'
+    return (ToHSE.transformModule inputModule outputModule')
+  outputModule `prettyShouldBe` expectedOutputModule
+
 -- | Pretty prints both values and tests whether the resulting strings are
 --   equal modulo whitespace.
 prettyShouldBe :: (Pretty a, Pretty b) => a -> b -> Expectation
@@ -96,47 +108,33 @@ testApplication = describe "HST.Application" $ do
 testProcessModule :: Spec
 testProcessModule = context "processModule" $ do
   it "should accept a simple function" $ do
-    mod1 <- parseTestModule
-      $ unlines ["module A where", "f :: a -> a", "f x = x"]
-    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
-    let mod2 = ToHSE.transformModule mod1 mod2'
-    mod2 `prettyShouldBe` mod1
+    shouldTransformTo ["module A where", "f :: a -> a", "f x = x"]
+                      ["module A where", "f :: a -> a", "f x = x"]
   it "should transform pattern matching into case expressions" $ do
-    mod1 <- parseTestModule $ unlines
+    shouldTransformTo
       [ "module A where"
       , "lengthL :: [a] -> Int"
       , "lengthL [] = 0"
       , "lengthL(_:xs) = 1 + lengthL xs"
       ]
-    expected <- parseTestModule $ unlines
       [ "module A where"
       , "lengthL :: [a] -> Int"
       , "lengthL a0 = case a0 of"
       , "  []    -> 0"
       , "  a1:a2 -> 1 + lengthL a2"
       ]
-    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
-    let mod2 = ToHSE.transformModule mod1 mod2'
-    mod2 `prettyShouldBe` expected
   it "should transform pattern matching in a partial function" $ do
-    mod1 <- parseTestModule
-      $ unlines ["module A where", "head :: [a] -> a", "head (x:xs) = x"]
-    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
-    let mod2 = ToHSE.transformModule mod1 mod2'
-    expected <- parseTestModule $ unlines
+    shouldTransformTo
+      ["module A where", "head :: [a] -> a", "head (x:xs) = x"]
       [ "module A where"
       , "head :: [a] -> a"
       , "head a0 = case a0 of"
       , "  a1 : a2 -> a1"
       , "  [] -> undefined"
       ]
-    mod2 `prettyShouldBe` expected
   it "should accept a simple guarded expression" $ do
-    mod1 <- parseTestModule
-      $ unlines ["module A where", "id :: a -> a", "id x | otherwise = x"]
-    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
-    let mod2 = ToHSE.transformModule mod1 mod2'
-    expected <- parseTestModule $ unlines
+    shouldTransformTo
+      ["module A where", "id :: a -> a", "id x | otherwise = x"]
       [ "module A where"
       , "id :: a -> a"
       , "id a0 = let a1 = case a0 of"
@@ -145,17 +143,13 @@ testProcessModule = context "processModule" $ do
       , "            a2 = undefined"
       , "        in a1"
       ]
-    mod2 `prettyShouldBe` expected
   it "should accept a more complex guarded function" $ do
-    mod1 <- parseTestModule $ unlines
+    shouldTransformTo
       [ "module A where"
       , "useless :: (a -> Bool) -> a -> a -> a"
       , "useless p x y | p x       = x"
       , "              | otherwise = y"
       ]
-    mod2' <- runTest (processModule (FromHSE.transformModule mod1))
-    let mod2 = ToHSE.transformModule mod1 mod2'
-    expected <- parseTestModule $ unlines
       [ "module A where"
       , "useless :: (a -> Bool) -> a -> a -> a"
       , "useless a0 a1 a2 ="
@@ -168,4 +162,3 @@ testProcessModule = context "processModule" $ do
       , "      a4 = undefined"
       , "  in a3"
       ]
-    mod2 `prettyShouldBe` expected

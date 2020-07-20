@@ -157,7 +157,7 @@ collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
 --   Leaves the environment unchanged, if the given declaration is not a
 --   data type declaration.
 collectDataDecl :: Member (Env a) r => S.Decl a -> Sem r ()
-collectDataDecl (S.DataDecl dataName conDecls) = do
+collectDataDecl (S.DataDecl _ dataName conDecls) = do
   let dataQName  = S.UnQual S.NoSrcSpan dataName
       conEntries = map (makeConEntry dataQName) conDecls
   modifyEnv $ insertDataEntry DataEntry

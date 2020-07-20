@@ -134,9 +134,9 @@ processInputFile
   :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFile = do
   input <- embed $ readFile inputFile
-  let inputModule        = HSE.fromParseResult (HSE.parseModule input)
-      intermediateModule = FromHSE.transformModule inputModule
-  outputModule <- runEnv . runFresh $ do
+  let inputModule = HSE.fromParseResult (HSE.parseModule input)
+  intermediateModule <- FromHSE.transformModule inputModule
+  outputModule       <- runEnv . runFresh $ do
     intermediateModule' <- processModule intermediateModule
     return $ ToHSE.transformModule inputModule intermediateModule'
   maybeOutputDir <- getOpt optOutputDir

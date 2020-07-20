@@ -40,7 +40,7 @@ transformModule _ _ = error "Unsupported Module type"
 
 -- | Transforms an HST declaration into an HSE declaration.
 transformDecl :: S.Decl HSE -> HSE.Decl HSE.SrcSpanInfo
-transformDecl (S.DataDecl _ _) =
+transformDecl (S.DataDecl _ _ _) =
   error "Data type declarations should not be transformed back"
 transformDecl (S.TypeSig s names typ) =
   HSE.TypeSig (transformSrcSpan s) (map transformName names) typ
