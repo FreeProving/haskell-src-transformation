@@ -31,11 +31,7 @@ import           HST.Effect.Fresh               ( Fresh
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 )
-import           HST.Effect.Report              ( Message(Message)
-                                                , Report
-                                                , Severity(Internal)
-                                                , reportFatal
-                                                )
+import           HST.Effect.Report              ( Report )
 import           HST.Environment                ( ConEntry(..)
                                                 , DataEntry(..)
                                                 , insertConEntry
@@ -49,6 +45,7 @@ import           HST.Feature.GuardElimination   ( getMatchName
 import           HST.Feature.Optimization       ( optimize )
 import qualified HST.Frontend.Syntax           as S
 import           HST.Options                    ( optOptimizeCase )
+import           HST.Util.Selectors             ( fromUnguardedRhs )
 
 -------------------------------------------------------------------------------
 -- Application of Core Algorithm                                             --
@@ -135,12 +132,6 @@ useAlgo ms = do
   matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
     expr <- fromUnguardedRhs rhs
     return (pat : pats, expr)
-
-  -- | Gets the expressions of the given right-hand side of a rule.
-  fromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
-  fromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
-  fromUnguardedRhs (S.GuardedRhss _ _) =
-    reportFatal $ Message Internal "Expected unguarded right-hand side."
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --

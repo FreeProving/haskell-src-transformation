@@ -32,6 +32,7 @@ import           HST.Environment.Renaming       ( subst
                                                 , rename
                                                 )
 import qualified HST.Frontend.Syntax           as S
+import           HST.Util.Selectors             ( fromUnguardedRhs )
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
@@ -121,7 +122,7 @@ renameAndOpt pat alts =
   case find (cheatEq (getQNamePat pat) . getQName) alts of
     Nothing -> reportFatal $ Message Error $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
-      expr  <- selectExp rhs
+      expr  <- fromUnguardedRhs rhs
       pats  <- selectPats pat
       pats' <- selectPats pat'
       expr' <- renameAll (zip pats' pats) expr
@@ -140,12 +141,6 @@ selectPats (S.PApp _ _ pats      ) = return pats
 selectPats (S.PInfixApp _ p1 _ p2) = return [p1, p2]
 selectPats _ =
   reportFatal $ Message Error $ "Expected prefix or infix constructor pattern."
-
--- | Gets the actual expression of the given right-hand side without guard.
-selectExp :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
-selectExp (S.UnGuardedRhs _ e) = return e
-selectExp (S.GuardedRhss _ _) =
-  reportFatal $ Message Error $ "Expected right-hand side without guards."
 
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.
@@ -184,6 +179,6 @@ addAndOpt v alts = do
 optimizeAlt
   :: Members '[PatternStack a, Fresh, Report] r => S.Alt a -> Sem r (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
-  e  <- selectExp rhs
+  e  <- fromUnguardedRhs rhs
   e' <- optimize' e
   return $ S.Alt S.NoSrcSpan p (S.UnGuardedRhs S.NoSrcSpan e') Nothing
