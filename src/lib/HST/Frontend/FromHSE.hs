@@ -7,7 +7,6 @@
 
 module HST.Frontend.FromHSE where
 
-import           Control.Monad.Extra            ( mapMaybeM )
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
                                                 , Sem
@@ -27,6 +26,14 @@ import qualified HST.Frontend.Syntax           as S
 
 -- TODO Move type family instances to own @HST.Frontend.Syntax.HSE@ module.
 
+-- | Wrapper for the fields of modules that are not supported.
+data OriginalModuleHead = OriginalModuleHead
+  { originalModuleHead    :: Maybe (HSE.ModuleHead HSE.SrcSpanInfo)
+  , originalModulePragmas :: [HSE.ModulePragma HSE.SrcSpanInfo]
+  , originalModuleImports :: [HSE.ImportDecl HSE.SrcSpanInfo]
+  }
+ deriving (Eq, Show)
+
 -- | Type representing the AST data structure of @haskell-src-exts@.
 --
 --   Instantiates the type families for source spans, literals and type
@@ -37,6 +44,8 @@ data HSE
 type instance S.SrcSpanType HSE = HSE.SrcSpanInfo
 type instance S.Literal HSE = HSE.Literal HSE.SrcSpanInfo
 type instance S.TypeExp HSE = HSE.Type HSE.SrcSpanInfo
+type instance S.OriginalModuleHead HSE = OriginalModuleHead
+type instance S.OriginalDecl HSE = HSE.Decl HSE.SrcSpanInfo
 
 instance S.EqAST HSE
 instance S.ShowAST HSE
@@ -70,8 +79,9 @@ skipNotSupported feature =
 --   the @haskell-src-transformations@ representation of a Haskell module.
 transformModule
   :: Member Report r => HSE.Module HSE.SrcSpanInfo -> Sem r (S.Module HSE)
-transformModule (HSE.Module _ _ _ _ decls) =
-  S.Module <$> mapMaybeM transformDeclMaybe decls
+transformModule (HSE.Module s moduleHead pragmas imports decls) =
+  S.Module (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
+    <$> mapM transformDecl decls
 transformModule (HSE.XmlPage _ _ _ _ _ _ _      ) = notSupported "XML Modules"
 transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _) = notSupported "XML Modules"
 
@@ -80,86 +90,123 @@ transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _) = notSupported "XML Modules"
 -------------------------------------------------------------------------------
 
 -- | Transforms an HSE declaration into an HST declaration.
---
---   Reports a fatal error if the declaration cannot be transformed.
 transformDecl
-  :: Member Report r => HSE.Decl HSE.SrcSpanInfo -> Sem r (S.Decl HSE)
-transformDecl = transformDecl' return notSupported
-
--- | Transforms an HSE declaration into an HST declaration.
---
---   Return @Nothing@ if the declaration cannot be transformed.
-transformDeclMaybe
-  :: Member Report r => HSE.Decl HSE.SrcSpanInfo -> Sem r (Maybe (S.Decl HSE))
-transformDeclMaybe =
-  transformDecl' (return . Just) (fmap (const Nothing) . skipNotSupported)
-
--- | Transforms an HSE declaration into an HST declaration uses the given
---   functions to return results and report errors.
-transformDecl'
   :: Member Report r
-  => (S.Decl HSE -> Sem r b)  -- ^ Returns the transformed declaration.
-  -> (String -> Sem r b)      -- ^ Reports an unsupported feature.
-  -> HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
-  -> Sem r b
+  => HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
+  -> Sem r (S.Decl HSE)
 
 -- Data type and newtype declarations are supported.
-transformDecl' f _ (HSE.DataDecl s _ _ dHead qcds _) = do
+transformDecl decl@(HSE.DataDecl s _ _ dHead qcds _) = do
   dHead' <- transformDeclHead dHead
   qcds'  <- mapM transformQualConDecl qcds
-  f $ S.DataDecl (transformSrcSpan s) dHead' qcds'
-
--- Type signatures are supported in order to preserve type signatures
--- in @let@ expressions.
-transformDecl' f _ (HSE.TypeSig s names typ) = do
-  names' <- mapM transformName names
-  f $ S.TypeSig (transformSrcSpan s) names' typ
+  return $ S.DataDecl (transformSrcSpan s) decl dHead' qcds'
 
 -- Function declarations are supported.
-transformDecl' f _ (HSE.FunBind s matches) = do
+transformDecl (HSE.FunBind s matches) = do
   matches' <- mapM transformMatch matches
-  f $ S.FunBind (transformSrcSpan s) matches'
+  return $ S.FunBind (transformSrcSpan s) matches'
 
--- Only variable pattern bindings are supported.
-transformDecl' f _ (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = do
+-- Only variable pattern bindings are supported. The user is informed if there
+-- are unsupported variable patterns that are skipped.
+transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = do
   match' <- transformMatch (HSE.Match s name [] rhs mBinds)
-  f $ S.FunBind (transformSrcSpan s) [match']
-transformDecl' _ g (HSE.PatBind _ _ _ _) = g "Non-variable pattern bindings"
+  return $ S.FunBind (transformSrcSpan s) [match']
+transformDecl decl@(HSE.PatBind s _ _ _) = do
+  skipNotSupported "Non-variable pattern bindings"
+  return $ S.OtherDecl (transformSrcSpan s) decl
 
--- All other declarations are not supported.
-transformDecl' _ g (HSE.TypeDecl _ _ _             ) = g "Type synonyms"
-transformDecl' _ g (HSE.TypeFamDecl _ _ _ _        ) = g "Type families"
-transformDecl' _ g (HSE.ClosedTypeFamDecl _ _ _ _ _) = g "Type families"
-transformDecl' _ g (HSE.GDataDecl _ _ _ _ _ _ _    ) = g "GADTs"
-transformDecl' _ g (HSE.DataFamDecl _ _ _ _        ) = g "Data families"
-transformDecl' _ g (HSE.TypeInsDecl _ _ _          ) = g "Type families"
-transformDecl' _ g (HSE.DataInsDecl _ _ _ _ _      ) = g "Data families"
-transformDecl' _ g (HSE.GDataInsDecl _ _ _ _ _ _) = g "GADTs and type families"
-transformDecl' _ g (HSE.ClassDecl _ _ _ _ _        ) = g "Type classes"
-transformDecl' _ g (HSE.InstDecl _ _ _ _           ) = g "Type classes"
-transformDecl' _ g (HSE.DerivDecl _ _ _ _) =
-  g "Stand-alone deriving declarations"
-transformDecl' _ g (HSE.InfixDecl _ _ _ _      ) = g "Fixity declarations"
-transformDecl' _ g (HSE.DefaultDecl _ _        ) = g "Type classes"
-transformDecl' _ g (HSE.SpliceDecl  _ _        ) = g "Template Haskell"
-transformDecl' _ g (HSE.TSpliceDecl _ _        ) = g "Template Haskell"
-transformDecl' _ g (HSE.PatSynSig _ _ _ _ _ _ _) = g "Pattern synonyms"
-transformDecl' _ g (HSE.PatSyn _ _ _ _         ) = g "Pattern synonyms"
-transformDecl' _ g (HSE.ForImp _ _ _ _ _ _     ) = g "Foreign imports"
-transformDecl' _ g (HSE.ForExp _ _ _ _ _       ) = g "Foreign exports"
-transformDecl' _ g (HSE.RulePragmaDecl _ _     ) = g "RULES pragmas"
-transformDecl' _ g (HSE.DeprPragmaDecl _ _     ) = g "DEPRECATED pragmas"
-transformDecl' _ g (HSE.WarnPragmaDecl _ _     ) = g "WARNING pragmas"
-transformDecl' _ g (HSE.InlineSig _ _ _ _      ) = g "INLINE pragmas"
-transformDecl' _ g (HSE.InlineConlikeSig _ _ _ ) = g "INLINE CONLIKE pragmas"
-transformDecl' _ g (HSE.SpecSig _ _ _ _        ) = g "SPECIALISE pragmas"
-transformDecl' _ g (HSE.SpecInlineSig _ _ _ _ _) =
-  g "SPECIALISE INLINE pragmas"
-transformDecl' _ g (HSE.InstSig       _ _   ) = g "SPECIALISE instance pragmas"
-transformDecl' _ g (HSE.AnnPragma     _ _   ) = g "ANN pragmas"
-transformDecl' _ g (HSE.MinimalPragma _ _   ) = g "MINIMAL pragmas"
-transformDecl' _ g (HSE.RoleAnnotDecl  _ _ _) = g "Role annotations"
-transformDecl' _ g (HSE.CompletePragma _ _ _) = g "COMPLETE pragmas"
+-- Type classes and type class instances ar enot supported. The user is
+-- explicitly informed that the declaration is skipped since they might
+-- contain pattern matching.
+transformDecl decl@(HSE.ClassDecl s _ _ _ _) = do
+  skipNotSupported "Type classes"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.InstDecl s _ _ _) = do
+  skipNotSupported "Type class instances"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+
+-- GADTs and pattern synonyms are not supported. The user us explicitly
+-- informed that the declaration is skipped since there may be errors due
+-- to the skipped constructor or pattern declarations.
+transformDecl decl@(HSE.GDataDecl s _ _ _ _ _ _) = do
+  skipNotSupported "GADTs"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.PatSyn s _ _ _) = do
+  skipNotSupported "Pattern synonyms"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+
+-- Type and data families are not supported. The user is informed of skipped
+-- data instances only since all type family declarations and instances as well
+-- as data family declarations don't contain constructors.
+transformDecl decl@(HSE.TypeFamDecl s _ _ _) = do
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.ClosedTypeFamDecl s _ _ _ _) = do
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.DataFamDecl s _ _ _) = do
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.TypeInsDecl s _ _) = do
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.DataInsDecl s _ _ _ _) = do
+  skipNotSupported "Data family instances"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.GDataInsDecl s _ _ _ _ _) = do
+  skipNotSupported "GADT-style data family instances"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+
+-- Template Haskell is not supported. The user is informed when
+-- splices are skipped since they contain expressions that are
+-- not transformed.
+transformDecl decl@(HSE.SpliceDecl s _) = do
+  skipNotSupported "Template Haskell splicing declarations"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.TSpliceDecl s _) = do
+  skipNotSupported "Template Haskell splicing declarations"
+  return $ S.OtherDecl (transformSrcSpan s) decl
+
+-- Type signatures, fixity declarations and pragmas are skipped silently.
+transformDecl decl@(HSE.TypeSig s _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.PatSynSig s _ _ _ _ _ _) = do
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.InfixDecl s _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.RulePragmaDecl s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.DeprPragmaDecl s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.WarnPragmaDecl s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.AnnPragma s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.MinimalPragma s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.RoleAnnotDecl s _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.CompletePragma s _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.InlineSig s _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.InlineConlikeSig s _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.SpecSig s _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.SpecInlineSig s _ _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.InstSig s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+
+-- All other declarations are not supported and preserved unchanged without
+-- explicitly informing the user.
+transformDecl decl@(HSE.TypeDecl s _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.DerivDecl s _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.DefaultDecl s _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.ForImp s _ _ _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
+transformDecl decl@(HSE.ForExp s _ _ _ _) =
+  return $ S.OtherDecl (transformSrcSpan s) decl
 
 -- | Transforms an HSE declaration head into an HST declaration head.
 transformDeclHead :: HSE.DeclHead HSE.SrcSpanInfo -> Sem r (S.Name HSE)
@@ -272,47 +319,48 @@ transformExp (HSE.ExpTypeSig s e typ) =
   S.ExpTypeSig (transformSrcSpan s) <$> transformExp e <*> return typ
 
 -- All other expressions are not supported.
-transformExp (HSE.OverloadedLabel _ _       ) = notSupported "Overloaded labels"
+transformExp (HSE.OverloadedLabel _ _) = notSupported "Overloaded labels"
 transformExp (HSE.IPVar _ _) = notSupported "Implicit-parameters"
 transformExp (HSE.MultiIf _ _) = notSupported "Multi-Way if-expressions"
-transformExp (HSE.Do              _ _       ) = notSupported "do-expressions"
-transformExp (HSE.MDo             _ _       ) = notSupported "mdo-expressions"
-transformExp (HSE.UnboxedSum _ _ _ _        ) = notSupported "Unboxed sums"
-transformExp (HSE.TupleSection _ _ _        ) = notSupported "Tuple sections"
-transformExp (HSE.ParArray _ _              ) = notSupported "Parallel arrays"
-transformExp (HSE.LeftSection  _ _ _        ) = notSupported "Sections"
-transformExp (HSE.RightSection _ _ _        ) = notSupported "Sections"
-transformExp (HSE.RecConstr    _ _ _        ) = notSupported "Records"
-transformExp (HSE.RecUpdate    _ _ _        ) = notSupported "Records"
-transformExp (HSE.EnumFrom _ _              ) = notSupported "Enumerations"
-transformExp (HSE.EnumFromTo   _ _ _        ) = notSupported "Enumerations"
-transformExp (HSE.EnumFromThen _ _ _        ) = notSupported "Enumerations"
-transformExp (HSE.EnumFromThenTo _ _ _ _    ) = notSupported "Enumerations"
-transformExp (HSE.ParArrayFromTo _ _ _      ) = notSupported "Parallel arrays"
+transformExp (HSE.Do _ _) = notSupported "do-expressions"
+transformExp (HSE.MDo _ _) = notSupported "mdo-expressions"
+transformExp (HSE.UnboxedSum _ _ _ _) = notSupported "Unboxed sums"
+transformExp (HSE.TupleSection _ _ _) = notSupported "Tuple sections"
+transformExp (HSE.ParArray _ _) = notSupported "Parallel arrays"
+transformExp (HSE.LeftSection _ _ _) = notSupported "Sections"
+transformExp (HSE.RightSection _ _ _) = notSupported "Sections"
+transformExp (HSE.RecConstr _ _ _) = notSupported "Records"
+transformExp (HSE.RecUpdate _ _ _) = notSupported "Records"
+transformExp (HSE.EnumFrom _ _) = notSupported "Enumerations"
+transformExp (HSE.EnumFromTo _ _ _) = notSupported "Enumerations"
+transformExp (HSE.EnumFromThen _ _ _) = notSupported "Enumerations"
+transformExp (HSE.EnumFromThenTo _ _ _ _) = notSupported "Enumerations"
+transformExp (HSE.ParArrayFromTo _ _ _) = notSupported "Parallel arrays"
 transformExp (HSE.ParArrayFromThenTo _ _ _ _) = notSupported "Parallel arrays"
 transformExp (HSE.ListComp _ _ _) = notSupported "List comprehensions"
 transformExp (HSE.ParComp _ _ _) = notSupported "List comprehensions"
-transformExp (HSE.ParArrayComp _ _ _        ) = notSupported "Parallel arrays"
-transformExp (HSE.VarQuote   _ _            ) = notSupported "Template Haskell"
-transformExp (HSE.TypQuote   _ _            ) = notSupported "Template Haskell"
-transformExp (HSE.BracketExp _ _            ) = notSupported "Template Haskell"
-transformExp (HSE.SpliceExp  _ _            ) = notSupported "Template Haskell"
-transformExp (HSE.QuasiQuote _ _ _          ) = notSupported "Template Haskell"
+transformExp (HSE.ParArrayComp _ _ _) = notSupported "Parallel arrays"
+transformExp (HSE.VarQuote _ _) = notSupported "Template Haskell expressions"
+transformExp (HSE.TypQuote _ _) = notSupported "Template Haskell expressions"
+transformExp (HSE.BracketExp _ _) = notSupported "Template Haskell expressions"
+transformExp (HSE.SpliceExp _ _) = notSupported "Template Haskell expressions"
+transformExp (HSE.QuasiQuote _ _ _) =
+  notSupported "Template Haskell expressions"
 transformExp (HSE.TypeApp _ _) = notSupported "Visible type applications"
-transformExp (HSE.XTag _ _ _ _ _            ) = notSupported "XML expressions"
-transformExp (HSE.XETag _ _ _ _             ) = notSupported "XML expressions"
-transformExp (HSE.XPcdata   _ _             ) = notSupported "XML expressions"
-transformExp (HSE.XExpTag   _ _             ) = notSupported "XML expressions"
-transformExp (HSE.XChildTag _ _             ) = notSupported "XML expressions"
-transformExp (HSE.CorePragma _ _ _          ) = notSupported "CORE pragmas"
-transformExp (HSE.SCCPragma  _ _ _          ) = notSupported "SCC pragmas"
-transformExp (HSE.GenPragma _ _ _ _ _       ) = notSupported "GENERATED pragmas"
-transformExp (HSE.Proc            _ _ _     ) = notSupported "Arrow expressions"
-transformExp (HSE.LeftArrApp      _ _ _     ) = notSupported "Arrow expressions"
-transformExp (HSE.RightArrApp     _ _ _     ) = notSupported "Arrow expressions"
-transformExp (HSE.LeftArrHighApp  _ _ _     ) = notSupported "Arrow expressions"
-transformExp (HSE.RightArrHighApp _ _ _     ) = notSupported "Arrow expressions"
-transformExp (HSE.ArrOp _ _                 ) = notSupported "Arrow expressions"
+transformExp (HSE.XTag _ _ _ _ _       ) = notSupported "XML expressions"
+transformExp (HSE.XETag _ _ _ _        ) = notSupported "XML expressions"
+transformExp (HSE.XPcdata   _ _        ) = notSupported "XML expressions"
+transformExp (HSE.XExpTag   _ _        ) = notSupported "XML expressions"
+transformExp (HSE.XChildTag _ _        ) = notSupported "XML expressions"
+transformExp (HSE.CorePragma _ _ _     ) = notSupported "CORE pragmas"
+transformExp (HSE.SCCPragma  _ _ _     ) = notSupported "SCC pragmas"
+transformExp (HSE.GenPragma _ _ _ _ _  ) = notSupported "GENERATED pragmas"
+transformExp (HSE.Proc            _ _ _) = notSupported "Arrow expressions"
+transformExp (HSE.LeftArrApp      _ _ _) = notSupported "Arrow expressions"
+transformExp (HSE.RightArrApp     _ _ _) = notSupported "Arrow expressions"
+transformExp (HSE.LeftArrHighApp  _ _ _) = notSupported "Arrow expressions"
+transformExp (HSE.RightArrHighApp _ _ _) = notSupported "Arrow expressions"
+transformExp (HSE.ArrOp _ _            ) = notSupported "Arrow expressions"
 transformExp (HSE.LCase _ _) = notSupported "Lambda case expressions"
 
 -- | Transforms an HSE case alternative into an HST case alternative.

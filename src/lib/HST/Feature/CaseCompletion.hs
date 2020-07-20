@@ -74,9 +74,9 @@ completeBindRhs
   :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
   => S.Binds a
   -> Sem r (S.Binds a)
-completeBindRhs (S.BDecls _ dcls) = do
-  dcls' <- mapM (applyCCDecl True) dcls
-  return $ S.BDecls S.NoSrcSpan dcls'
+completeBindRhs (S.BDecls _ decls) = do
+  decls' <- mapM (applyCCDecl True) decls
+  return $ S.BDecls S.NoSrcSpan decls'
 --completeBindRhs _ = error "completeBindRhs: ImplicitBinds not supported yet"
 
 getEqFromAlt :: S.Alt a -> Eqs a
@@ -100,9 +100,9 @@ applyCCModule
   :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
   => S.Module a
   -> Sem r (S.Module a)
-applyCCModule (S.Module ds) = do
-  dcls <- mapM (applyCCDecl False) ds
-  return $ S.Module dcls
+applyCCModule (S.Module s origModuleHead decls) = do
+  decls' <- mapM (applyCCDecl False) decls
+  return $ S.Module s origModuleHead decls'
 
 applyCCDecl
   :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)

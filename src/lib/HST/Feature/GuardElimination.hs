@@ -184,9 +184,9 @@ applyGEAlts alts
 
 -- | Applies guard elimination to function declarations in the given module.
 applyGEModule :: Member Fresh r => S.Module a -> Sem r (S.Module a)
-applyGEModule (S.Module decls) = do
+applyGEModule (S.Module s origModuleHead decls) = do
   decls' <- mapM applyGEDecl decls
-  return $ S.Module decls'
+  return $ S.Module s origModuleHead decls'
 
 -- | Applies guard elimination to a declaration.
 --
@@ -195,8 +195,8 @@ applyGEDecl :: Member Fresh r => S.Decl a -> Sem r (S.Decl a)
 applyGEDecl (S.FunBind _ ms) = do
   ms' <- applyGEMatches ms
   return (S.FunBind S.NoSrcSpan ms')
-applyGEDecl decl@(S.TypeSig  _ _ _) = return decl
-applyGEDecl decl@(S.DataDecl _ _ _) = return decl
+applyGEDecl decl@(S.DataDecl _ _ _ _) = return decl
+applyGEDecl decl@(S.OtherDecl _ _   ) = return decl
 
 -- | Applies guard elimination to the rules of a function declaration.
 --

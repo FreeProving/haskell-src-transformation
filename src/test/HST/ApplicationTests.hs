@@ -75,7 +75,7 @@ shouldTransformTo input expectedOutput = do
   outputModule         <- runTest $ do
     inputModule'  <- FromHSE.transformModule inputModule
     outputModule' <- processModule inputModule'
-    return (ToHSE.transformModule inputModule outputModule')
+    return (ToHSE.transformModule outputModule')
   outputModule `prettyShouldBe` expectedOutputModule
 
 -- | Pretty prints both values and tests whether the resulting strings are

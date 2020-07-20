@@ -75,9 +75,9 @@ useAlgoModule
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Module a
   -> Sem r (S.Module a)
-useAlgoModule (S.Module ds) = do
-  dcls <- mapM useAlgoDecl ds
-  return $ S.Module dcls
+useAlgoModule (S.Module s origModuleHead decls) = do
+  decls' <- mapM useAlgoDecl decls
+  return $ S.Module s origModuleHead decls'
 
 -- | Applies the core algorithm on the given declaration.
 useAlgoDecl
@@ -149,7 +149,7 @@ useAlgo ms = do
 -- | Initializes the environment with the data types declared in the given
 --   module.
 collectDataInfo :: Member (Env a) r => S.Module a -> Sem r ()
-collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
+collectDataInfo (S.Module _ _ decls) = mapM_ collectDataDecl decls
 
 -- | Inserts entries for the data type and constructors declared by the given
 --   declaration into the environment.
@@ -157,7 +157,7 @@ collectDataInfo (S.Module decls) = mapM_ collectDataDecl decls
 --   Leaves the environment unchanged, if the given declaration is not a
 --   data type declaration.
 collectDataDecl :: Member (Env a) r => S.Decl a -> Sem r ()
-collectDataDecl (S.DataDecl _ dataName conDecls) = do
+collectDataDecl (S.DataDecl _ _ dataName conDecls) = do
   let dataQName  = S.UnQual S.NoSrcSpan dataName
       conEntries = map (makeConEntry dataQName) conDecls
   modifyEnv $ insertDataEntry DataEntry

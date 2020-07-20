@@ -28,6 +28,12 @@ type family Literal a
 -- | Type family for the type of type expressions.
 type family TypeExp a
 
+-- | Type family for a type that stores unsupported fields of a module head.
+type family OriginalModuleHead a
+
+-- | Type family for the type of unsupported declarations.
+type family OriginalDecl a
+
 -------------------------------------------------------------------------------
 -- Type Family Constraints                                                   --
 -------------------------------------------------------------------------------
@@ -36,10 +42,19 @@ type family TypeExp a
 --
 --   Note that source span information is not compared when using @==@ on AST
 --   constructs.
-class (Eq (Literal a), Eq (TypeExp a)) => EqAST a
+class ( Eq (Literal a)
+      , Eq (TypeExp a)
+      , Eq (OriginalModuleHead a)
+      , Eq (OriginalDecl a)
+      ) => EqAST a
 
 -- | Wrapper class for the @Show@ instance of ASTs.
-class (Show (SrcSpanType a), Show (Literal a), Show (TypeExp a)) => ShowAST a
+class ( Show (SrcSpanType a)
+      , Show (Literal a)
+      , Show (TypeExp a)
+      , Show (OriginalModuleHead a)
+      , Show (OriginalDecl a)
+      ) => ShowAST a
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -47,11 +62,9 @@ class (Show (SrcSpanType a), Show (Literal a), Show (TypeExp a)) => ShowAST a
 
 -- | A representation of a Haskell module.
 --
---   Only contains a list of declarations. When transforming such a module back
---   to a complete representation of a Haskell module, it has to be enriched by
---   other information (for example the module header and unsupported
---   declarations) from the original module.
-newtype Module a = Module [Decl a]
+--   The pattern matching compiler only needs to know the declarations of
+--   the module. All other information is stored in the 'OriginalModuleHead'.
+data Module a = Module (SrcSpan a) (OriginalModuleHead a) [Decl a]
 deriving instance EqAST a => Eq (Module a)
 deriving instance ShowAST a => Show (Module a)
 
@@ -61,14 +74,28 @@ deriving instance ShowAST a => Show (Module a)
 
 -- | A declaration.
 --
---   Data declarations only contain the information relevant for the pattern
---   matching compiler and should not be transformed back.
---
 --   The only supported kind of pattern bindings, variable patterns, are
 --   represented by function bindings.
-data Decl a = DataDecl (SrcSpan a) (Name a) [ConDecl a]
-            | TypeSig (SrcSpan a) [Name a] (TypeExp a)
-            | FunBind (SrcSpan a) [Match a]
+data Decl a
+  = DataDecl (SrcSpan a) (OriginalDecl a) (Name a) [ConDecl a]
+    -- ^ A @data@ or @newtype@ declaration.
+    --
+    --   The 'OriginalDecl' is the original declaration the data type
+    --   declaration has been generated from. This field is needed to
+    --   convert the AST back to the original AST since data type and
+    --   constructor declarations don't contain sufficient information
+    --   to reconstruct the original declaration.
+  | FunBind (SrcSpan a) [Match a]
+    -- ^ A function declaration.
+    --
+    --   We do not need to store the 'OriginalDecl' of the function
+    --   declaration since the AST provides all information that is
+    --   required to reconstruct the original declaration.
+  | OtherDecl (SrcSpan a) (OriginalDecl a)
+    -- ^ An unsupported declaration.
+    --
+    --   This constructor is needed to skip declarations that cannot
+    --   be transformed by the pattern matching compiler.
 deriving instance EqAST a => Eq (Decl a)
 deriving instance ShowAST a => Show (Decl a)
 

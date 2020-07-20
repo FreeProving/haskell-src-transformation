@@ -13,39 +13,44 @@ module HST.Frontend.ToHSE where
 import qualified Language.Haskell.Exts         as HSE
 
 import qualified HST.Frontend.Syntax           as S
-import           HST.Frontend.FromHSE           ( HSE )
+import           HST.Frontend.FromHSE           ( HSE
+                                                , OriginalModuleHead
+                                                  ( originalModuleHead
+                                                  , originalModulePragmas
+                                                  , originalModuleImports
+                                                  )
+                                                )
+
+-------------------------------------------------------------------------------
+-- Modules                                                                   --
+-------------------------------------------------------------------------------
 
 -- | Transforms the @haskell-src-transformations@ representation of a Haskell
 --   module into the @haskell-src-exts@ representation of a Haskell module by
 --   enriching it with information from the original HSE module.
-transformModule
-  :: HSE.Module HSE.SrcSpanInfo -> S.Module HSE -> HSE.Module HSE.SrcSpanInfo
-transformModule (HSE.Module srcS mmh pragmas impDecls oDecls) (S.Module aDecls)
-  = HSE.Module
-    srcS
-    mmh
-    pragmas
-    impDecls
-    (combineDecls oDecls (map transformDecl (filter isFun aDecls)))
- where
-  isFun (S.FunBind _ _) = True
-  isFun _               = False
-  combineDecls (HSE.FunBind _ _ : oDecls') (aDecl : aDecls') =
-    aDecl : combineDecls oDecls' aDecls'
-  combineDecls (HSE.PatBind _ _ _ _ : oDecls') (aDecl : aDecls') =
-    aDecl : combineDecls oDecls' aDecls'
-  combineDecls (oDecl : oDecls') aDecls' = oDecl : combineDecls oDecls' aDecls'
-  combineDecls []                aDecls' = aDecls'
-transformModule _ _ = error "Unsupported Module type"
+transformModule :: S.Module HSE -> HSE.Module HSE.SrcSpanInfo
+transformModule (S.Module s origModuleHead decls) = HSE.Module
+  (transformSrcSpan s)
+  (originalModuleHead origModuleHead)
+  (originalModulePragmas origModuleHead)
+  (originalModuleImports origModuleHead)
+  (map transformDecl decls)
+
+-------------------------------------------------------------------------------
+-- Declarations                                                              --
+-------------------------------------------------------------------------------
 
 -- | Transforms an HST declaration into an HSE declaration.
+--
+--   Only function declarations are actually transformed from the
+--   intermediate representation to @HSE@. All other declarations
+--   (including data type declarations) are restored from the
+--   original declaration stored in the AST.
 transformDecl :: S.Decl HSE -> HSE.Decl HSE.SrcSpanInfo
-transformDecl (S.DataDecl _ _ _) =
-  error "Data type declarations should not be transformed back"
-transformDecl (S.TypeSig s names typ) =
-  HSE.TypeSig (transformSrcSpan s) (map transformName names) typ
 transformDecl (S.FunBind s matches) =
   HSE.FunBind (transformSrcSpan s) (map transformMatch matches)
+transformDecl (S.DataDecl _ originalDecl _ _) = originalDecl
+transformDecl (S.OtherDecl _ originalDecl   ) = originalDecl
 
 -- | Transforms an HST binding group into an HSE binding group.
 transformBinds :: S.Binds HSE -> HSE.Binds HSE.SrcSpanInfo
@@ -88,6 +93,10 @@ transformBoxed :: S.Boxed -> HSE.Boxed
 transformBoxed S.Boxed   = HSE.Boxed
 transformBoxed S.Unboxed = HSE.Unboxed
 
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST expression into an HSE expression.
 transformExp :: S.Exp HSE -> HSE.Exp HSE.SrcSpanInfo
 transformExp (S.Var s qName) =
@@ -127,6 +136,10 @@ transformAlt (S.Alt s pat rhs mBinds) = HSE.Alt (transformSrcSpan s)
                                                 (transformRhs rhs)
                                                 (fmap transformBinds mBinds)
 
+-------------------------------------------------------------------------------
+-- Patterns                                                                  --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST pattern into an HSE pattern.
 transformPat :: S.Pat HSE -> HSE.Pat HSE.SrcSpanInfo
 transformPat (S.PVar s name) =
@@ -145,6 +158,10 @@ transformPat (S.PParen s pat) =
 transformPat (S.PList s pats) =
   HSE.PList (transformSrcSpan s) (map transformPat pats)
 transformPat (S.PWildCard s) = HSE.PWildCard (transformSrcSpan s)
+
+-------------------------------------------------------------------------------
+-- Names                                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms an HST module name into an HSE module name.
 transformModuleName :: S.ModuleName HSE -> HSE.ModuleName HSE.SrcSpanInfo
@@ -185,6 +202,10 @@ transformSpecialCon (S.Cons s) = HSE.Cons (transformSrcSpan s)
 transformSpecialCon (S.UnboxedSingleCon s) =
   HSE.UnboxedSingleCon (transformSrcSpan s)
 transformSpecialCon (S.ExprHole s) = HSE.ExprHole (transformSrcSpan s)
+
+-------------------------------------------------------------------------------
+-- Source Spans                                                              --
+-------------------------------------------------------------------------------
 
 -- | Unwraps the HST type for source spans into an HSE source span.
 transformSrcSpan :: S.SrcSpan HSE -> HSE.SrcSpanInfo
