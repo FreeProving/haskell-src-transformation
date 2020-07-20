@@ -69,6 +69,7 @@ import           HST.Environment.FreshVars      ( PMState(PMState)
                                                 , evalPM
                                                 )
 import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.Syntax           as S
 import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | A data type for all front ends that can be used for parsing the given input
@@ -302,16 +303,16 @@ processInputHSE input opts =
       intermediateModule =
           evalPM (processModule (FromHSE.transformModule inputModule)) state
       outputModule = ToHSE.transformModule inputModule intermediateModule
-  in  (prettyPrintModuleHSE outputModule, moduleNameHSE inputModule)
+  in  (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
  where
   -- | Gets the module name of the given module.
   --
   --   Returns @Nothing@ if there is no module header or the module type is
   --   not supported.
-  moduleNameHSE :: HSE.Module l -> Maybe String
-  moduleNameHSE (HSE.Module _ (Just moduleHead) _ _ _) = case moduleHead of
-    (HSE.ModuleHead _ (HSE.ModuleName _ modName) _ _) -> Just modName
-  moduleNameHSE _ = Nothing
+  moduleName :: S.Module l -> Maybe String
+  moduleName (S.Module name _) = fmap getModuleName name
+
+  getModuleName (S.ModuleName _ name) = name
 
 
 -- | Creates the initial 'PMState' from the given command line options.
