@@ -259,7 +259,7 @@ hasGuardsExp (S.Tuple _ _  es     ) = any hasGuardsExp es
 hasGuardsExp (S.List  _ es        ) = any hasGuardsExp es
 hasGuardsExp (S.Paren _ e'        ) = hasGuardsExp e'
 hasGuardsExp (S.ExpTypeSig _ e' _ ) = hasGuardsExp e'
-  -- Variables, constructors and literals contain no guards.
+-- Variables, constructors and literals contain no guards.
 hasGuardsExp (S.Var _ _           ) = False
 hasGuardsExp (S.Con _ _           ) = False
 hasGuardsExp (S.Lit _ _           ) = False

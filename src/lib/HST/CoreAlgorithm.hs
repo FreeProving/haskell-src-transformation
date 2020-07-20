@@ -9,6 +9,7 @@ module HST.CoreAlgorithm
   , isPVar
   , isCons
   , getPVarName
+  , getQName
   , getQNamePat
   -- * Testing interface
   , compareCons
