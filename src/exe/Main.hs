@@ -154,8 +154,14 @@ optionDescriptors =
     ["frontend"]
     (ReqArg (\f opts -> opts { optFrontend = f }) "FRONTEND")
     (  "Optional. Specifies the front end for the compiler to use.\n"
-    ++ "Allowed values are: " ++ intercalate "," (map ( (\s -> '`' : s ++ "`") . fst) (Map.toList frontendMap)) ++  ".\n"
-    ++ "Uses `" ++ hse ++ "` by default."
+    ++ "Allowed values are: "
+    ++ intercalate
+         ","
+         (map ((\s -> '`' : s ++ "`") . fst) (Map.toList frontendMap))
+    ++ ".\n"
+    ++ "Uses `"
+    ++ hse
+    ++ "` by default."
     )
   ]
 

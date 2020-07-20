@@ -151,9 +151,9 @@ applyGEAlts as = if any (\(S.Alt _ _ rhs _) -> isGuardedRhs rhs) as
 
 -- Applies guard elimination to a module
 applyGEModule :: S.Module a -> PM a (S.Module a)
-applyGEModule (S.Module ds) = do
+applyGEModule (S.Module name ds) = do
   dcls <- mapM applyGEDecl ds
-  return $ S.Module dcls
+  return $ S.Module name dcls
 
 -- Applies guard elimination to a declaration
 applyGEDecl :: S.Decl a -> PM a (S.Decl a)

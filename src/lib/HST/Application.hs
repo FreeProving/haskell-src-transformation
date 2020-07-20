@@ -30,9 +30,9 @@ import qualified HST.Frontend.Syntax           as S
 -- | The function 'useAlgo' applies the algorithm on each declaration in
 --   the module.
 useAlgoModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
-useAlgoModule (S.Module ds) = do
+useAlgoModule (S.Module name ds) = do
   dcls <- mapM useAlgoDecl ds
-  return $ S.Module dcls
+  return $ S.Module name dcls
 
 -- | The function 'useAlgoDecl' applies the algorithm on the the FunBinds
 useAlgoDecl :: S.EqAST a => S.Decl a -> PM a (S.Decl a)
@@ -97,7 +97,7 @@ addG = maybe (return ())
 -- | The function 'collectDataInfo' takes a module and writes all datatype
 --   declarations into the State with their name and constructors.
 collectDataInfo :: S.Module a -> PM a ()
-collectDataInfo (S.Module decls) = do
+collectDataInfo (S.Module _ decls) = do
   mas <- mapM collectDataDecl decls
   mapM_ (addG addConstrMap) mas
 

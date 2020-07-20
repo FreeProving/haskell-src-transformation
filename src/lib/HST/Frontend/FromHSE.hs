@@ -32,9 +32,14 @@ instance S.ShowAST HSE
 -- | Transforms the @haskell-src-exts@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
 transformModule :: HSE.Module HSE.SrcSpanInfo -> S.Module HSE
-transformModule (HSE.Module _ _ _ _ decls) =
-  S.Module (mapMaybe transformDecl decls)
+transformModule (HSE.Module _ moduleHead _ _ decls) = S.Module
+  (fmap getModuleName moduleHead)
+  (mapMaybe transformDecl decls)
+ where
+  getModuleName (HSE.ModuleHead _ name _ _) = getModuleName' name
+  getModuleName' (HSE.ModuleName _ name) = S.ModuleName S.NoSrcSpan name
 transformModule _ = error "Unsupported Module type"
+
 
 -- | Transforms an HSE declaration into an HST declaration.
 --

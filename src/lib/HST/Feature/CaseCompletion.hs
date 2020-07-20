@@ -79,9 +79,9 @@ completeLambda ps e insideLet = do
   return $ S.Lambda S.NoSrcSpan xs res
 
 applyCCModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
-applyCCModule (S.Module ds) = do
+applyCCModule (S.Module name ds) = do
   dcls <- mapM (applyCCDecl False) ds
-  return $ S.Module dcls
+  return $ S.Module name dcls
 
 applyCCDecl :: S.EqAST a => Bool -> S.Decl a -> PM a (S.Decl a)
 applyCCDecl insideLet (S.FunBind _ ms) = do
