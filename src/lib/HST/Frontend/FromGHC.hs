@@ -64,10 +64,10 @@ defaultPrintShow d =
   GHC.showSDocOneLine defaultDynFlags (GHC.showAstData GHC.NoBlankSrcSpan d)
 
 defaultDynFlags :: GHC.DynFlags
-defaultDynFlags = GHC.defaultDynFlags (GHC.fakeSettings) (GHC.fakeLlvmConfig)
+defaultDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
 
 transformModule :: GHC.HsModule GHC.GhcPs -> S.Module GHC
-transformModule (GHC.HsModule { GHC.hsmodDecls = decls }) =
+transformModule GHC.HsModule { GHC.hsmodDecls = decls } =
   S.Module (mapMaybe transformDecl decls)
 
 transformDecl :: GHC.LHsDecl GHC.GhcPs -> Maybe (S.Decl GHC)
@@ -97,18 +97,17 @@ transformLocalBinds (GHC.L _ (GHC.EmptyLocalBinds _)) = Nothing
 transformLocalBinds _ = error "Unsupported local bindings"
 
 transformValBinds :: GHC.HsValBinds GHC.GhcPs -> [S.Decl GHC]
-transformValBinds (GHC.ValBinds _ binds sigs) =
-  (map
-    (fromMaybe (error "Unsupported declaration in bindings") . transformDecl)
-    (  map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
-           (GHC.bagToList binds)
-    ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs
-    )
+transformValBinds (GHC.ValBinds _ binds sigs) = map
+  (fromMaybe (error "Unsupported declaration in bindings") . transformDecl)
+  (  map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
+         (GHC.bagToList binds)
+  ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs
   )
+
 transformValBinds _ = error "Unsupported value bindings"
 
 transformDataDefn :: GHC.HsDataDefn GHC.GhcPs -> [S.ConDecl GHC]
-transformDataDefn (GHC.HsDataDefn { GHC.dd_cons = cons }) =
+transformDataDefn GHC.HsDataDefn { GHC.dd_cons = cons } =
   map transformConDecl cons
 transformDataDefn _ = error "Unsupported data definition"
 
@@ -133,7 +132,7 @@ transformMatchGroup
   :: S.Name GHC
   -> GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
   -> [S.Match GHC]
-transformMatchGroup name (GHC.MG { GHC.mg_alts = GHC.L _ matches }) =
+transformMatchGroup name GHC.MG { GHC.mg_alts = GHC.L _ matches } =
   map (transformMatch name) matches
 transformMatchGroup _ _ = error "Unsupported match group"
 
@@ -154,7 +153,7 @@ transformMatch _ _ = error "Unsupported match"
 transformGRHSs
   :: GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
   -> (S.Rhs GHC, Maybe (S.Binds GHC))
-transformGRHSs (grhss@(GHC.GRHSs{})) =
+transformGRHSs grhss@GHC.GRHSs{} =
   let binds = transformLocalBinds (GHC.grhssLocalBinds grhss)
   in  case GHC.grhssGRHSs grhss of
         [GHC.L s (GHC.GRHS _ [] body)] ->
