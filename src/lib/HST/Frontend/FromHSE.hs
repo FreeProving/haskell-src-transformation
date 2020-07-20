@@ -77,9 +77,9 @@ transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 --   declaration.
 transformConDecl :: HSE.ConDecl HSE.SrcSpanInfo -> S.ConDecl HSE
 transformConDecl (HSE.ConDecl _ cName types) =
-  S.ConDecl (transformName cName) types
-transformConDecl (HSE.InfixConDecl _ t1 cName t2) =
-  S.InfixConDecl t1 (transformName cName) t2
+  S.ConDecl (transformName cName) (length types)
+transformConDecl (HSE.InfixConDecl _ _ cName _) =
+  S.InfixConDecl (transformName cName)
 transformConDecl (HSE.RecDecl _ _ _) =
   error "transformConDecl: record notation is not supported"
 

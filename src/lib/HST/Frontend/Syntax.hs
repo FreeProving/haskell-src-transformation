@@ -78,9 +78,9 @@ deriving instance ShowAST a => Show (Decl a)
 
 -- | A data constructor. Does not include a source span and should not be
 --   transformed back.
-data ConDecl a = ConDecl (Name a) [TypeExp a]
-               | InfixConDecl (TypeExp a) (Name a) (TypeExp a)
-deriving instance EqAST a => Eq (ConDecl a)
+data ConDecl a = ConDecl (Name a) Int
+               | InfixConDecl (Name a)
+  deriving Eq
 deriving instance ShowAST a => Show (ConDecl a)
 
 -------------------------------------------------------------------------------

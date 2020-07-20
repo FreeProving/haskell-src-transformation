@@ -122,10 +122,10 @@ transformConDetails
   -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
   -> S.ConDecl GHC
 transformConDetails name (GHC.PrefixCon args) =
-  S.ConDecl name (map InDataCon args)
+  S.ConDecl name (length args)
 -- Maybe use a Symbol instead of an Ident name here (does that make a difference?)
-transformConDetails name (GHC.InfixCon arg1 arg2) =
-  S.InfixConDecl (InDataCon arg1) name (InDataCon arg2)
+transformConDetails name (GHC.InfixCon _ _) =
+  S.InfixConDecl name
 transformConDetails _ _ = error "Record constructors are not supported"
 
 transformMatchGroup
