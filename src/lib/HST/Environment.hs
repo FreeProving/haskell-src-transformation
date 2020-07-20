@@ -11,12 +11,9 @@ module HST.Environment
     -- * Lookup
   , lookupConEntry
   , lookupDataEntry
-  , lookupMatchedPat
     -- * Insertion
   , insertConEntry
   , insertDataEntry
-  , pushMatchedPat
-  , popMatchedPat
   )
 where
 
@@ -34,9 +31,6 @@ type TypeName a = S.QName a
 
 -- | The name of a data constructor.
 type ConName a = S.QName a
-
--- | The name of a variable.
-type VarName a = S.QName a
 
 -------------------------------------------------------------------------------
 -- Environment Entries                                                       --
@@ -73,16 +67,12 @@ data Environment a = Environment
     -- ^ Maps names of constructors to their 'ConEntry's.
   , envDataEntries :: Map (TypeName a) (DataEntry a)
     -- ^ Maps names of data types to their 'DataEntry's.
-  , envMatchedPats :: Map (VarName a) [S.Pat a]
-    -- ^ Maps names of local variables to a stack of patterns they
-    --   have been matched against.
   }
 
 -- | An empty 'Environment'.
 emptyEnv :: Environment a
 emptyEnv = Environment { envConEntries  = Map.empty
                        , envDataEntries = Map.empty
-                       , envMatchedPats = Map.empty
                        }
 
 -------------------------------------------------------------------------------
@@ -102,10 +92,6 @@ lookupConEntry name = Map.lookup name . envConEntries
 lookupDataEntry :: TypeName a -> Environment a -> Maybe (DataEntry a)
 lookupDataEntry name = Map.lookup name . envDataEntries
 
--- | Looks up the pattern a variable has been matched against.
-lookupMatchedPat :: VarName a -> Environment a -> Maybe (S.Pat a)
-lookupMatchedPat name = fmap head . Map.lookup name . envMatchedPats
-
 -------------------------------------------------------------------------------
 -- Insertion                                                                 --
 -------------------------------------------------------------------------------
@@ -121,28 +107,3 @@ insertDataEntry :: DataEntry a -> Environment a -> Environment a
 insertDataEntry entry env = env
   { envDataEntries = Map.insert (dataEntryName entry) entry (envDataEntries env)
   }
-
--- | Adds a pattern to the stack of patterns the variable with the given
---   name has been matched against.
-pushMatchedPat :: VarName a -> S.Pat a -> Environment a -> Environment a
-pushMatchedPat varName pat env = env
-  { envMatchedPats = Map.alter (maybePrepend pat) varName (envMatchedPats env)
-  }
- where
-  -- | Like @(:)@ but returns @Just@ a singleton list if the given tail is
-  --   @Nothing@.
-  maybePrepend :: a -> Maybe [a] -> Maybe [a]
-  maybePrepend x Nothing   = Just [x]
-  maybePrepend x (Just xs) = Just (x : xs)
-
--- | Removes a pattern from the stack of patterns the variable with the given
---   name has been matched against.
-popMatchedPat :: VarName a -> Environment a -> Environment a
-popMatchedPat varName env = env
-  { envMatchedPats = Map.update maybeTail varName (envMatchedPats env)
-  }
- where
-  -- | Like @tail@ but returns @Nothing@ if the list is empty.
-  maybeTail :: [a] -> Maybe [a]
-  maybeTail []       = Nothing
-  maybeTail (_ : xs) = Just xs
