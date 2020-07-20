@@ -1,4 +1,4 @@
-{-# LANGUAGE PackageImports, TypeFamilies #-}
+{-# LANGUAGE PackageImports, TypeFamilies, FlexibleInstances #-}
 
 module HST.Frontend.FromGHC where
 
@@ -36,17 +36,13 @@ instance Show LitWrapper where
   show (Lit     l) = defaultPrintShow l
   show (OverLit l) = defaultPrintShow l
 
-data TypeWrapper = InDataCon (GHC.LBangType GHC.GhcPs)
-                 | InOther (GHC.LHsSigWcType GHC.GhcPs)
+newtype TypeWrapper = SigType (GHC.LHsSigWcType GHC.GhcPs)
 
 instance Eq TypeWrapper where
-  InDataCon t1 == InDataCon t2 = defaultPrintEq t1 == defaultPrintEq t2
-  InOther   t1 == InOther   t2 = defaultPrintEq t1 == defaultPrintEq t2
-  _            == _            = False
+  SigType t1 == SigType t2 = defaultPrintEq t1 == defaultPrintEq t2
 
 instance Show TypeWrapper where
-  show (InDataCon t) = defaultPrintShow t
-  show (InOther   t) = defaultPrintShow t
+  show (SigType t) = defaultPrintShow t
 
 type instance S.SrcSpanType GHC = GHC.SrcSpan
 type instance S.Literal GHC = LitWrapper
@@ -85,7 +81,7 @@ transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) = Just
 transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
   (S.TypeSig (transformSrcSpan s)
              (map transformRdrNameUnqual names)
-             (InOther sigType)
+             (SigType sigType)
   )
 -- VarBinds? But according to the documentation, those are only introduced by the type checker.
 transformDecl _ = Nothing
@@ -121,11 +117,9 @@ transformConDetails
   :: S.Name GHC
   -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
   -> S.ConDecl GHC
-transformConDetails name (GHC.PrefixCon args) =
-  S.ConDecl name (length args)
+transformConDetails name (GHC.PrefixCon args) = S.ConDecl name (length args)
 -- Maybe use a Symbol instead of an Ident name here (does that make a difference?)
-transformConDetails name (GHC.InfixCon _ _) =
-  S.InfixConDecl name
+transformConDetails name (GHC.InfixCon _ _) = S.InfixConDecl name
 transformConDetails _ _ = error "Record constructors are not supported"
 
 transformMatchGroup
@@ -240,7 +234,7 @@ transformExpr (GHC.L s (GHC.ExplicitList _ _ es)) =
 transformExpr (GHC.L s (GHC.HsPar _ e)) =
   S.Paren (transformSrcSpan s) (transformExpr e)
 transformExpr (GHC.L s (GHC.ExprWithTySig _ e typeSig)) =
-  S.ExpTypeSig (transformSrcSpan s) (transformExpr e) (InOther typeSig)
+  S.ExpTypeSig (transformSrcSpan s) (transformExpr e) (SigType typeSig)
 transformExpr _ = error "Unsupported expression"
 
 transformTupleArg :: GHC.LHsTupArg GHC.GhcPs -> S.Exp GHC

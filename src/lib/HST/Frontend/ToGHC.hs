@@ -9,8 +9,8 @@ import qualified "ghc-lib-parser" TcEvidence   as GHC
 
 import qualified HST.Frontend.Syntax           as S
 import           HST.Frontend.FromGHC           ( GHC
-                                                , LitWrapper(..)
-                                                , TypeWrapper(..)
+                                                , LitWrapper(Lit, OverLit)
+                                                , TypeWrapper(SigType)
                                                 )
 
 transformModule
@@ -30,7 +30,7 @@ transformModule oModule (S.Module aDecls) = oModule
 transformDecl :: S.Decl GHC -> GHC.LHsDecl GHC.GhcPs
 transformDecl (S.DataDecl _ _) =
   error "Data type declarations should not be transformed back"
-transformDecl (S.TypeSig s names (InOther typ)) = GHC.L
+transformDecl (S.TypeSig s names (SigType typ)) = GHC.L
   (transformSrcSpan s)
   (GHC.SigD GHC.NoExtField
             (GHC.TypeSig GHC.NoExtField (map transformName names) typ)
