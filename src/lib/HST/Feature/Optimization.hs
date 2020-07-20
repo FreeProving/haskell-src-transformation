@@ -117,6 +117,7 @@ renameAndOpt
   -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
   -> Sem r (S.Exp a)
 renameAndOpt pat alts =
+  -- TODO we actually need to unify the patterns in this case.
   case find (cheatEq (getQNamePat pat) . getQName) alts of
     Nothing -> reportFatal $ Message Error $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
@@ -183,6 +184,6 @@ addAndOpt v alts = do
 optimizeAlt
   :: Members '[PatternStack a, Fresh, Report] r => S.Alt a -> Sem r (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
-  let (S.UnGuardedRhs _ e) = rhs
+  e  <- selectExp rhs
   e' <- optimize' e
   return $ S.Alt S.NoSrcSpan p (S.UnGuardedRhs S.NoSrcSpan e') Nothing
