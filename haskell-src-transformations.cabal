@@ -84,6 +84,7 @@ library
                     , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Environment
+                    , HST.Environment.LookupOrReport
                     , HST.Environment.Prelude
                     , HST.Environment.Renaming
                     , HST.Options
