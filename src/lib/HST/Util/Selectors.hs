@@ -34,7 +34,9 @@ import qualified HST.Frontend.Syntax           as S
 -- Right-hand sides                                                          --
 -------------------------------------------------------------------------------
 
--- | Gets the expressions of the given right-hand side of a rule.
+-- | Gets the expression of the given unguarded right-hand side of a rule.
+--
+--   Reports a fatal internal error if the given right-hand side has a guard.
 expFromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
 expFromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
 expFromUnguardedRhs (S.GuardedRhss _ _) =

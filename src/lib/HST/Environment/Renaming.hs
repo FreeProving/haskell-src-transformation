@@ -129,8 +129,8 @@ instance Rename (S.Pat a) where
 
 -- | 'Rename' instance for right-hand sides.
 --
---   Applies the substitution to guards and the expression on the right-hand
---   sides.
+--   Applies the substitution to all guards and the expressions of the
+--   right-hand sides.
 instance Rename (S.Rhs s) where
   rename s (S.UnGuardedRhs l e   ) = S.UnGuardedRhs l (rename s e)
   rename s (S.GuardedRhss  l rhss) = S.GuardedRhss l (map (rename s) rhss)

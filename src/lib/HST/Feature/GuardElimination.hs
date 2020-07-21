@@ -59,8 +59,8 @@ generateLet vs err gExps = do
       decls     = zipWith makeVarBinding varNames (caseExprs ++ [err])
   return $ S.Let S.NoSrcSpan (S.BDecls S.NoSrcSpan decls) startVarExpr
 
--- | Creates a function declaration for a @let@ binding of a variable with the
---   given name to the given expression.
+-- | Creates a function declaration for a @let@ binding that binds a variable
+--   with the given name to the given expression.
 makeVarBinding :: S.Name a -> S.Exp a -> S.Decl a
 makeVarBinding name expr = S.FunBind
   S.NoSrcSpan
