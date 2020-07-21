@@ -185,6 +185,5 @@ exceptionToReport exceptionToMessage =
 --   > foo = failToReport $ do
 --   >   (x, y) <- bar
 --   >   …
-failToReport
-  :: Member Report r => Sem (Fail ': r) a -> Sem r a
+failToReport :: Member Report r => Sem (Fail ': r) a -> Sem r a
 failToReport = runFail >=> either (reportFatal . Message Internal) return

@@ -71,9 +71,8 @@ data Environment a = Environment
 
 -- | An empty 'Environment'.
 emptyEnv :: Environment a
-emptyEnv = Environment { envConEntries  = Map.empty
-                       , envDataEntries = Map.empty
-                       }
+emptyEnv =
+  Environment { envConEntries = Map.empty, envDataEntries = Map.empty }
 
 -------------------------------------------------------------------------------
 -- Lookup                                                                    --
