@@ -87,6 +87,8 @@ library
                     , HST.Environment.Prelude
                     , HST.Environment.Renaming
                     , HST.Options
+                    , HST.Util.PrettyName
+                    , HST.Util.Predicates
                     , HST.Util.Selectors
 
 -- Build configuration for the command line interface.
