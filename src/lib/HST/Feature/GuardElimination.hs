@@ -11,9 +11,7 @@ import           Polysemy                       ( Member
                                                 , Sem
                                                 )
 
-import           HST.CoreAlgorithm              ( defaultErrorExp
-                                                , translatePVar
-                                                )
+import           HST.CoreAlgorithm              ( defaultErrorExp )
 import           HST.Effect.Fresh               ( Fresh
                                                 , freshName
                                                 , freshVarPat
@@ -178,7 +176,7 @@ applyGEAlts alts
   | any hasGuardsAlt alts = do
     let gexps = map altToGExp alts
     newVar' <- freshVarPat genericFreshPrefix
-    e       <- generateLet [translatePVar newVar'] defaultErrorExp gexps
+    e       <- generateLet [S.patToExp newVar'] defaultErrorExp gexps
     return [S.Alt S.NoSrcSpan newVar' (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
   | otherwise = return alts
 
@@ -216,7 +214,7 @@ applyGE ms = do
       gexps = map matchToGExp ms
       arity = length (gExpPats (head gexps))
   varPats <- replicateM arity (freshVarPat genericFreshPrefix)
-  expr'   <- generateLet (map translatePVar varPats) defaultErrorExp gexps
+  expr'   <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return $ S.Match S.NoSrcSpan
                    name
                    varPats

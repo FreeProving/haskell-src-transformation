@@ -85,7 +85,7 @@ transformRhs (S.GuardedRhss s grhss) =
 transformGuardedRhs :: S.GuardedRhs HSE -> HSE.GuardedRhs HSE.SrcSpanInfo
 transformGuardedRhs (S.GuardedRhs s ge e) = HSE.GuardedRhs
   (transformSrcSpan s)
-  [HSE.Qualifier (transformSrcSpan (S.getSrcExp ge)) (transformExp ge)]
+  [HSE.Qualifier (transformSrcSpan (S.getSrcSpan ge)) (transformExp ge)]
   (transformExp e)
 
 -- | Transforms an HST boxed mark into an HSE boxed mark.

@@ -19,7 +19,6 @@ import           Polysemy                       ( Member
 import           HST.CoreAlgorithm              ( Eqs
                                                 , match
                                                 , defaultErrorExp
-                                                , isCons
                                                 )
 import           HST.Effect.Env                 ( Env
                                                 , modifyEnv
@@ -45,7 +44,8 @@ import           HST.Feature.GuardElimination   ( getMatchName
 import           HST.Feature.Optimization       ( optimize )
 import qualified HST.Frontend.Syntax           as S
 import           HST.Options                    ( optOptimizeCase )
-import           HST.Util.Selectors             ( fromUnguardedRhs )
+import           HST.Util.Predicates            ( isConPat )
+import           HST.Util.Selectors             ( expFromUnguardedRhs )
 
 -------------------------------------------------------------------------------
 -- Application of Core Algorithm                                             --
@@ -101,8 +101,8 @@ useAlgoMatches ms                    = useAlgo ms
 -- | Tests whether the given match of a function declaration contains
 --   a constructor pattern.
 hasCons :: S.Match a -> Bool
-hasCons (S.Match _ _ ps _ _        ) = any isCons ps
-hasCons (S.InfixMatch _ p1 _ ps _ _) = any isCons (p1 : ps)
+hasCons (S.Match _ _ ps _ _        ) = any isConPat ps
+hasCons (S.InfixMatch _ p1 _ ps _ _) = any isConPat (p1 : ps)
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo
@@ -127,10 +127,10 @@ useAlgo ms = do
   --   There must be no guards on the right-hand side.
   matchToEquation :: Member Report r => S.Match a -> Sem r (Eqs a)
   matchToEquation (S.Match _ _ pats rhs _) = do
-    expr <- fromUnguardedRhs rhs
+    expr <- expFromUnguardedRhs rhs
     return (pats, expr)
   matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
-    expr <- fromUnguardedRhs rhs
+    expr <- expFromUnguardedRhs rhs
     return (pat : pats, expr)
 
 -------------------------------------------------------------------------------
@@ -160,13 +160,13 @@ collectDataDecl _ = return ()
 
 -- | Creates an environment entry for a constructor declaration.
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
-makeConEntry dataQName (S.ConDecl cname types) = ConEntry
+makeConEntry dataQName (S.ConDecl _ cname types) = ConEntry
   { conEntryName    = S.UnQual S.NoSrcSpan cname
   , conEntryArity   = length types
   , conEntryIsInfix = False
   , conEntryType    = dataQName
   }
-makeConEntry dataQName (S.InfixConDecl _ cname _) = ConEntry
+makeConEntry dataQName (S.InfixConDecl _ _ cname _) = ConEntry
   { conEntryName    = S.UnQual S.NoSrcSpan cname
   , conEntryArity   = 2
   , conEntryIsInfix = True

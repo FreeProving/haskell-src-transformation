@@ -232,12 +232,12 @@ transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 --   declaration.
 transformConDecl
   :: Member Report r => HSE.ConDecl HSE.SrcSpanInfo -> Sem r (S.ConDecl HSE)
-transformConDecl (HSE.ConDecl _ cName types) = do
+transformConDecl (HSE.ConDecl s cName types) = do
   name' <- transformName cName
-  return (S.ConDecl name' types)
-transformConDecl (HSE.InfixConDecl _ t1 cName t2) = do
+  return (S.ConDecl (transformSrcSpan s) name' types)
+transformConDecl (HSE.InfixConDecl s t1 cName t2) = do
   name' <- transformName cName
-  return (S.InfixConDecl t1 name' t2)
+  return (S.InfixConDecl (transformSrcSpan s) t1 name' t2)
 transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
 
 -- | Transforms an HSE match into an HST match.

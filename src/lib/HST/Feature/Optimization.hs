@@ -6,16 +6,12 @@ module HST.Feature.Optimization
   )
 where
 
-import           Data.List                      ( find )
+import           Control.Monad.Extra            ( findM )
 import           Polysemy                       ( Member
                                                 , Members
                                                 , Sem
                                                 )
 
-import           HST.CoreAlgorithm              ( getPVarName
-                                                , getQName
-                                                , getQNamePat
-                                                )
 import           HST.Effect.Fresh               ( Fresh )
 import           HST.Effect.Report              ( Message(..)
                                                 , Report
@@ -32,7 +28,11 @@ import           HST.Environment.Renaming       ( subst
                                                 , rename
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import           HST.Util.Selectors             ( fromUnguardedRhs )
+import           HST.Util.Selectors             ( expFromUnguardedRhs
+                                                , getAltConName
+                                                , getPatConName
+                                                , getPatVarName
+                                                )
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
@@ -117,16 +117,24 @@ renameAndOpt
   => S.Pat a   -- ^ Pattern of a parent @case@ expression on the same scrutinee.
   -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
   -> Sem r (S.Exp a)
-renameAndOpt pat alts =
-  -- TODO we actually need to unify the patterns in this case.
-  case find (cheatEq (getQNamePat pat) . getQName) alts of
+renameAndOpt pat alts = do
+  matchingAlt <- findM (`altMatchesPat` pat) alts
+  case matchingAlt of
     Nothing -> reportFatal $ Message Error $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
-      expr  <- fromUnguardedRhs rhs
+      expr  <- expFromUnguardedRhs rhs
       pats  <- selectPats pat
       pats' <- selectPats pat'
       expr' <- renameAll (zip pats' pats) expr
       optimize' expr'
+
+-- | Tests whether the given alternative matches the given pattern.
+altMatchesPat :: Member Report r => S.Alt a -> S.Pat a -> Sem r Bool
+altMatchesPat alt pat = do
+  -- TODO we actually need to unify the patterns here.
+  patConName <- getPatConName pat
+  altConName <- getAltConName alt
+  return (patConName `cheatEq` altConName)
 
 -- | Compares the given 'S.QName's ignoring the distinction between 'S.Ident's
 --   and 'S.Symbol's, i.e. @S.Ident "+:"@ amd @S.Symbol "+:"@ are equal.
@@ -145,13 +153,16 @@ selectPats _ =
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.
 renameAll
-  :: Member Fresh r => [(S.Pat a, S.Pat a)] -> S.Exp a -> Sem r (S.Exp a)
+  :: Members '[Fresh, Report] r
+  => [(S.Pat a, S.Pat a)]
+  -> S.Exp a
+  -> Sem r (S.Exp a)
 -- TODO refactor higher order foldr
 -- TODO generate one Subst and apply only once
 renameAll []               e = return e
 renameAll ((from, to) : r) e = do
-  f   <- getPVarName from
-  t   <- getPVarName to
+  f   <- getPatVarName from
+  t   <- getPatVarName to
   res <- renameAll r e
   return $ rename (subst f t) res
 
@@ -179,6 +190,6 @@ addAndOpt v alts = do
 optimizeAlt
   :: Members '[PatternStack a, Fresh, Report] r => S.Alt a -> Sem r (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
-  e  <- fromUnguardedRhs rhs
+  e  <- expFromUnguardedRhs rhs
   e' <- optimize' e
   return $ S.Alt S.NoSrcSpan p (S.UnGuardedRhs S.NoSrcSpan e') Nothing
