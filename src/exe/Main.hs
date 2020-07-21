@@ -9,10 +9,7 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
-import           Data.List                      ( intercalate )
 import           Data.List.Extra                ( splitOn )
-import           Data.Map.Strict                ( Map )
-import qualified Data.Map.Strict               as Map
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Members
                                                 , Sem
