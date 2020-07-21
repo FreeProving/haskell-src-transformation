@@ -141,11 +141,6 @@ processInputFile inputFile = do
   frontendString       <- getOpt optFrontend
   frontend             <- parseFrontend frontendString
   (output, moduleName) <- processInput input frontend
---  let inputModule        = HSE.fromParseResult (HSE.parseModule input)
---      intermediateModule = FromHSE.transformModule inputModule
---  outputModule <- runEnv . runFresh $ do
---    intermediateModule' <- processModule intermediateModule
---    return $ ToHSE.transformModule inputModule intermediateModule'
   maybeOutputDir       <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -154,6 +149,9 @@ processInputFile inputFile = do
       embed $ writeFile outputFile output
     Nothing -> embed $ putStrLn output
 
+-- | Parses a given string to a module using the given front end, then applies
+--   the transformation and at last returns the module name and a pretty
+--   printed version of the transformed module.
 processInput
   :: Members '[GetOpt] r => String -> Frontend -> Sem r (String, Maybe String)
 processInput input frontend = case frontend of
