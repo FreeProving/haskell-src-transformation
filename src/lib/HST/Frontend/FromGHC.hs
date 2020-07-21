@@ -71,13 +71,9 @@ transformDecl (GHC.L _ (GHC.TyClD _ dDecl@GHC.DataDecl{})) = Just
   (S.DataDecl (transformRdrNameUnqual (GHC.tcdLName dDecl))
               (transformDataDefn (GHC.tcdDataDefn dDecl))
   )
-transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) = Just
-  (S.FunBind
-    (transformSrcSpan s)
-    (transformMatchGroup (transformRdrNameUnqual (GHC.fun_id fb))
-                         (GHC.fun_matches fb)
-    )
-  )
+transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) =
+  Just
+    (S.FunBind (transformSrcSpan s) (transformMatchGroup (GHC.fun_matches fb)))
 transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
   (S.TypeSig (transformSrcSpan s)
              (map transformRdrNameUnqual names)
@@ -123,26 +119,21 @@ transformConDetails name (GHC.InfixCon _ _) = S.InfixConDecl name
 transformConDetails _ _ = error "Record constructors are not supported"
 
 transformMatchGroup
-  :: S.Name GHC
-  -> GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
-  -> [S.Match GHC]
-transformMatchGroup name GHC.MG { GHC.mg_alts = GHC.L _ matches } =
-  map (transformMatch name) matches
-transformMatchGroup _ _ = error "Unsupported match group"
+  :: GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs) -> [S.Match GHC]
+transformMatchGroup GHC.MG { GHC.mg_alts = GHC.L _ matches } =
+  map transformMatch matches
+transformMatchGroup _ = error "Unsupported match group"
 
-transformMatch
-  :: S.Name GHC -> GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs) -> S.Match GHC
-transformMatch name (GHC.L s match@GHC.Match{}) =
+transformMatch :: GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs) -> S.Match GHC
+transformMatch (GHC.L s match@GHC.Match { GHC.m_ctxt = ctxt@GHC.FunRhs{} }) =
   let s'            = transformSrcSpan s
+      name          = transformRdrNameUnqual (GHC.mc_fun ctxt)
       pats          = map transformPat (GHC.m_pats match)
       (rhs, mBinds) = transformGRHSs (GHC.m_grhss match)
-  in  case GHC.m_ctxt match of
-        GHC.FunRhs { GHC.mc_fixity = GHC.Prefix } ->
-          S.Match s' name pats rhs mBinds
-        GHC.FunRhs { GHC.mc_fixity = GHC.Infix } ->
-          S.InfixMatch s' (head pats) name (tail pats) rhs mBinds
-        _ -> error "Function context expected"
-transformMatch _ _ = error "Unsupported match"
+  in  case GHC.mc_fixity ctxt of
+        GHC.Prefix -> S.Match s' name pats rhs mBinds
+        GHC.Infix  -> S.InfixMatch s' (head pats) name (tail pats) rhs mBinds
+transformMatch _ = error "Unsupported match"
 
 transformGRHSs
   :: GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
@@ -199,14 +190,13 @@ transformExpr (GHC.L s (GHC.HsApp _ e1 e2)) =
   S.App (transformSrcSpan s) (transformExpr e1) (transformExpr e2)
 transformExpr (GHC.L s (GHC.NegApp _ e _)) =
   S.NegApp (transformSrcSpan s) (transformExpr e)
-transformExpr (GHC.L s (GHC.HsLam _ mg)) =
-  case transformMatchGroup (S.Ident S.NoSrcSpan "") mg of
-    [S.Match _ _ pats (S.UnGuardedRhs _ e) Nothing] ->
-      S.Lambda (transformSrcSpan s) pats e
-    _ -> error
-      (  "Only a single match with an unguarded right-hand side "
-      ++ "and no bindings is supported in a lambda abstraction"
-      )
+transformExpr (GHC.L s (GHC.HsLam _ mg)) = case transformMatchGroup mg of
+  [S.Match _ _ pats (S.UnGuardedRhs _ e) Nothing] ->
+    S.Lambda (transformSrcSpan s) pats e
+  _ -> error
+    (  "Only a single match with an unguarded right-hand side "
+    ++ "and no bindings is supported in a lambda abstraction"
+    )
 transformExpr (GHC.L s (GHC.HsLet _ binds e)) = S.Let
   (transformSrcSpan s)
   (fromMaybe (error "No bindings in let expression") (transformLocalBinds binds)
@@ -219,7 +209,7 @@ transformExpr (GHC.L s (GHC.HsIf _ _ e1 e2 e3)) = S.If (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsCase _ e mg)) = S.Case
   (transformSrcSpan s)
   (transformExpr e)
-  (map matchToAlt (transformMatchGroup (S.Ident S.NoSrcSpan "") mg))
+  (map matchToAlt (transformMatchGroup mg))
  where
   matchToAlt :: S.Match GHC -> S.Alt GHC
   matchToAlt (S.Match s' _ [pat] rhs mBinds) = S.Alt s' pat rhs mBinds
