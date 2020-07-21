@@ -6,7 +6,7 @@
   - A front end can be specified with `--frontend=FRONTEND ` or `-f FRONTEND`.
   - Allowed values are: `haskell-src-extensions`, `ghc-lib.`
   - `haskell-source-extensions` is used by default.
-  - Added `ghc-lib` frontend.
+  - No `ghc-lib` frontend has been added yet.
 
 ## 0.1.1.0 / 2020-04-19
 

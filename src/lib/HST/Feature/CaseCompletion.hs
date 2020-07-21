@@ -2,27 +2,37 @@
 --   expressions and entire modules.
 
 module HST.Feature.CaseCompletion
-  ( completeCase
-  , applyCCModule
+  ( applyCCModule
   )
 where
+
+import           Control.Monad                  ( replicateM )
+import           Polysemy                       ( Members
+                                                , Sem
+                                                )
 
 import           HST.CoreAlgorithm              ( match
                                                 , err
                                                 , Eqs
                                                 )
-import           HST.Environment.FreshVars      ( PM
-                                                , newVars
-                                                , newVar
+import           HST.Effect.Env                 ( Env )
+import           HST.Effect.Fresh               ( Fresh
+                                                , freshVarPat
+                                                , genericFreshPrefix
                                                 )
+import           HST.Effect.GetOpt              ( GetOpt )
 import qualified HST.Frontend.Syntax           as S
 
 -- | Takes a given expression and applies the algorithm on it resulting in
 --   completed cases
-completeCase :: S.EqAST a => Bool -> S.Exp a -> PM a (S.Exp a)
+completeCase
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => Bool
+  -> S.Exp a
+  -> Sem r (S.Exp a)
 completeCase insideLet (S.Case _ expr as) = do
-  v <- newVar
-  let eqs = map getEqFromAlt as   -- [Eqs]
+  v <- freshVarPat genericFreshPrefix
+  let eqs = map getEqFromAlt as
   eqs' <- mapM (\(p, ex) -> completeCase insideLet ex >>= \e -> return (p, e))
                eqs
   res <- match [v] eqs' err
@@ -60,7 +70,10 @@ completeCase il (S.Paren _ e1) = do
 completeCase _ v = return v
 -- TODO unhandled or not implemented cons missing. Is NegApp used?
 
-completeBindRhs :: S.EqAST a => S.Binds a -> PM a (S.Binds a)
+completeBindRhs
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => S.Binds a
+  -> Sem r (S.Binds a)
 completeBindRhs (S.BDecls _ dcls) = do
   dcls' <- mapM (applyCCDecl True) dcls
   return $ S.BDecls S.NoSrcSpan dcls'
@@ -70,30 +83,49 @@ getEqFromAlt :: S.Alt a -> Eqs a
 getEqFromAlt (S.Alt _ pat (S.UnGuardedRhs _ expr) _) = ([pat], expr)
 getEqFromAlt _ = error "guarded Rhs in getEqFromAlt"
 
-completeLambda :: S.EqAST a => [S.Pat a] -> S.Exp a -> Bool -> PM a (S.Exp a)
+completeLambda
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => [S.Pat a]
+  -> S.Exp a
+  -> Bool
+  -> Sem r (S.Exp a)
 completeLambda ps e insideLet = do
-  xs <- newVars (length ps)
+  xs <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   e' <- completeCase insideLet e
   let eq = (ps, e')
   res <- match xs [eq] err
   return $ S.Lambda S.NoSrcSpan xs res
 
-applyCCModule :: S.EqAST a => S.Module a -> PM a (S.Module a)
+applyCCModule
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => S.Module a
+  -> Sem r (S.Module a)
 applyCCModule (S.Module name ds) = do
   dcls <- mapM (applyCCDecl False) ds
   return $ S.Module name dcls
 
-applyCCDecl :: S.EqAST a => Bool -> S.Decl a -> PM a (S.Decl a)
+applyCCDecl
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => Bool
+  -> S.Decl a
+  -> Sem r (S.Decl a)
 applyCCDecl insideLet (S.FunBind _ ms) = do
   nms <- applyCCMatches insideLet ms
   return (S.FunBind S.NoSrcSpan nms)
 applyCCDecl _ v = return v
 
-applyCCMatches :: S.EqAST a => Bool -> [S.Match a] -> PM a [S.Match a]
+applyCCMatches
+  :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+  => Bool
+  -> [S.Match a]
+  -> Sem r [S.Match a]
 applyCCMatches insideLet = mapM applyCCMatch
  where
   -- TODO maybe only apply if needed -> isIncomplete?
-  applyCCMatch :: S.EqAST a => S.Match a -> PM a (S.Match a)
+  applyCCMatch
+    :: (Members '[Env a, Fresh, GetOpt] r, S.EqAST a)
+    => S.Match a
+    -> Sem r (S.Match a)
   applyCCMatch (S.Match _ n ps rhs _) = case rhs of
     S.UnGuardedRhs _ e -> do
       x <- completeCase insideLet e

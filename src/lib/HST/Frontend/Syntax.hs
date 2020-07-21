@@ -16,7 +16,7 @@
 module HST.Frontend.Syntax where
 
 -------------------------------------------------------------------------------
--- AST Data Structure                                                        --
+-- Type Families                                                             --
 -------------------------------------------------------------------------------
 
 -- | Type family for the type of source spans.
@@ -28,6 +28,10 @@ type family Literal a
 -- | Type family for the type of type expressions.
 type family TypeExp a
 
+-------------------------------------------------------------------------------
+-- Type Family Constraints                                                   --
+-------------------------------------------------------------------------------
+
 -- | Wrapper class for the @Eq@ instance of ASTs.
 --
 --   Note that source span information is not compared when using @==@ on AST
@@ -36,6 +40,10 @@ class (Eq (Literal a), Eq (TypeExp a)) => EqAST a
 
 -- | Wrapper class for the @Show@ instance of ASTs.
 class (Show (SrcSpanType a), Show (Literal a), Show (TypeExp a)) => ShowAST a
+
+-------------------------------------------------------------------------------
+-- Modules                                                                   --
+-------------------------------------------------------------------------------
 
 -- | A representation of a Haskell module.
 --
@@ -47,6 +55,10 @@ data Module a = Module (Maybe (ModuleName a)) [Decl a]
 deriving instance EqAST a => Eq (Module a)
 deriving instance ShowAST a => Show (Module a)
 
+-------------------------------------------------------------------------------
+-- Declarations                                                              --
+-------------------------------------------------------------------------------
+
 -- | A declaration.
 --
 --   Data declarations only contain the information relevant for the pattern
@@ -54,33 +66,31 @@ deriving instance ShowAST a => Show (Module a)
 --
 --   The only supported kind of pattern bindings, variable patterns, are
 --   represented by function bindings.
-data Decl a = DataDecl (DeclHead a) [ConDecl a]
+data Decl a = DataDecl (Name a) [ConDecl a]
             | TypeSig (SrcSpan a) [Name a] (TypeExp a)
             | FunBind (SrcSpan a) [Match a]
 deriving instance EqAST a => Eq (Decl a)
 deriving instance ShowAST a => Show (Decl a)
 
--- | The head of a data declaration. Does not include a source span or type
---   variable bindings and should not be transformed back.
-data DeclHead a = DHead (Name a)
-                | DHInfix (Name a)
-                | DHParen (DeclHead a)
-                | DHApp (DeclHead a)
-  deriving Eq
-deriving instance ShowAST a => Show (DeclHead a)
-
--- | A binding group (for example after a @where@ clause).
-data Binds a = BDecls (SrcSpan a) [Decl a]
-deriving instance EqAST a => Eq (Binds a)
-deriving instance ShowAST a => Show (Binds a)
+-------------------------------------------------------------------------------
+-- Data Type Declarations                                                    --
+-------------------------------------------------------------------------------
 
 -- | A data constructor. Does not include a source span and should not be
 --   transformed back.
 data ConDecl a = ConDecl (Name a) [TypeExp a]
                | InfixConDecl (TypeExp a) (Name a) (TypeExp a)
-               | RecDecl (Name a)
 deriving instance EqAST a => Eq (ConDecl a)
 deriving instance ShowAST a => Show (ConDecl a)
+
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
+
+-- | A binding group (for example after a @where@ clause).
+data Binds a = BDecls (SrcSpan a) [Decl a]
+deriving instance EqAST a => Eq (Binds a)
+deriving instance ShowAST a => Show (Binds a)
 
 -- | A match belonging to a function binding declaration.
 data Match a
@@ -100,11 +110,15 @@ data GuardedRhs a = GuardedRhs (SrcSpan a) (Exp a) (Exp a)
 deriving instance EqAST a => Eq (GuardedRhs a)
 deriving instance ShowAST a => Show (GuardedRhs a)
 
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
+
 -- | Marks if a type is boxed or unboxed (most types are boxed, unboxed types
 --   represent raw values).
 data Boxed = Boxed
            | Unboxed
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 -- | An expression.
 data Exp a = Var (SrcSpan a) (QName a)
@@ -124,10 +138,26 @@ data Exp a = Var (SrcSpan a) (QName a)
 deriving instance EqAST a => Eq (Exp a)
 deriving instance ShowAST a => Show (Exp a)
 
+-- | Creates a variable expression from a name. The additional source span
+--   information is taken from the given name.
+var :: Name a -> Exp a
+var n@(Ident  s _) = Var s (UnQual s n)
+var n@(Symbol s _) = Var s (UnQual s n)
+
 -- | An alternative in a @case@ expression.
 data Alt a = Alt (SrcSpan a) (Pat a) (Rhs a) (Maybe (Binds a))
 deriving instance EqAST a => Eq (Alt a)
 deriving instance ShowAST a => Show (Alt a)
+
+-- | Creates an alternative in a @case@ expression from a pattern and an
+--   expression. The additional source span information is taken from the given
+--   pattern and expression.
+alt :: Pat a -> Exp a -> Alt a
+alt pat e = Alt (getSrcPat pat) pat (UnGuardedRhs (getSrcExp e) e) Nothing
+
+-------------------------------------------------------------------------------
+-- Patterns                                                                  --
+-------------------------------------------------------------------------------
 
 -- | A pattern.
 data Pat a = PVar (SrcSpan a) (Name a)
@@ -140,28 +170,32 @@ data Pat a = PVar (SrcSpan a) (Name a)
   deriving Eq
 deriving instance ShowAST a => Show (Pat a)
 
+-------------------------------------------------------------------------------
+-- Names                                                                     --
+-------------------------------------------------------------------------------
+
 -- | A name of a Haskell module used in a qualified name.
 data ModuleName a = ModuleName (SrcSpan a) String
-  deriving Eq
+  deriving (Eq, Ord)
 deriving instance ShowAST a => Show (ModuleName a)
 
 -- | A name possibly qualified by a 'ModuleName'.
 data QName a = Qual (SrcSpan a) (ModuleName a) (Name a)
              | UnQual (SrcSpan a) (Name a)
              | Special (SrcSpan a) (SpecialCon a)
-  deriving Eq
+  deriving (Eq, Ord)
 deriving instance ShowAST a => Show (QName a)
 
 -- | An unqualified name.
 data Name a = Ident (SrcSpan a) String
             | Symbol (SrcSpan a) String
-  deriving Eq
+  deriving (Eq, Ord)
 deriving instance ShowAST a => Show (Name a)
 
 -- | A possibly qualified infix operator.
 data QOp a = QVarOp (SrcSpan a) (QName a)
            | QConOp (SrcSpan a) (QName a)
-  deriving Eq
+  deriving (Eq, Ord)
 deriving instance ShowAST a => Show (QOp a)
 
 -- | A built-in constructor with special syntax.
@@ -172,8 +206,12 @@ data SpecialCon a = UnitCon (SrcSpan a)
                   | Cons (SrcSpan a)
                   | UnboxedSingleCon (SrcSpan a)
                   | ExprHole (SrcSpan a)
-  deriving Eq
+  deriving (Eq, Ord)
 deriving instance ShowAST a => Show (SpecialCon a)
+
+-------------------------------------------------------------------------------
+-- Source Spans                                                              --
+-------------------------------------------------------------------------------
 
 -- | A wrapper for source span information with the option to not specify a
 --   source span.
@@ -185,21 +223,9 @@ deriving instance ShowAST a => Show (SrcSpan a)
 instance Eq (SrcSpan a) where
   _ == _ = True
 
--------------------------------------------------------------------------------
--- Construction and Destruction Functions                                    --
--------------------------------------------------------------------------------
-
--- | Creates a variable expression from a name. The additional source span
---   information is taken from the given name.
-var :: Name a -> Exp a
-var n@(Ident  s _) = Var s (UnQual s n)
-var n@(Symbol s _) = Var s (UnQual s n)
-
--- | Creates an alternative in a @case@ expression from a pattern and an
---   expression. The additional source span information is taken from the given
---   pattern and expression.
-alt :: Pat a -> Exp a -> Alt a
-alt pat e = Alt (getSrcPat pat) pat (UnGuardedRhs (getSrcExp e) e) Nothing
+-- | Custom order for 'SrcSpan' which treats all source spans as equal.
+instance Ord (SrcSpan a) where
+  _ `compare` _ = EQ
 
 -- | Returns the top-level source span information of an expression.
 getSrcExp :: Exp a -> SrcSpan a
