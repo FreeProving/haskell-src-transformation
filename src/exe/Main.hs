@@ -154,8 +154,8 @@ processInputFile inputFile = do
     Just outputDir -> do
       let outputFile = outputDir </> makeOutputFileName inputFile moduleName
       embed $ createDirectoryIfMissing True (takeDirectory outputFile)
-      embed $ writeFile outputFile (output)
-    Nothing -> embed $ putStrLn (output)
+      embed $ writeFile outputFile output
+    Nothing -> embed $ putStrLn output
 
 processInput
   :: Members '[GetOpt] r => String -> Frontend -> Sem r (String, Maybe String)
