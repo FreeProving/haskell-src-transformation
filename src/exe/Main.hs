@@ -48,12 +48,16 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , runWithArgsIO
                                                 )
 import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.Syntax           as S
 import qualified HST.Frontend.ToHSE            as ToHSE
-import           HST.Options                    ( optShowHelp
+import           HST.Options                    ( Frontend(..)
+                                                , optShowHelp
                                                 , optInputFiles
                                                 , optOutputDir
                                                 , optEnableDebug
+                                                , optFrontend
                                                 , optionDescriptors
+                                                , parseFrontend
                                                 )
 
 -------------------------------------------------------------------------------
@@ -133,19 +137,35 @@ application = do
 processInputFile
   :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFile = do
-  input <- embed $ readFile inputFile
-  let inputModule        = HSE.fromParseResult (HSE.parseModule input)
-      intermediateModule = FromHSE.transformModule inputModule
-  outputModule <- runEnv . runFresh $ do
-    intermediateModule' <- processModule intermediateModule
-    return $ ToHSE.transformModule inputModule intermediateModule'
-  maybeOutputDir <- getOpt optOutputDir
+  input                <- embed $ readFile inputFile
+  frontendString       <- getOpt optFrontend
+  frontend             <- parseFrontend frontendString
+  (output, moduleName) <- processInput input frontend
+  maybeOutputDir       <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
-      let outputFile = outputDir </> makeOutputFileName inputFile inputModule
+      let outputFile = outputDir </> makeOutputFileName inputFile moduleName
       embed $ createDirectoryIfMissing True (takeDirectory outputFile)
-      embed $ writeFile outputFile (prettyPrintModule outputModule)
-    Nothing -> embed $ putStrLn (prettyPrintModule outputModule)
+      embed $ writeFile outputFile output
+    Nothing -> embed $ putStrLn output
+
+-- | Parses a given string to a module using the given front end, then applies
+--   the transformation and at last returns the module name and a pretty
+--   printed version of the transformed module.
+processInput
+  :: Members '[GetOpt] r => String -> Frontend -> Sem r (String, Maybe String)
+processInput input frontend = case frontend of
+  HSE -> do
+    let inputModule        = HSE.fromParseResult (HSE.parseModule input)
+        intermediateModule = FromHSE.transformModule inputModule
+    outputModule <- runEnv . runFresh $ do
+      intermediateModule' <- processModule intermediateModule
+      return $ ToHSE.transformModule inputModule intermediateModule'
+    return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
+  GHClib -> error "Not yet implemented"
+ where
+  moduleName (S.Module name _) = fmap getName name
+  getName (S.ModuleName _ name) = name
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
@@ -158,28 +178,19 @@ processInputFile inputFile = do
 --   module name. Otherwise, the base name of the input file is used.
 makeOutputFileName
   :: FilePath     -- ^ The name of the input file.
-  -> HSE.Module l -- ^ The module to make the output file name of.
+  -> Maybe String -- ^ The name of the module to make the output file name of.
   -> FilePath     -- ^ The name of the output file.
-makeOutputFileName inputFile inputModule = outputFileName <.> "hs"
+makeOutputFileName inputFile modName = outputFileName <.> "hs"
  where
   -- | The output file name without file extension.
   outputFileName :: FilePath
-  outputFileName = maybe (takeBaseName inputFile)
-                         (joinPath . splitOn ".")
-                         (moduleName inputModule)
+  outputFileName =
+    maybe (takeBaseName inputFile) (joinPath . splitOn ".") modName
 
-  -- | Gets the module name of the given module.
-  --
-  --   Returns @Nothing@ if there is no module header or the module type is not
-  --   supported.
-  moduleName :: HSE.Module l -> Maybe String
-  moduleName (HSE.Module _ (Just moduleHead) _ _ _) = case moduleHead of
-    (HSE.ModuleHead _ (HSE.ModuleName _ modName) _ _) -> Just modName
-  moduleName _ = Nothing
 
 -- | Pretty prints the given Haskell module.
-prettyPrintModule :: HSE.Module HSE.SrcSpanInfo -> String
-prettyPrintModule = HSE.prettyPrintStyleMode
+prettyPrintModuleHSE :: HSE.Module HSE.SrcSpanInfo -> String
+prettyPrintModuleHSE = HSE.prettyPrintStyleMode
   (HSE.Style { HSE.mode           = HSE.PageMode
              , HSE.lineLength     = 120
              , HSE.ribbonsPerLine = 1.5

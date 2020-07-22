@@ -47,11 +47,11 @@ class (Show (SrcSpanType a), Show (Literal a), Show (TypeExp a)) => ShowAST a
 
 -- | A representation of a Haskell module.
 --
---   Only contains a list of declarations. When transforming such a module back
---   to a complete representation of a Haskell module, it has to be enriched by
---   other information (for example the module header and unsupported
---   declarations) from the original module.
-newtype Module a = Module [Decl a]
+--   Only contains a module name and a list of declarations. When transforming
+--   such a module back to a complete representation of a Haskell module, it
+--   has to be enriched by other information (for example the module header and
+--   unsupported declarations) from the original module.
+data Module a = Module (Maybe (ModuleName a)) [Decl a]
 deriving instance EqAST a => Eq (Module a)
 deriving instance ShowAST a => Show (Module a)
 

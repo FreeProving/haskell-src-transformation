@@ -20,13 +20,12 @@ import           HST.Frontend.FromHSE           ( HSE )
 --   enriching it with information from the original HSE module.
 transformModule
   :: HSE.Module HSE.SrcSpanInfo -> S.Module HSE -> HSE.Module HSE.SrcSpanInfo
-transformModule (HSE.Module srcS mmh pragmas impDecls oDecls) (S.Module aDecls)
-  = HSE.Module
-    srcS
-    mmh
-    pragmas
-    impDecls
-    (combineDecls oDecls (map transformDecl (filter isFun aDecls)))
+transformModule (HSE.Module srcS mmh pragmas impDecls oDecls) (S.Module _ aDecls)
+  = HSE.Module srcS
+               mmh
+               pragmas
+               impDecls
+               (combineDecls oDecls (map transformDecl (filter isFun aDecls)))
  where
   isFun (S.FunBind _ _) = True
   isFun _               = False
