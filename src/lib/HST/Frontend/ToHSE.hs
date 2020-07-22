@@ -26,10 +26,12 @@ import           HST.Frontend.FromHSE           ( HSE
 -------------------------------------------------------------------------------
 
 -- | Transforms the @haskell-src-transformations@ representation of a Haskell
---   module into the @haskell-src-exts@ representation of a Haskell module by
---   enriching it with information from the original HSE module.
+--   module into the @haskell-src-exts@ representation of a Haskell module.
+--
+--   The module head is restored from the original module head. The module
+--   name field does not affect the name of the resulting module..
 transformModule :: S.Module HSE -> HSE.Module HSE.SrcSpanInfo
-transformModule (S.Module s origModuleHead decls) = HSE.Module
+transformModule (S.Module s origModuleHead _ decls) = HSE.Module
   (transformSrcSpan s)
   (originalModuleHead origModuleHead)
   (originalModulePragmas origModuleHead)

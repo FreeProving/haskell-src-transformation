@@ -64,13 +64,14 @@ class ( Show (SrcSpanType a)
 --
 --   The pattern matching compiler only needs to know the declarations of
 --   the module. All other information is stored in the 'OriginalModuleHead'.
-data Module a = Module (SrcSpan a) (OriginalModuleHead a) [Decl a]
+data Module a
+  = Module (SrcSpan a) (OriginalModuleHead a) (Maybe (ModuleName a)) [Decl a]
 deriving instance EqAST a => Eq (Module a)
 deriving instance ShowAST a => Show (Module a)
 
 -- | Gets the source span information of a module.
 instance HasSrcSpan Module where
-  getSrcSpan (Module srcSpan _ _) = srcSpan
+  getSrcSpan (Module srcSpan _ _ _) = srcSpan
 
 -------------------------------------------------------------------------------
 -- Declarations                                                              --

@@ -116,9 +116,9 @@ applyCCModule
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Module a
   -> Sem r (S.Module a)
-applyCCModule (S.Module s origModuleHead decls) = do
+applyCCModule (S.Module s origModuleHead moduleName decls) = do
   decls' <- mapM (applyCCDecl False) decls
-  return $ S.Module s origModuleHead decls'
+  return $ S.Module s origModuleHead moduleName decls'
 
 applyCCDecl
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)

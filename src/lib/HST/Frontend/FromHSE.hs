@@ -81,9 +81,17 @@ transformModule
   :: Member Report r => HSE.Module HSE.SrcSpanInfo -> Sem r (S.Module HSE)
 transformModule (HSE.Module s moduleHead pragmas imports decls) =
   S.Module (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
-    <$> mapM transformDecl decls
+    <$> mapM transformModuleHead moduleHead
+    <*> mapM transformDecl       decls
 transformModule (HSE.XmlPage _ _ _ _ _ _ _      ) = notSupported "XML Modules"
 transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _) = notSupported "XML Modules"
+
+-- | Extracts the name of a module from a module head.
+transformModuleHead
+  :: Member Report r
+  => HSE.ModuleHead HSE.SrcSpanInfo
+  -> Sem r (S.ModuleName HSE)
+transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 
 -------------------------------------------------------------------------------
 -- Declarations                                                              --

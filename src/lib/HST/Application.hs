@@ -72,9 +72,9 @@ useAlgoModule
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Module a
   -> Sem r (S.Module a)
-useAlgoModule (S.Module s origModuleHead decls) = do
+useAlgoModule (S.Module s origModuleHead moduleName decls) = do
   decls' <- mapM useAlgoDecl decls
-  return $ S.Module s origModuleHead decls'
+  return $ S.Module s origModuleHead moduleName decls'
 
 -- | Applies the core algorithm on the given declaration.
 useAlgoDecl
@@ -140,7 +140,7 @@ useAlgo ms = do
 -- | Initializes the environment with the data types declared in the given
 --   module.
 collectDataInfo :: Member (Env a) r => S.Module a -> Sem r ()
-collectDataInfo (S.Module _ _ decls) = mapM_ collectDataDecl decls
+collectDataInfo (S.Module _ _ _ decls) = mapM_ collectDataDecl decls
 
 -- | Inserts entries for the data type and constructors declared by the given
 --   declaration into the environment.
