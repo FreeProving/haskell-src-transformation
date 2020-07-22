@@ -51,7 +51,8 @@ ghclibFrontendName = "ghc-lib"
 -- | Map that maps strings to the corresponding front ends. Used for parsing
 --   the front end option.
 frontendMap :: Map String Frontend
-frontendMap = Map.fromList [(hseFrontendName, HSE), (ghclibFrontendName, GHClib)]
+frontendMap =
+  Map.fromList [(hseFrontendName, HSE), (ghclibFrontendName, GHClib)]
 
 -- | Parses a given string to one of the front ends.
 parseFrontend :: Member Report r => String -> Sem r Frontend
