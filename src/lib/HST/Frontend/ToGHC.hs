@@ -162,9 +162,14 @@ transformBoxed S.Boxed   = GHC.Boxed
 transformBoxed S.Unboxed = GHC.Unboxed
 
 transformExp :: S.Exp GHC -> GHC.LHsExpr GHC.GhcPs
-transformExp (S.Var s name) = GHC.L
-  (transformSrcSpan s)
-  (GHC.HsVar GHC.NoExtField (transformQName GHC.varName name))
+transformExp (S.Var s name) =
+  let exp' = case name of
+        S.Special _ (S.ExprHole _) -> GHC.HsUnboundVar
+          GHC.NoExtField
+          (GHC.TrueExprHole (GHC.mkOccName GHC.varName "_"))
+          -- TODO Could this be in another name space?
+        _ -> GHC.HsVar GHC.NoExtField (transformQName GHC.varName name)
+  in  GHC.L (transformSrcSpan s) exp'
 transformExp (S.Con s name) = GHC.L
   (transformSrcSpan s)
   (GHC.HsVar GHC.NoExtField (transformQName GHC.dataName name))
@@ -205,7 +210,7 @@ transformExp (S.If s e1 e2 e3) = GHC.L
             (transformExp e2)
             (transformExp e3)
   )
--- Is Nothing instead of Just GHC.noSyntaxExpr possible as well?
+-- TODO Is Nothing instead of Just GHC.noSyntaxExpr possible as well?
 transformExp (S.Case s e alts) =
   let s' = transformSrcSpan s
   in  GHC.L
@@ -224,7 +229,7 @@ transformExp (S.Tuple s boxed es) = GHC.L
 transformExp (S.List s es) = GHC.L
   (transformSrcSpan s)
   (GHC.ExplicitList GHC.NoExtField Nothing (map transformExp es))
--- Is Just GHC.noSyntaxExpr instead of Nothing possible as well?
+-- TODO Is Just GHC.noSyntaxExpr instead of Nothing possible as well?
 transformExp (S.Paren s e) =
   GHC.L (transformSrcSpan s) (GHC.HsPar GHC.NoExtField (transformExp e))
 transformExp (S.ExpTypeSig s e (SigType typ)) = GHC.L
@@ -236,7 +241,8 @@ transformAlts
   -> [S.Alt GHC]
   -> GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
 -- The source span information of the group of case alternatives seems to be
--- missing in the HSE syntax and therefore in our syntax
+-- missing in the HSE syntax and therefore in our syntax, so the source span
+-- of the entire case construct is inserted instead
 transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
  where
   altToMatch :: S.Alt GHC -> S.Match GHC

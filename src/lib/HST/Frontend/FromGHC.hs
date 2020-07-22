@@ -79,7 +79,6 @@ transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
              (map transformRdrNameUnqual names)
              (SigType sigType)
   )
--- VarBinds? But according to the documentation, those are only introduced by the type checker.
 transformDecl _ = Nothing
 
 transformLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> Maybe (S.Binds GHC)
@@ -114,8 +113,8 @@ transformConDetails
   -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
   -> S.ConDecl GHC
 transformConDetails name (GHC.PrefixCon args) = S.ConDecl name (length args)
--- Maybe use a Symbol instead of an Ident name here (does that make a difference?)
 transformConDetails name (GHC.InfixCon _ _) = S.InfixConDecl name
+-- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
 transformConDetails _ _ = error "Record constructors are not supported"
 
 transformMatchGroup
@@ -156,11 +155,9 @@ transformGRHS _ = error "Unsupported guarded right-hand side"
 
 transformStmtExpr :: GHC.LStmt GHC.GhcPs (GHC.LHsExpr GHC.GhcPs) -> S.Exp GHC
 transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _)) = transformExpr body
--- According to the documentation, the latter wildcards are syntax expressions
--- added by the renamer. Do we need to consider them?
 transformStmtExpr _ =
   error "Only boolean expressions are supported as statements"
--- Are there more statements that can be safely converted to boolean expressions?
+-- TODO Are there more statements that can be safely converted to boolean expressions?
 
 transformBoxity :: GHC.Boxity -> S.Boxed
 transformBoxity GHC.Boxed   = S.Boxed
@@ -243,7 +240,7 @@ transformPat (GHC.L s (GHC.ConPatIn name cpds)) =
         (GHC.PrefixCon pats, True) -> S.PApp s' name' (map transformPat pats)
         (_, True) -> error "Record constructors are not supported"
         _ -> error "Only constructors can be applied in patterns"
--- The documentation also mentions a more complicated ConPatOut.
+-- TODO The documentation also mentions a more complicated ConPatOut.
 -- Do we need to consider that?
 transformPat (GHC.L s (GHC.TuplePat _ pats boxity)) =
   S.PTuple (transformSrcSpan s) (transformBoxity boxity) (map transformPat pats)
