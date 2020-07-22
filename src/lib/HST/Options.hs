@@ -16,10 +16,6 @@ where
 import           Data.List                      ( intercalate )
 import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as Map
-                                                ( fromList
-                                                , keys
-                                                , lookup
-                                                )
 import           Polysemy                       ( Member
                                                 , Sem
                                                 )
@@ -41,11 +37,11 @@ import           HST.Effect.Report              ( Message(Message)
 data Frontend = HSE | GHClib
   deriving (Eq, Show)
 
--- | Name of the `HSE` front end.
+-- | Name of the 'HSE' front end.
 hse :: String
 hse = "haskell-src-exts"
 
--- | Name of the `GHClib` front end.
+-- | Name of the 'GHClib' front end.
 ghclib :: String
 ghclib = "ghc-lib"
 
