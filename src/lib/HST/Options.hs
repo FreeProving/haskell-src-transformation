@@ -17,8 +17,8 @@ import           Data.List                      ( intercalate )
 import           Data.Map.Strict                ( Map )
 import qualified Data.Map.Strict               as Map
                                                 ( fromList
+                                                , keys
                                                 , lookup
-                                                , toList
                                                 )
 import           Polysemy                       ( Member
                                                 , Sem
@@ -41,11 +41,11 @@ import           HST.Effect.Report              ( Message(Message)
 data Frontend = HSE | GHClib
   deriving (Eq, Show)
 
--- | Name of the @haskell-src-extensions@ front end.
+-- | Name of the `HSE` front end.
 hse :: String
 hse = "haskell-src-exts"
 
--- | Name of the @ghc-lib@ front end.
+-- | Name of the `GHClib` front end.
 ghclib :: String
 ghclib = "ghc-lib"
 
@@ -134,12 +134,10 @@ optionDescriptors =
     (ReqArg (\f opts -> opts { optFrontend = f }) "FRONTEND")
     (  "Optional. Specifies the front end for the compiler to use.\n"
     ++ "Allowed values are: "
-    ++ intercalate
-         ","
-         (map ((\s -> '`' : s ++ "`") . fst) (Map.toList frontendMap))
+    ++ intercalate ", " (map (\s -> '`' : s ++ "`") (Map.keys frontendMap))
     ++ ".\n"
     ++ "Uses `"
-    ++ hse
+    ++ optFrontend defaultOptions
     ++ "` by default."
     )
   ]

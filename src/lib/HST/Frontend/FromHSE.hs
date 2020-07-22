@@ -40,7 +40,6 @@ transformModule (HSE.Module _ moduleHead _ _ decls) = S.Module
   getModuleName' (HSE.ModuleName _ name) = S.ModuleName S.NoSrcSpan name
 transformModule _ = error "Unsupported Module type"
 
-
 -- | Transforms an HSE declaration into an HST declaration.
 --
 --   Unlike the other transforming functions, the result is wrapped inside
