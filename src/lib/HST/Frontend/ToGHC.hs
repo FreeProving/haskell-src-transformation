@@ -84,7 +84,7 @@ transformMatch ctxt match =
         S.Match s' name' pats' rhs' mBinds' ->
           (s', name', pats', rhs', mBinds', GHC.Prefix)
         S.InfixMatch s' pat name' pats' rhs' mBinds' ->
-          (s', name', (pat : pats'), rhs', mBinds', GHC.Infix)
+          (s', name', pat : pats', rhs', mBinds', GHC.Infix)
       ctxt' = case ctxt of
         Function -> GHC.FunRhs { GHC.mc_fun = transformName GHC.varName name
                                , GHC.mc_fixity = fixity
