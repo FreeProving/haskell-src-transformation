@@ -166,7 +166,6 @@ processInput input frontend = case frontend of
  where
   moduleName (S.Module name _) = fmap getName name
   getName (S.ModuleName _ name) = name
-  
 -------------------------------------------------------------------------------
 -- Output                                                                    --
 -------------------------------------------------------------------------------
