@@ -1,5 +1,15 @@
 {-# LANGUAGE PackageImports #-}
 
+-- | This module contains functions transforming Haskell modules and other
+--   constructs of the AST data structure of the "HST.Frontend.Syntax" module
+--   into the corresponding constructs of the AST data structure of
+--   @ghc-lib-parser@.
+--
+--   Note that a construct of the AST data structure of HST can only be
+--   transformed to the corresponding GHC construct if the former is
+--   instantiated with the GHC types for source spans, literals and type
+--   expressions.
+
 module HST.Frontend.ToGHC where
 
 import qualified "ghc-lib-parser" GHC.Hs       as GHC
@@ -21,8 +31,9 @@ import           HST.Frontend.FromGHC           ( GHC
                                                 , TypeWrapper(SigType)
                                                 )
 
-data MatchContext = Function | LambdaExp | CaseAlt
-
+-- | Transforms the @haskell-src-transformations@ representation of a Haskell
+--   module into the @ghc-lib-parser@ representation of a Haskell module by
+--   enriching it with information from the original GHC module.
 transformModule
   :: GHC.HsModule GHC.GhcPs -> S.Module GHC -> GHC.HsModule GHC.GhcPs
 transformModule oModule (S.Module aDecls) = oModule
@@ -37,6 +48,7 @@ transformModule oModule (S.Module aDecls) = oModule
   combineDecls (oDecl : oDecls) aDecls' = oDecl : combineDecls oDecls aDecls'
   combineDecls []               aDecls' = aDecls'
 
+-- | Transforms an HST declaration into an GHC located declaration.
 transformDecl :: S.Decl GHC -> GHC.LHsDecl GHC.GhcPs
 transformDecl (S.DataDecl _ _) =
   error "Data type declarations should not be transformed back"
@@ -66,6 +78,13 @@ transformDecl (S.FunBind s matches) =
   getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = name
   getMatchesName _ = error "Empty match group"
 
+-- | Type for the contexts where a match or match group can occur in the GHC
+--   AST data structure.
+data MatchContext = Function | LambdaExp | CaseAlt
+  deriving (Eq, Show)
+
+-- | Transforms a match context, a GHC source span of the matches and a list of
+--   HST matches with into a GHC match group.
 transformMatches
   :: MatchContext
   -> GHC.SrcSpan
@@ -77,6 +96,7 @@ transformMatches ctxt s matches = GHC.MG
   , GHC.mg_origin = GHC.FromSource
   }
 
+-- | Transforms an HST match with a match context into a GHC located match.
 transformMatch
   :: MatchContext -> S.Match GHC -> GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
 transformMatch ctxt match =
@@ -100,6 +120,8 @@ transformMatch ctxt match =
                   , GHC.m_grhss = transformRhs rhs mBinds
                   }
 
+-- | Transforms an HST right-hand side and binding group into GHC guarded
+--   right-hand sides.
 transformRhs
   :: S.Rhs GHC
   -> Maybe (S.Binds GHC)
@@ -116,6 +138,8 @@ transformRhs rhs mBinds =
                 , GHC.grhssLocalBinds = transformMaybeBinds mBinds
                 }
 
+-- | Transforms an HST guarded right-hand side into a GHC located guarded
+--   right-hand side.
 transformGuardedRhs
   :: S.GuardedRhs GHC -> GHC.LGRHS GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
 transformGuardedRhs (S.GuardedRhs s ge be) = GHC.L
@@ -133,6 +157,7 @@ transformGuardedRhs (S.GuardedRhs s ge be) = GHC.L
     (transformExp be)
   )
 
+-- | Transforms an HST binding group into a GHC located binding group.
 transformMaybeBinds :: Maybe (S.Binds GHC) -> GHC.LHsLocalBinds GHC.GhcPs
 transformMaybeBinds Nothing =
   GHC.L GHC.noSrcSpan (GHC.EmptyLocalBinds GHC.NoExtField)
@@ -157,10 +182,12 @@ transformMaybeBinds (Just (S.BDecls s decls)) =
           GHC.L s' (GHC.SigD _ sig) -> (funBinds', GHC.L s' sig : sigs')
           _ -> error "Unexpected declaration in bindings"
 
+-- | Transforms an HST boxed mark into a GHC boxity.
 transformBoxed :: S.Boxed -> GHC.Boxity
 transformBoxed S.Boxed   = GHC.Boxed
 transformBoxed S.Unboxed = GHC.Unboxed
 
+-- | Transforms an HST expression into a GHC located expression.
 transformExp :: S.Exp GHC -> GHC.LHsExpr GHC.GhcPs
 transformExp (S.Var s name) =
   let exp' = case name of
@@ -249,6 +276,7 @@ transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
   altToMatch (S.Alt s' pat rhs mBinds) =
     S.Match s' (S.Ident S.NoSrcSpan "") [pat] rhs mBinds
 
+-- | Transforms an HST pattern into a GHC located pattern.
 transformPat :: S.Pat GHC -> GHC.LPat GHC.GhcPs
 transformPat (S.PVar s name) = GHC.L
   (transformSrcSpan s)
@@ -274,9 +302,12 @@ transformPat (S.PList s pats) = GHC.L
 transformPat (S.PWildCard s) =
   GHC.L (transformSrcSpan s) (GHC.WildPat GHC.NoExtField)
 
+-- | Transforms an HST module name into a GHC module name.
 transformModuleName :: S.ModuleName GHC -> GHC.ModuleName
 transformModuleName (S.ModuleName _ str) = GHC.mkModuleName str
 
+-- | Transforms an HST qualified name with GHC name space into a GHC located
+--   reader name.
 transformQName :: GHC.NameSpace -> S.QName GHC -> GHC.Located GHC.RdrName
 transformQName nameSpace (S.Qual s modName name) = GHC.L
   (transformSrcSpan s)
@@ -286,16 +317,19 @@ transformQName nameSpace (S.UnQual s name) =
 transformQName _ (S.Special s spCon) =
   GHC.L (transformSrcSpan s) (GHC.Exact (transformSpecialCon spCon))
 
+-- | Transforms an HST name with GHC name space into a GHC located reader name.
 transformName :: GHC.NameSpace -> S.Name GHC -> GHC.Located GHC.RdrName
 transformName nameSpace (S.Ident s str) =
   GHC.L (transformSrcSpan s) (GHC.Unqual (GHC.mkOccName nameSpace str))
 transformName nameSpace (S.Symbol s str) =
   GHC.L (transformSrcSpan s) (GHC.Unqual (GHC.mkOccName nameSpace str))
 
+-- | Transforms an HST name with GHC name space into a GHC occurrence name.
 transformNameOcc :: GHC.NameSpace -> S.Name GHC -> GHC.OccName
 transformNameOcc nameSpace (S.Ident  _ str) = GHC.mkOccName nameSpace str
 transformNameOcc nameSpace (S.Symbol _ str) = GHC.mkOccName nameSpace str
 
+-- | Transforms an HST qualified operator into a GHC located expression.
 transformQOp :: S.QOp GHC -> GHC.LHsExpr GHC.GhcPs
 transformQOp (S.QVarOp s qName) = GHC.L
   (transformSrcSpan s)
@@ -304,6 +338,7 @@ transformQOp (S.QConOp s qName) = GHC.L
   (transformSrcSpan s)
   (GHC.HsVar GHC.NoExtField (transformQName GHC.dataName qName))
 
+-- | Transforms an HST special constructor into a GHC name.
 transformSpecialCon :: S.SpecialCon GHC -> GHC.Name
 transformSpecialCon (S.UnitCon _) = GHC.tyConName GHC.unitTyCon
 transformSpecialCon (S.ListCon _) = GHC.listTyConName
@@ -314,8 +349,9 @@ transformSpecialCon (S.Cons _) = GHC.consDataConName
 transformSpecialCon (S.UnboxedSingleCon _) =
   GHC.tupleTyConName GHC.UnboxedTuple 1
 transformSpecialCon (S.ExprHole _) =
-  error "Expression holes can't be transformed to GHC names"
+  error "Expression holes should be transformed in transformExp"
 
+-- | Unwraps the HST type for source spans into an GHC source span.
 transformSrcSpan :: S.SrcSpan GHC -> GHC.SrcSpan
 transformSrcSpan (S.SrcSpan s) = s
 transformSrcSpan S.NoSrcSpan   = GHC.noSrcSpan
