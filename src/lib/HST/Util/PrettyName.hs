@@ -30,8 +30,8 @@ instance PrettyName (S.Name a) where
 -- | Helper functions for 'PrettyName' instance of 'S.Name' and 'S.QName'
 --   that pretty prints a name but adds a prefix.
 --
---    The prefix is added before the identifier or symbol. In case of symbolic
---    names, the prefix is within the parentheses.
+--   The prefix is added before the identifier or symbol. In case of symbolic
+--   names, the prefix is within the parentheses.
 prettyNameWithPrefix :: String -> S.Name a -> String
 prettyNameWithPrefix prefix (S.Ident  _ ident) = prefix ++ ident
 prettyNameWithPrefix prefix (S.Symbol _ sym  ) = "(" ++ prefix ++ sym ++ ")"

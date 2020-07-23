@@ -268,7 +268,7 @@ instance HasSrcSpan Pat where
   getSrcSpan (PList  srcSpan _       ) = srcSpan
   getSrcSpan (PWildCard srcSpan      ) = srcSpan
 
--- | Converts a pattern to an expressions.
+-- | Converts a pattern to an expression.
 patToExp :: Pat a -> Exp a
 patToExp (PVar srcSpan name) = Var srcSpan (unQual name)
 patToExp (PInfixApp srcSpan p1 name p2) =

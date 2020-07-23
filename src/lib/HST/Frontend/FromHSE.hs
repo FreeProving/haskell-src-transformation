@@ -123,7 +123,7 @@ transformDecl decl@(HSE.PatBind s _ _ _) = do
   skipNotSupported "Non-variable pattern bindings"
   return $ S.OtherDecl (transformSrcSpan s) decl
 
--- Type classes and type class instances ar enot supported. The user is
+-- Type classes and type class instances are not supported. The user is
 -- explicitly informed that the declaration is skipped since they might
 -- contain pattern matching.
 transformDecl decl@(HSE.ClassDecl s _ _ _ _) = do
@@ -133,7 +133,7 @@ transformDecl decl@(HSE.InstDecl s _ _ _) = do
   skipNotSupported "Type class instances"
   return $ S.OtherDecl (transformSrcSpan s) decl
 
--- GADTs and pattern synonyms are not supported. The user us explicitly
+-- GADTs and pattern synonyms are not supported. The user is explicitly
 -- informed that the declaration is skipped since there may be errors due
 -- to the skipped constructor or pattern declarations.
 transformDecl decl@(HSE.GDataDecl s _ _ _ _ _ _) = do

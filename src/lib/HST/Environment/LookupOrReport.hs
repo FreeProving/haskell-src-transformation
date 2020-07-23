@@ -1,6 +1,6 @@
 -- | This module contains variations of the "HST.Environment" lookup functions
---   that don't return @Maybe@ values but report fatal error if a data or type
---   constructor cannot be found in the environment.
+--   that don't return @Maybe@ values but report a fatal error if a data or
+--   type constructor cannot be found in the environment.
 
 module HST.Environment.LookupOrReport
   ( lookupConEntryOrReport
