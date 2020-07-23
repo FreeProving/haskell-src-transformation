@@ -44,15 +44,22 @@ common deps
   --
   -- Polysemy needs a lot of language extensions. The language extensions
   -- which are required in every computation that uses Polysemy effects
-  -- are enabled globally. Language extensions such as `TemplateHaskell`
+  -- are enabled by default. Language extensions such as `TemplateHaskell`
   -- which are needed for the definition of custom effects only are enabled
-  -- for individual files.
+  -- for individual files and are listed as `other-extensions`.
   default-language:    Haskell2010
-  extensions:          DataKinds
+  default-extensions:  DataKinds
                      , FlexibleContexts
                      , GADTs
                      , PolyKinds
                      , TypeOperators
+  other-extensions:    BlockArguments
+                     , FlexibleContexts
+                     , LambdaCase
+                     , ScopedTypeVariables
+                     , StandaloneDeriving
+                     , TemplateHaskell
+                     , TypeFamilies
   ghc-options:         -Wall
 
   -- The Polysemy plugin is currently not supported by Haddock. Thus, the
