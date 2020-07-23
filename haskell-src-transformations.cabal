@@ -58,6 +58,7 @@ common deps
   other-extensions:    BlockArguments
                      , FlexibleContexts
                      , LambdaCase
+                     , PackageImports
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TemplateHaskell

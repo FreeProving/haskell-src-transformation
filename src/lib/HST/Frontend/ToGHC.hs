@@ -36,7 +36,7 @@ import           HST.Frontend.FromGHC           ( GHC
 --   enriching it with information from the original GHC module.
 transformModule
   :: GHC.HsModule GHC.GhcPs -> S.Module GHC -> GHC.HsModule GHC.GhcPs
-transformModule oModule (S.Module aDecls) = oModule
+transformModule oModule (S.Module _ aDecls) = oModule
   { GHC.hsmodDecls = combineDecls (GHC.hsmodDecls oModule)
                                   (map transformDecl (filter isFun aDecls))
   }

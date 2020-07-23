@@ -1,4 +1,4 @@
-{-# LANGUAGE PackageImports, TypeFamilies, FlexibleInstances #-}
+{-# LANGUAGE PackageImports, TypeFamilies #-}
 
 -- | This module contains functions transforming Haskell modules and other
 --   constructs of the AST data structure of @ghc-lib-parser@ into the
@@ -109,8 +109,12 @@ defaultDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
 -- | Transforms the @ghc-lib-parser@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
 transformModule :: GHC.HsModule GHC.GhcPs -> S.Module GHC
-transformModule GHC.HsModule { GHC.hsmodDecls = decls } =
-  S.Module (mapMaybe transformDecl decls)
+transformModule modul =
+  let modName' = case GHC.hsmodName modul of
+        Just (GHC.L s modName) ->
+          Just (transformModuleName (transformSrcSpan s) modName)
+        Nothing -> Nothing
+  in  S.Module modName' (mapMaybe transformDecl (GHC.hsmodDecls modul))
 
 -- | Transforms a located GHC declaration into an HST declaration.
 --
