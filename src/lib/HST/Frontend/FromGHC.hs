@@ -132,23 +132,6 @@ transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
   )
 transformDecl _ = Nothing
 
--- | Transforms a GHC located binding group into an HST binding group.
-transformLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> Maybe (S.Binds GHC)
-transformLocalBinds (GHC.L s (GHC.HsValBinds _ binds)) =
-  Just (S.BDecls (transformSrcSpan s) (transformValBinds binds))
-transformLocalBinds (GHC.L _ (GHC.EmptyLocalBinds _)) = Nothing
-transformLocalBinds _ = error "Unsupported local bindings"
-
--- | Transforms GHC value bindings into HST declarations.
-transformValBinds :: GHC.HsValBinds GHC.GhcPs -> [S.Decl GHC]
-transformValBinds (GHC.ValBinds _ binds sigs) = map
-  (fromMaybe (error "Unsupported declaration in bindings") . transformDecl)
-  (  map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
-         (GHC.bagToList binds)
-  ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs
-  )
-transformValBinds _ = error "Unsupported value bindings"
-
 -- | Transforms a GHC data definition into HST constructor declarations.
 transformDataDefn :: GHC.HsDataDefn GHC.GhcPs -> [S.ConDecl GHC]
 transformDataDefn GHC.HsDataDefn { GHC.dd_cons = cons } =
@@ -173,6 +156,23 @@ transformConDetails name (GHC.PrefixCon args) = S.ConDecl name (length args)
 transformConDetails name (GHC.InfixCon _ _) = S.InfixConDecl name
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
 transformConDetails _ _ = error "Record constructors are not supported"
+
+-- | Transforms a GHC located binding group into an HST binding group.
+transformLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> Maybe (S.Binds GHC)
+transformLocalBinds (GHC.L s (GHC.HsValBinds _ binds)) =
+  Just (S.BDecls (transformSrcSpan s) (transformValBinds binds))
+transformLocalBinds (GHC.L _ (GHC.EmptyLocalBinds _)) = Nothing
+transformLocalBinds _ = error "Unsupported local bindings"
+
+-- | Transforms GHC value bindings into HST declarations.
+transformValBinds :: GHC.HsValBinds GHC.GhcPs -> [S.Decl GHC]
+transformValBinds (GHC.ValBinds _ binds sigs) = map
+  (fromMaybe (error "Unsupported declaration in bindings") . transformDecl)
+  (  map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
+         (GHC.bagToList binds)
+  ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs
+  )
+transformValBinds _ = error "Unsupported value bindings"
 
 -- | Transforms a GHC match group into HST matches.
 transformMatchGroup
@@ -321,20 +321,25 @@ transformPat (GHC.L s (GHC.ListPat _ pats)) =
 transformPat (GHC.L s (GHC.WildPat _)) = S.PWildCard (transformSrcSpan s)
 transformPat _                         = error "Unsupported pattern"
 
+-- | Transforms a GHC module name with an HST source span into an HST module
+--   name.
+transformModuleName :: S.SrcSpan GHC -> GHC.ModuleName -> S.ModuleName GHC
+transformModuleName s modName = S.ModuleName s (GHC.moduleNameString modName)
+
 -- | Transforms a GHC located reader name into an HST qualified name and a
 --   @Bool@ which is @True@ if the name belongs to a data constructor and
 --   @False@ otherwise.
 transformRdrName :: GHC.Located GHC.RdrName -> (S.QName GHC, Bool)
 transformRdrName (GHC.L s (GHC.Unqual name)) =
-  ( S.UnQual (transformSrcSpan s) (S.Ident S.NoSrcSpan (GHC.occNameString name))
-  , GHC.isDataOcc name
-  )
-transformRdrName (GHC.L s (GHC.Qual mName name)) =
-  ( S.Qual (transformSrcSpan s)
-           (S.ModuleName S.NoSrcSpan (GHC.moduleNameString mName))
-           (S.Ident S.NoSrcSpan (GHC.occNameString name))
-  , GHC.isDataOcc name
-  )
+  let s' = transformSrcSpan s
+  in  (S.UnQual s' (S.Ident s' (GHC.occNameString name)), GHC.isDataOcc name)
+transformRdrName (GHC.L s (GHC.Qual modName name)) =
+  let s' = transformSrcSpan s
+  in  ( S.Qual s'
+               (transformModuleName s' modName)
+               (S.Ident s' (GHC.occNameString name))
+      , GHC.isDataOcc name
+      )
 transformRdrName (GHC.L s (GHC.Exact name)) =
   let s' = transformSrcSpan s in (S.Special s' (transformName s' name), False)
 transformRdrName _ = error "Unsupported RdrName"
@@ -345,7 +350,7 @@ transformRdrNameUnqual (GHC.L s (GHC.Unqual occName)) =
   S.Ident (transformSrcSpan s) (GHC.occNameString occName)
 transformRdrNameUnqual _ = error "Expected an unqualified name"
 
--- | Transforms a GHC name and an HST source span into an HST special
+-- | Transforms a GHC name with an HST source span into an HST special
 --   constructor.
 transformName :: S.SrcSpan GHC -> GHC.Name -> S.SpecialCon GHC
 transformName s name = case lookup name (specialConMap s) of

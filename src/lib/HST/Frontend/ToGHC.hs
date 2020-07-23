@@ -78,6 +78,31 @@ transformDecl (S.FunBind s matches) =
   getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = name
   getMatchesName _ = error "Empty match group"
 
+-- | Transforms an HST binding group into a GHC located binding group.
+transformMaybeBinds :: Maybe (S.Binds GHC) -> GHC.LHsLocalBinds GHC.GhcPs
+transformMaybeBinds Nothing =
+  GHC.L GHC.noSrcSpan (GHC.EmptyLocalBinds GHC.NoExtField)
+transformMaybeBinds (Just (S.BDecls s decls)) =
+  let (funBinds, sigs) = splitBDecls (map transformDecl decls)
+  in  GHC.L
+        (transformSrcSpan s)
+        (GHC.HsValBinds
+          GHC.NoExtField
+          (GHC.ValBinds GHC.NoExtField (GHC.listToBag funBinds) sigs)
+        )
+ where
+  splitBDecls
+    :: [GHC.LHsDecl GHC.GhcPs]
+    -> ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
+  splitBDecls [] = ([], [])
+  splitBDecls (decl : decls') =
+    let (funBinds', sigs') = splitBDecls decls'
+    in  case decl of
+          GHC.L s' (GHC.ValD _ fb@GHC.FunBind{}) ->
+            (GHC.L s' fb : funBinds', sigs')
+          GHC.L s' (GHC.SigD _ sig) -> (funBinds', GHC.L s' sig : sigs')
+          _ -> error "Unexpected declaration in bindings"
+
 -- | Type for the contexts where a match or match group can occur in the GHC
 --   AST data structure.
 data MatchContext = Function | LambdaExp | CaseAlt
@@ -156,31 +181,6 @@ transformGuardedRhs (S.GuardedRhs s ge be) = GHC.L
     ]
     (transformExp be)
   )
-
--- | Transforms an HST binding group into a GHC located binding group.
-transformMaybeBinds :: Maybe (S.Binds GHC) -> GHC.LHsLocalBinds GHC.GhcPs
-transformMaybeBinds Nothing =
-  GHC.L GHC.noSrcSpan (GHC.EmptyLocalBinds GHC.NoExtField)
-transformMaybeBinds (Just (S.BDecls s decls)) =
-  let (funBinds, sigs) = splitBDecls (map transformDecl decls)
-  in  GHC.L
-        (transformSrcSpan s)
-        (GHC.HsValBinds
-          GHC.NoExtField
-          (GHC.ValBinds GHC.NoExtField (GHC.listToBag funBinds) sigs)
-        )
- where
-  splitBDecls
-    :: [GHC.LHsDecl GHC.GhcPs]
-    -> ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
-  splitBDecls [] = ([], [])
-  splitBDecls (decl : decls') =
-    let (funBinds', sigs') = splitBDecls decls'
-    in  case decl of
-          GHC.L s' (GHC.ValD _ fb@GHC.FunBind{}) ->
-            (GHC.L s' fb : funBinds', sigs')
-          GHC.L s' (GHC.SigD _ sig) -> (funBinds', GHC.L s' sig : sigs')
-          _ -> error "Unexpected declaration in bindings"
 
 -- | Transforms an HST boxed mark into a GHC boxity.
 transformBoxed :: S.Boxed -> GHC.Boxity
