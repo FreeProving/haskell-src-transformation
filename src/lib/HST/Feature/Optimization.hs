@@ -40,7 +40,7 @@ optimize :: Members '[Fresh, Report] r => S.Exp a -> Sem r (S.Exp a)
 optimize = runPatternStack . optimize'
 
 -- | Like 'optimize' but can access a stack of patterns for each local
---   variable to remember which patterns variables have been matched
+--   variable to remember the patterns that variables have been matched
 --   against.
 optimize'
   :: Members '[PatternStack a, Fresh, Report] r => S.Exp a -> Sem r (S.Exp a)

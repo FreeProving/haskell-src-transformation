@@ -1,8 +1,8 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase, BlockArguments #-}
 
--- | This module defines an effect for computations that can save patterns
---   variables have been matched against on a stack.
+-- | This module defines an effect for computations which can save patterns
+--   that variables have been matched against on a stack.
 
 module HST.Effect.PatternStack
   ( -- * Effect
@@ -35,7 +35,7 @@ import qualified HST.Frontend.Syntax           as S
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
 
--- | An effect capable of pushing and poping patterns variables have been
+-- | An effect capable of pushing and popping patterns that variables have been
 --   matched against to a stack.
 data PatternStack a m b where
   PushPattern ::S.QName a -> S.Pat a -> PatternStack a m ()
