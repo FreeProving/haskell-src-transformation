@@ -62,8 +62,9 @@ class ( Show (SrcSpanType a)
 
 -- | A representation of a Haskell module.
 --
---   The pattern matching compiler only needs to know the declarations of
---   the module. All other information is stored in the 'OriginalModuleHead'.
+--   The pattern matching compiler only needs to know the declarations and the
+--   name of the module. All other information is stored in the
+--   'OriginalModuleHead'.
 data Module a
   = Module (SrcSpan a) (OriginalModuleHead a) (Maybe (ModuleName a)) [Decl a]
 deriving instance EqAST a => Eq (Module a)
@@ -114,8 +115,11 @@ instance HasSrcSpan Decl where
 -- Data Type Declarations                                                    --
 -------------------------------------------------------------------------------
 
--- | A data constructor. Does not include a source span and should not be
---   transformed back.
+-- | A data constructor.
+--
+--   Data constructors should not be converted back. The original
+--   constructor declaration should be part of the 'OriginalDecl'
+--   of a 'DataDecl'.
 data ConDecl a = ConDecl (SrcSpan a) (Name a) [TypeExp a]
                | InfixConDecl (SrcSpan a) (TypeExp a) (Name a) (TypeExp a)
 deriving instance EqAST a => Eq (ConDecl a)
