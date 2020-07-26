@@ -339,6 +339,9 @@ transformQOp (S.QConOp s qName) = GHC.L
   (GHC.HsVar GHC.NoExtField (transformQName GHC.dataName qName))
 
 -- | Transforms an HST special constructor into a GHC name.
+--
+--   Expression holes appear at expression level in the GHC AST and are
+--   transformed in 'transformExp' instead.
 transformSpecialCon :: S.SpecialCon GHC -> GHC.Name
 transformSpecialCon (S.UnitCon _) = GHC.tyConName GHC.unitTyCon
 transformSpecialCon (S.ListCon _) = GHC.listTyConName
@@ -347,7 +350,7 @@ transformSpecialCon (S.TupleCon _ boxed arity) =
   GHC.tyConName (GHC.tupleTyCon (transformBoxed boxed) arity)
 transformSpecialCon (S.Cons _) = GHC.consDataConName
 transformSpecialCon (S.UnboxedSingleCon _) =
-  GHC.tupleTyConName GHC.UnboxedTuple 1
+  GHC.tupleTyConName GHC.UnboxedTuple 0
 transformSpecialCon (S.ExprHole _) =
   error "Expression holes should be transformed in transformExp"
 

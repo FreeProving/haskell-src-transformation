@@ -150,15 +150,9 @@ collectDataDecl _ = return ()
 
 -- | Creates an environment entry for a constructor declaration.
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
-makeConEntry dataQName (S.ConDecl cname arity) = ConEntry
-  { conEntryName    = S.UnQual S.NoSrcSpan cname
-  , conEntryArity   = arity
-  , conEntryIsInfix = False
-  , conEntryType    = dataQName
-  }
-makeConEntry dataQName (S.InfixConDecl cname) = ConEntry
-  { conEntryName    = S.UnQual S.NoSrcSpan cname
-  , conEntryArity   = 2
-  , conEntryIsInfix = True
+makeConEntry dataQName conDecl = ConEntry
+  { conEntryName    = S.UnQual S.NoSrcSpan (S.conDeclName conDecl)
+  , conEntryArity   = S.conDeclArity conDecl
+  , conEntryIsInfix = S.conDeclIsInfix conDecl
   , conEntryType    = dataQName
   }

@@ -78,8 +78,10 @@ deriving instance ShowAST a => Show (Decl a)
 
 -- | A data constructor. Does not include a source span and should not be
 --   transformed back.
-data ConDecl a = ConDecl (Name a) Int
-               | InfixConDecl (Name a)
+data ConDecl a = ConDecl { conDeclName    :: Name a
+                         , conDeclArity   :: Int
+                         , conDeclIsInfix :: Bool
+                         }
   deriving Eq
 deriving instance ShowAST a => Show (ConDecl a)
 

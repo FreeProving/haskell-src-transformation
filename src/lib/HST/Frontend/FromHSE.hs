@@ -80,10 +80,16 @@ transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 -- | Transforms an HSE constructor declaration into an HST constructor
 --   declaration.
 transformConDecl :: HSE.ConDecl HSE.SrcSpanInfo -> S.ConDecl HSE
-transformConDecl (HSE.ConDecl _ cName types) =
-  S.ConDecl (transformName cName) (length types)
-transformConDecl (HSE.InfixConDecl _ _ cName _) =
-  S.InfixConDecl (transformName cName)
+transformConDecl (HSE.ConDecl _ cName types) = S.ConDecl
+  { S.conDeclName    = transformName cName
+  , S.conDeclArity   = length types
+  , S.conDeclIsInfix = False
+  }
+transformConDecl (HSE.InfixConDecl _ _ cName _) = S.ConDecl
+  { S.conDeclName    = transformName cName
+  , S.conDeclArity   = 2
+  , S.conDeclIsInfix = True
+  }
 transformConDecl (HSE.RecDecl _ _ _) =
   error "transformConDecl: record notation is not supported"
 

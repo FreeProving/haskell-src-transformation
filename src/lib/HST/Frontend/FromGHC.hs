@@ -156,8 +156,16 @@ transformConDetails
   :: S.Name GHC
   -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
   -> S.ConDecl GHC
-transformConDetails name (GHC.PrefixCon args) = S.ConDecl name (length args)
-transformConDetails name (GHC.InfixCon _ _) = S.InfixConDecl name
+transformConDetails name (GHC.PrefixCon args) = S.ConDecl
+  { S.conDeclName    = name
+  , S.conDeclArity   = length args
+  , S.conDeclIsInfix = False
+  }
+transformConDetails name (GHC.InfixCon _ _) = S.ConDecl
+  { S.conDeclName    = name
+  , S.conDeclArity   = 2
+  , S.conDeclIsInfix = True
+  }
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
 transformConDetails _ _ = error "Record constructors are not supported"
 
@@ -368,13 +376,18 @@ transformName s name = case lookup name (specialConMap s) of
     _ -> error "Expected a built-in special constructor"
 
 -- | Takes an HST source span and maps GHC names to HST special constructors.
+--
+--   Tuple constructors cannot be transformed with this map and are instead
+--   transformed directly in 'transformName'.
+--   Expression holes appear at expression level in the GHC AST and are
+--   transformed in 'transformExpr' instead.
 specialConMap :: S.SrcSpan GHC -> [(GHC.Name, S.SpecialCon GHC)]
 specialConMap s =
   [ (GHC.tyConName GHC.unitTyCon          , S.UnitCon s)
   , (GHC.listTyConName                    , S.ListCon s)
   , (GHC.tyConName GHC.funTyCon           , S.FunCon s)
   , (GHC.consDataConName                  , S.Cons s)
-  , (GHC.tupleTyConName GHC.UnboxedTuple 1, S.UnboxedSingleCon s)
+  , (GHC.tupleTyConName GHC.UnboxedTuple 0, S.UnboxedSingleCon s)
   ]
 
 -- | Wraps a GHC source span into the HST type for source spans.
