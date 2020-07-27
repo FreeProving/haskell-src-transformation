@@ -34,11 +34,16 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Internal, Debug)
-                                                , msgSeverity
-                                                , reportToHandleOrCancel
-                                                , filterReportedMessages
+                                                , Severity
+                                                  ( Error
+                                                  , Debug
+                                                  , Internal
+                                                  )
                                                 , exceptionToReport
+                                                , filterReportedMessages
+                                                , msgSeverity
+                                                , reportFatal
+                                                , reportToHandleOrCancel
                                                 )
 import           HST.Effect.Cancel              ( cancelToExit )
 import           HST.Effect.Env                 ( runEnv )
@@ -114,8 +119,8 @@ application = do
   debuggingEnabled <- getOpt optEnableDebug
   filterReportedMessages (\msg -> debuggingEnabled || msgSeverity msg /= Debug)
     $ do
-        -- Show usage information when the @--help@ flag is specified or there is no
-        -- input file.
+        -- Show usage information when the @--help@ flag is specified or there
+        -- is no input file.
         showHelp   <- getOpt optShowHelp
         inputFiles <- getOpt optInputFiles
         if showHelp || null inputFiles
@@ -140,7 +145,7 @@ processInputFile inputFile = do
   input                <- embed $ readFile inputFile
   frontendString       <- getOpt optFrontend
   frontend             <- parseFrontend frontendString
-  (output, moduleName) <- processInput input frontend
+  (output, moduleName) <- processInput frontend inputFile input
   maybeOutputDir       <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -153,19 +158,56 @@ processInputFile inputFile = do
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
 processInput
-  :: Members '[GetOpt] r => String -> Frontend -> Sem r (String, Maybe String)
-processInput input frontend = case frontend of
-  HSE -> do
-    let inputModule        = HSE.fromParseResult (HSE.parseModule input)
-        intermediateModule = FromHSE.transformModule inputModule
-    outputModule <- runEnv . runFresh $ do
-      intermediateModule' <- processModule intermediateModule
-      return $ ToHSE.transformModule inputModule intermediateModule'
-    return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
-  GHClib -> error "Not yet implemented"
+  :: Members '[GetOpt, Report] r
+  => Frontend -- ^ The frontend to use to parse and print the file.
+  -> FilePath -- ^ The name of the input file.
+  -> String   -- ^ The contents of the input file.
+  -> Sem r (String, Maybe String)
+processInput HSE    = processInputHSE
+processInput GHClib = processInputGHC
+
+-- | Implementation of 'processInput' for the 'HSE' frontend.
+processInputHSE
+  :: Members '[GetOpt, Report] r
+  => FilePath
+  -> String
+  -> Sem r (String, Maybe String)
+processInputHSE inputFilename input =
+  case HSE.parseModuleWithMode parseMode input of
+    HSE.ParseOk inputModule -> do
+      let intermediateModule = FromHSE.transformModule inputModule
+      outputModule <- runEnv . runFresh $ do
+        intermediateModule' <- processModule intermediateModule
+        return $ ToHSE.transformModule inputModule intermediateModule'
+      return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
+    HSE.ParseFailed srcLoc msg ->
+      reportFatal
+        $  Message Error
+        $  msg
+        ++ " in "
+        ++ HSE.srcFilename srcLoc
+        ++ ":"
+        ++ show (HSE.srcLine srcLoc)
+        ++ ":"
+        ++ show (HSE.srcLine srcLoc)
+        ++ "."
  where
-  moduleName (S.Module name _) = fmap getName name
-  getName (S.ModuleName _ name) = name
+   -- | Configuration of the @haskell-src-exts@ parser.
+  parseMode :: HSE.ParseMode
+  parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
+
+  -- | Gets the name of the given module.
+  moduleName :: S.Module a -> Maybe String
+  moduleName (S.Module name _) = fmap moduleName' name
+
+  -- | Unwraps the given 'S.ModuleName'.
+  moduleName' :: S.ModuleName a -> String
+  moduleName' (S.ModuleName _ name) = name
+
+-- | Implementation of 'processInput' for the 'GHClib' frontend.
+processInputGHC
+  :: Members '[GetOpt] r => FilePath -> String -> Sem r (String, Maybe String)
+processInputGHC inputFile input = error "Not yet implemeted"
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
