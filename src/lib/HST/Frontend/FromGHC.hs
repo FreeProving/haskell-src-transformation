@@ -353,7 +353,7 @@ transformRdrName (GHC.L s (GHC.Qual modName name)) =
       , GHC.isDataOcc name
       )
 transformRdrName (GHC.L s (GHC.Exact name)) =
-  let s' = transformSrcSpan s in (S.Special s' (transformName s' name), False)
+  let s' = transformSrcSpan s in (S.Special s' (transformName s' name), True)
 transformRdrName _ = error "Unsupported RdrName"
 
 -- | Transforms a GHC located unqualified reader name into an HST name.
