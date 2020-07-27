@@ -117,9 +117,8 @@ instance HasSrcSpan Decl where
 
 -- | A data constructor.
 --
---   Data constructors should not be converted back. The original
---   constructor declaration should be part of the 'OriginalDecl'
---   of a 'DataDecl'.
+--   Data constructors should not be converted back. The original constructor
+--   declaration should be part of the 'OriginalDecl' of a 'DataDecl'.
 data ConDecl a = ConDecl (SrcSpan a) (Name a) [TypeExp a]
                | InfixConDecl (SrcSpan a) (TypeExp a) (Name a) (TypeExp a)
 deriving instance EqAST a => Eq (ConDecl a)
