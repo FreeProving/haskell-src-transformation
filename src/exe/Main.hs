@@ -1,3 +1,5 @@
+{-# LANGUAGE PackageImports #-}
+
 -- | This module contains the command line interface for the
 --   @haskell-src-transformations@ package.
 
@@ -9,9 +11,23 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
+import           Control.Monad                  ( unless )
+import           Data.List                      ( intercalate )
 import           Data.List.Extra                ( splitOn )
+import qualified "ghc-lib-parser" Bag          as GHC
+import qualified "ghc-lib-parser" DynFlags     as GHC
+import qualified "ghc-lib-parser" ErrUtils     as GHC
+import qualified "ghc-lib-parser" GHC.Hs       as GHC
+import qualified "ghc-lib-parser" Lexer        as GHC
+import qualified "ghc-lib-parser" Outputable   as GHC
+import qualified "ghc-lib-parser" SrcLoc       as GHC
+import qualified Language.Haskell.GhclibParserEx.GHC.Parser
+                                               as GHC
+import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config
+                                               as GHC
 import qualified Language.Haskell.Exts         as HSE
-import           Polysemy                       ( Members
+import           Polysemy                       ( Member
+                                                , Members
                                                 , Sem
                                                 )
 import           Polysemy.Embed                 ( Embed
@@ -38,14 +54,19 @@ import           HST.Effect.Report              ( Message(Message)
                                                   ( Error
                                                   , Debug
                                                   , Internal
+                                                  , Warning
                                                   )
                                                 , exceptionToReport
                                                 , filterReportedMessages
                                                 , msgSeverity
+                                                , report
                                                 , reportFatal
                                                 , reportToHandleOrCancel
                                                 )
-import           HST.Effect.Cancel              ( cancelToExit )
+import           HST.Effect.Cancel              ( Cancel
+                                                , cancel
+                                                , cancelToExit
+                                                )
 import           HST.Effect.Env                 ( runEnv )
 import           HST.Effect.Fresh               ( runFresh )
 import           HST.Effect.GetOpt              ( GetOpt
@@ -53,8 +74,10 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , runWithArgsIO
                                                 )
 import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.FromGHC          as FromGHC
 import qualified HST.Frontend.Syntax           as S
 import qualified HST.Frontend.ToHSE            as ToHSE
+import qualified HST.Frontend.ToGHC            as ToGHC
 import           HST.Options                    ( Frontend(..)
                                                 , optShowHelp
                                                 , optInputFiles
@@ -113,7 +136,7 @@ main =
 --   applied on the parsed input module and a state constructed from the
 --   command line arguments. The output is either printed to the console
 --   or a file.
-application :: Members '[Embed IO, GetOpt, Report] r => Sem r ()
+application :: Members '[Cancel, Embed IO, GetOpt, Report] r => Sem r ()
 application = do
   -- Filter reported message based on @--debug@ flag.
   debuggingEnabled <- getOpt optEnableDebug
@@ -140,7 +163,7 @@ application = do
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
 processInputFile
-  :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
+  :: Members '[Cancel, Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFile = do
   input                <- embed $ readFile inputFile
   frontendString       <- getOpt optFrontend
@@ -158,7 +181,7 @@ processInputFile inputFile = do
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
 processInput
-  :: Members '[GetOpt, Report] r
+  :: Members '[Cancel, GetOpt, Report] r
   => Frontend -- ^ The frontend to use to parse and print the file.
   -> FilePath -- ^ The name of the input file.
   -> String   -- ^ The contents of the input file.
@@ -179,7 +202,8 @@ processInputHSE inputFilename input =
       outputModule <- runEnv . runFresh $ do
         intermediateModule' <- processModule intermediateModule
         return $ ToHSE.transformModule inputModule intermediateModule'
-      return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
+      return
+        (prettyPrintModuleHSE outputModule, getModuleName intermediateModule)
     HSE.ParseFailed srcLoc msg ->
       reportFatal
         $  Message Error
@@ -196,18 +220,66 @@ processInputHSE inputFilename input =
   parseMode :: HSE.ParseMode
   parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
-  -- | Gets the name of the given module.
-  moduleName :: S.Module a -> Maybe String
-  moduleName (S.Module name _) = fmap moduleName' name
-
-  -- | Unwraps the given 'S.ModuleName'.
-  moduleName' :: S.ModuleName a -> String
-  moduleName' (S.ModuleName _ name) = name
-
 -- | Implementation of 'processInput' for the 'GHClib' frontend.
+--
+--   Reports all parsing errors and warnings that are reported by the @ghc-lib@
+--   parser and cancels the computation if parsing fails and/or an error is
+--   reported. The computation is canceled via the 'Cancel' effect directly
+--   instead of 'Report'ing an additional fatal error message.
 processInputGHC
-  :: Members '[GetOpt] r => FilePath -> String -> Sem r (String, Maybe String)
-processInputGHC inputFile input = error "Not yet implemeted"
+  :: Members '[Cancel, GetOpt, Report] r
+  => FilePath
+  -> String
+  -> Sem r (String, Maybe String)
+processInputGHC inputFile input =
+  case GHC.parseFile inputFile fakeDynFlags input of
+    GHC.POk state locatedInputModule -> do
+      reportParsingMessages state
+      let inputModule        = GHC.unLoc locatedInputModule
+          intermediateModule = FromGHC.transformModule inputModule
+      outputModule <- runEnv . runFresh $ do
+        intermediateModule' <- processModule intermediateModule
+        return $ ToGHC.transformModule inputModule intermediateModule'
+      return
+        (prettyPrintModuleGHC outputModule, getModuleName intermediateModule)
+    GHC.PFailed state -> do
+      reportParsingMessages state
+      cancel
+ where
+   -- | Reports all errors and warnings that were reported during parsing.
+   --
+   --   Cancels the computation if there is a parsing error. There can be
+   --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
+   --   language extensions are needed such that the parsed AST represents
+   --   a valid module).
+  reportParsingMessages :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
+  reportParsingMessages state = do
+    let (warnings, errors) = GHC.getMessages state fakeDynFlags
+    GHC.mapBagM_ (reportErrMsg Warning) warnings
+    GHC.mapBagM_ (reportErrMsg Error) errors
+    unless (GHC.isEmptyBag errors) cancel
+
+  -- | Reports a error message or warning from @ghc-lib@.
+  reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
+  reportErrMsg severity msg =
+    report
+      $ Message severity
+      $ intercalate "\n • "
+      $ map (GHC.showSDoc fakeDynFlags)
+      $ GHC.errDocImportant
+      $ GHC.errMsgDoc msg
+
+-- | Configuration of the @ghc-lib@ parser and pretty-printer.
+fakeDynFlags :: GHC.DynFlags
+fakeDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
+
+-- | Gets the name of the given module.
+getModuleName :: S.Module a -> Maybe String
+getModuleName (S.Module moduleName _) = fmap getModuleName' moduleName
+ where
+  -- | Unwraps the given 'S.ModuleName'.
+  getModuleName' :: S.ModuleName a -> String
+  getModuleName' (S.ModuleName _ name) = name
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
@@ -229,8 +301,8 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName =
     maybe (takeBaseName inputFile) (joinPath . splitOn ".") modName
 
-
--- | Pretty prints the given Haskell module.
+-- | Pretty prints the given Haskell module with the pretty printer of
+--   @haskell-src-exts@.
 prettyPrintModuleHSE :: HSE.Module HSE.SrcSpanInfo -> String
 prettyPrintModuleHSE = HSE.prettyPrintStyleMode
   (HSE.Style { HSE.mode           = HSE.PageMode
@@ -239,3 +311,8 @@ prettyPrintModuleHSE = HSE.prettyPrintStyleMode
              }
   )
   HSE.defaultMode
+
+-- | Pretty prints the given Haskell module with the pretty printer of
+--   @ghc-lib@.
+prettyPrintModuleGHC :: GHC.HsModule GHC.GhcPs -> String
+prettyPrintModuleGHC = GHC.showPpr fakeDynFlags
