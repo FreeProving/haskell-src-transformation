@@ -1,4 +1,4 @@
-{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE AllowAmbiguousTypes, ScopedTypeVariables, TypeApplications #-}
 
 -- | This module contains the command line interface for the
 --   @haskell-src-transformations@ package.
@@ -11,23 +11,8 @@ where
 import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
-import           Control.Monad                  ( unless )
-import           Data.List                      ( intercalate )
 import           Data.List.Extra                ( splitOn )
-import qualified "ghc-lib-parser" Bag          as GHC
-import qualified "ghc-lib-parser" DynFlags     as GHC
-import qualified "ghc-lib-parser" ErrUtils     as GHC
-import qualified "ghc-lib-parser" GHC.Hs       as GHC
-import qualified "ghc-lib-parser" Lexer        as GHC
-import qualified "ghc-lib-parser" Outputable   as GHC
-import qualified "ghc-lib-parser" SrcLoc       as GHC
-import qualified Language.Haskell.GhclibParserEx.GHC.Parser
-                                               as GHC
-import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config
-                                               as GHC
-import qualified Language.Haskell.Exts         as HSE
-import           Polysemy                       ( Member
-                                                , Members
+import           Polysemy                       ( Members
                                                 , Sem
                                                 )
 import           Polysemy.Embed                 ( Embed
@@ -51,20 +36,15 @@ import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
                                                 , Severity
-                                                  ( Error
-                                                  , Debug
+                                                  ( Debug
                                                   , Internal
-                                                  , Warning
                                                   )
                                                 , exceptionToReport
                                                 , filterReportedMessages
                                                 , msgSeverity
-                                                , report
-                                                , reportFatal
                                                 , reportToHandleOrCancel
                                                 )
 import           HST.Effect.Cancel              ( Cancel
-                                                , cancel
                                                 , cancelToExit
                                                 )
 import           HST.Effect.Env                 ( runEnv )
@@ -73,11 +53,19 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
                                                 )
-import qualified HST.Frontend.FromHSE          as FromHSE
-import qualified HST.Frontend.FromGHC          as FromGHC
+import           HST.Frontend.FromGHC           ( GHC )
+import           HST.Frontend.FromHSE           ( HSE )
+import           HST.Frontend.Parser            ( Parsable(parseModule) )
+import           HST.Frontend.PrettyPrinter     ( PrettyPrintable
+                                                  ( prettyPrintModule
+                                                  )
+                                                )
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.ToHSE            as ToHSE
-import qualified HST.Frontend.ToGHC            as ToGHC
+import           HST.Frontend.Transformer       ( Transformable
+                                                  ( transformModule
+                                                  , unTransformModule
+                                                  )
+                                                )
 import           HST.Options                    ( Frontend(..)
                                                 , optShowHelp
                                                 , optInputFiles
@@ -186,97 +174,33 @@ processInput
   -> FilePath -- ^ The name of the input file.
   -> String   -- ^ The contents of the input file.
   -> Sem r (String, Maybe String)
-processInput HSE    = processInputHSE
-processInput GHClib = processInputGHC
+processInput HSE    = processInput' @HSE
+processInput GHClib = processInput' @GHC
 
 -- | Implementation of 'processInput' for the 'HSE' frontend.
-processInputHSE
-  :: Members '[GetOpt, Report] r
+processInput'
+  :: forall a r
+   . ( Parsable a
+     , Transformable a
+     , PrettyPrintable a
+     , S.EqAST a
+     , Members '[Cancel, GetOpt, Report] r
+     )
   => FilePath
   -> String
   -> Sem r (String, Maybe String)
-processInputHSE inputFilename input =
-  case HSE.parseModuleWithMode parseMode input of
-    HSE.ParseOk inputModule -> do
-      let intermediateModule = FromHSE.transformModule inputModule
-      outputModule <- runEnv . runFresh $ do
-        intermediateModule' <- processModule intermediateModule
-        return $ ToHSE.transformModule inputModule intermediateModule'
-      return
-        (prettyPrintModuleHSE outputModule, getModuleName intermediateModule)
-    HSE.ParseFailed srcLoc msg ->
-      reportFatal
-        $  Message Error
-        $  msg
-        ++ " in "
-        ++ HSE.srcFilename srcLoc
-        ++ ":"
-        ++ show (HSE.srcLine srcLoc)
-        ++ ":"
-        ++ show (HSE.srcLine srcLoc)
-        ++ "."
+processInput' inputFilename input = do
+  inputModule        <- parseModule @a inputFilename input
+  intermediateModule <- transformModule inputModule
+  outputModule       <- runEnv . runFresh $ do
+    intermediateModule' <- processModule intermediateModule
+    unTransformModule inputModule intermediateModule'
+  return (prettyPrintModule outputModule, getModuleName intermediateModule)
  where
-   -- | Configuration of the @haskell-src-exts@ parser.
-  parseMode :: HSE.ParseMode
-  parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
+  -- | Gets the name of the given module.
+  getModuleName :: S.Module a -> Maybe String
+  getModuleName (S.Module moduleName _) = fmap getModuleName' moduleName
 
--- | Implementation of 'processInput' for the 'GHClib' frontend.
---
---   Reports all parsing errors and warnings that are reported by the @ghc-lib@
---   parser and cancels the computation if parsing fails and/or an error is
---   reported. The computation is canceled via the 'Cancel' effect directly
---   instead of 'Report'ing an additional fatal error message.
-processInputGHC
-  :: Members '[Cancel, GetOpt, Report] r
-  => FilePath
-  -> String
-  -> Sem r (String, Maybe String)
-processInputGHC inputFile input =
-  case GHC.parseFile inputFile fakeDynFlags input of
-    GHC.POk state locatedInputModule -> do
-      reportParsingMessages state
-      let inputModule        = GHC.unLoc locatedInputModule
-          intermediateModule = FromGHC.transformModule inputModule
-      outputModule <- runEnv . runFresh $ do
-        intermediateModule' <- processModule intermediateModule
-        return $ ToGHC.transformModule inputModule intermediateModule'
-      return
-        (prettyPrintModuleGHC outputModule, getModuleName intermediateModule)
-    GHC.PFailed state -> do
-      reportParsingMessages state
-      cancel
- where
-   -- | Reports all errors and warnings that were reported during parsing.
-   --
-   --   Cancels the computation if there is a parsing error. There can be
-   --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
-   --   language extensions are needed such that the parsed AST represents
-   --   a valid module).
-  reportParsingMessages :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
-  reportParsingMessages state = do
-    let (warnings, errors) = GHC.getMessages state fakeDynFlags
-    GHC.mapBagM_ (reportErrMsg Warning) warnings
-    GHC.mapBagM_ (reportErrMsg Error) errors
-    unless (GHC.isEmptyBag errors) cancel
-
-  -- | Reports a error message or warning from @ghc-lib@.
-  reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
-  reportErrMsg severity msg =
-    report
-      $ Message severity
-      $ intercalate "\n • "
-      $ map (GHC.showSDoc fakeDynFlags)
-      $ GHC.errDocImportant
-      $ GHC.errMsgDoc msg
-
--- | Configuration of the @ghc-lib@ parser and pretty-printer.
-fakeDynFlags :: GHC.DynFlags
-fakeDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
-
--- | Gets the name of the given module.
-getModuleName :: S.Module a -> Maybe String
-getModuleName (S.Module moduleName _) = fmap getModuleName' moduleName
- where
   -- | Unwraps the given 'S.ModuleName'.
   getModuleName' :: S.ModuleName a -> String
   getModuleName' (S.ModuleName _ name) = name
@@ -300,19 +224,3 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName :: FilePath
   outputFileName =
     maybe (takeBaseName inputFile) (joinPath . splitOn ".") modName
-
--- | Pretty prints the given Haskell module with the pretty printer of
---   @haskell-src-exts@.
-prettyPrintModuleHSE :: HSE.Module HSE.SrcSpanInfo -> String
-prettyPrintModuleHSE = HSE.prettyPrintStyleMode
-  (HSE.Style { HSE.mode           = HSE.PageMode
-             , HSE.lineLength     = 120
-             , HSE.ribbonsPerLine = 1.5
-             }
-  )
-  HSE.defaultMode
-
--- | Pretty prints the given Haskell module with the pretty printer of
---   @ghc-lib@.
-prettyPrintModuleGHC :: GHC.HsModule GHC.GhcPs -> String
-prettyPrintModuleGHC = GHC.showPpr fakeDynFlags
