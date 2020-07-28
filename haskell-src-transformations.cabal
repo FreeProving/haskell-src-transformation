@@ -56,8 +56,7 @@ common deps
                      , GADTs
                      , PolyKinds
                      , TypeOperators
-  other-extensions:    AllowAmbiguousTypes
-                     , BlockArguments
+  other-extensions:    BlockArguments
                      , FlexibleContexts
                      , LambdaCase
                      , PackageImports

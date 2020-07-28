@@ -1,5 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes, ScopedTypeVariables, TypeApplications #-}
-
 -- | This module contains the command line interface for the
 --   @haskell-src-transformations@ package.
 
