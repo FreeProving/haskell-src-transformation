@@ -50,11 +50,11 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
                                                 )
-import           HST.Effect.WithFrontend        ( runWithFrontend
-                                                , parseModule
+import           HST.Effect.WithFrontend        ( parseModule
+                                                , prettyPrintModule
+                                                , runWithFrontend
                                                 , transformModule
                                                 , unTransformModule
-                                                , prettyPrintModule
                                                 )
 import qualified HST.Frontend.Syntax           as S
 import           HST.Options                    ( Frontend(..)

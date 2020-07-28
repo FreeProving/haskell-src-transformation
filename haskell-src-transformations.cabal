@@ -61,6 +61,7 @@ common deps
                      , FlexibleContexts
                      , LambdaCase
                      , PackageImports
+                     , RankNTypes
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TemplateHaskell

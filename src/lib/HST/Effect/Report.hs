@@ -25,6 +25,7 @@ module HST.Effect.Report
   , reportToHandleOrCancel
   , filterReportedMessages
     -- * Interpretations for Other Effects
+  , cancelToReport
   , errorToReport
   , exceptionToReport
   )
@@ -142,6 +143,12 @@ filterReportedMessages p = intercept \case
 -------------------------------------------------------------------------------
 -- Interpretations for Other Effects                                         --
 -------------------------------------------------------------------------------
+
+-- | Handels the 'Cancel' effect by reporting the given fatal error message
+--   when the computation was canceled.
+cancelToReport :: Member Report r => Message -> Sem (Cancel ': r) a -> Sem r a
+cancelToReport cancelMessage =
+  runCancel >=> maybe (reportFatal cancelMessage) return
 
 -- | Handles the 'Error' effect by reporting thrown errors as the message
 --   returned by the given function for the error.
