@@ -35,10 +35,7 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity
-                                                  ( Debug
-                                                  , Internal
-                                                  )
+                                                , Severity(Debug, Internal)
                                                 , exceptionToReport
                                                 , filterReportedMessages
                                                 , msgSeverity
@@ -53,19 +50,13 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
                                                 )
-import           HST.Frontend.FromGHC           ( GHC )
-import           HST.Frontend.FromHSE           ( HSE )
-import           HST.Frontend.Parser            ( Parsable(parseModule) )
-import           HST.Frontend.PrettyPrinter     ( PrettyPrintable
-                                                  ( prettyPrintModule
-                                                  )
+import           HST.Effect.WithFrontend        ( runWithFrontend
+                                                , parseModule
+                                                , transformModule
+                                                , unTransformModule
+                                                , prettyPrintModule
                                                 )
 import qualified HST.Frontend.Syntax           as S
-import           HST.Frontend.Transformer       ( Transformable
-                                                  ( transformModule
-                                                  , unTransformModule
-                                                  )
-                                                )
 import           HST.Options                    ( Frontend(..)
                                                 , optShowHelp
                                                 , optInputFiles
@@ -174,28 +165,14 @@ processInput
   -> FilePath -- ^ The name of the input file.
   -> String   -- ^ The contents of the input file.
   -> Sem r (String, Maybe String)
-processInput HSE    = processInput' @HSE
-processInput GHClib = processInput' @GHC
-
--- | Implementation of 'processInput' for the 'HSE' frontend.
-processInput'
-  :: forall a r
-   . ( Parsable a
-     , Transformable a
-     , PrettyPrintable a
-     , S.EqAST a
-     , Members '[Cancel, GetOpt, Report] r
-     )
-  => FilePath
-  -> String
-  -> Sem r (String, Maybe String)
-processInput' inputFilename input = do
-  inputModule        <- parseModule @a inputFilename input
+processInput frontend inputFilename input = runWithFrontend frontend $ do
+  inputModule        <- parseModule inputFilename input
   intermediateModule <- transformModule inputModule
   outputModule       <- runEnv . runFresh $ do
     intermediateModule' <- processModule intermediateModule
     unTransformModule inputModule intermediateModule'
-  return (prettyPrintModule outputModule, getModuleName intermediateModule)
+  output <- prettyPrintModule outputModule
+  return (output, getModuleName intermediateModule)
  where
   -- | Gets the name of the given module.
   getModuleName :: S.Module a -> Maybe String

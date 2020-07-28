@@ -84,6 +84,15 @@ library
   hs-source-dirs:     src/lib
   exposed-modules:    HST.Application
                     , HST.CoreAlgorithm
+                    , HST.Effect.Cancel
+                    , HST.Effect.Env
+                    , HST.Effect.Fresh
+                    , HST.Effect.GetOpt
+                    , HST.Effect.Report
+                    , HST.Effect.WithFrontend
+                    , HST.Environment
+                    , HST.Environment.Prelude
+                    , HST.Environment.Renaming
                     , HST.Feature.CaseCompletion
                     , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
@@ -92,17 +101,9 @@ library
                     , HST.Frontend.Parser
                     , HST.Frontend.PrettyPrinter
                     , HST.Frontend.Syntax
-                    , HST.Frontend.Transformer
                     , HST.Frontend.ToGHC
                     , HST.Frontend.ToHSE
-                    , HST.Effect.Cancel
-                    , HST.Effect.Env
-                    , HST.Effect.Fresh
-                    , HST.Effect.GetOpt
-                    , HST.Effect.Report
-                    , HST.Environment
-                    , HST.Environment.Prelude
-                    , HST.Environment.Renaming
+                    , HST.Frontend.Transformer
                     , HST.Options
 
 -- Build configuration for the command line interface.
