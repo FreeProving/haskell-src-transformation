@@ -6,22 +6,17 @@ module HST.ApplicationTests
   )
 where
 
-import           Polysemy                       ( Member
-                                                , Members
+import           Polysemy                       ( Members
                                                 , Sem
                                                 , runM
                                                 )
-import           Polysemy.Embed                 ( Embed
-                                                , embed
-                                                )
+import           Polysemy.Embed                 ( Embed )
 import           Test.Hspec                     ( Spec
-                                                , Expectation
                                                 , context
                                                 , describe
                                                 , it
                                                 , shouldBe
                                                 )
-import           Test.HUnit.Base                ( assertFailure )
 
 import           HST.Application                ( processModule )
 import           HST.Effect.Cancel              ( Cancel )
@@ -34,8 +29,11 @@ import           HST.Effect.Report              ( Message(Message)
                                                 , Report
                                                 , Severity(Info)
                                                 , cancelToReport
-                                                , runReport
-                                                , showPrettyMessage
+                                                )
+import           HST.Effect.SetExpectation      ( SetExpectation
+                                                , reportToSetExpectation
+                                                , setExpectation
+                                                , setExpectationToIO
                                                 )
 import           HST.Effect.WithFrontend        ( WithFrontend
                                                 , parseModule
@@ -74,12 +72,15 @@ processTestModule inputModule = runEnv . runFresh $ do
 runTest
   :: (  forall f
       . S.EqAST f
-     => Sem '[WithFrontend f, GetOpt, Cancel, Report, Embed IO] ()
+     => Sem
+          '[WithFrontend f, GetOpt, Cancel, Report, SetExpectation, Embed IO]
+          ()
      )
   -> IO ()
 runTest comp =
   runM
-    $ reportToExpectation
+    $ setExpectationToIO
+    $ reportToSetExpectation
     $ cancelToReport (Message Info "The computation was canceled.")
     $ runWithArgs []
     $ runWithAllFrontends comp
@@ -87,18 +88,6 @@ runTest comp =
 -------------------------------------------------------------------------------
 -- Expectation Setters                                                       --
 -------------------------------------------------------------------------------
-
--- | Effect for setting 'Expectation's in computations.
---
---   This is an alias for an embedded @IO@ monad with a more descriptive name.
-type SetExpectation = Embed IO
-
--- | Sets the given expectation.
---
---   This is an alias for @embed@ing an IO action into the computation with
---   a more descriptive name.
-setExpectation :: Member SetExpectation r => Expectation -> Sem r ()
-setExpectation = embed
 
 -- | Pretty prints both the two given modules and tests whether the resulting
 --   strings are equal modulo whitespace.
@@ -111,20 +100,6 @@ prettyModuleShouldBe m1 m2 = do
   p1 <- prettyPrintModule m1
   p2 <- prettyPrintModule m2
   setExpectation (p1 `shouldBe` p2)
-
--- | Handles the 'Report' effect by asserting that no fatal message is reported.
---
---   If there is a fatal message, all reported messages are included in
---   the error message.
-reportToExpectation :: Member (Embed IO) r => Sem (Report ': r) a -> Sem r a
-reportToExpectation comp = do
-  (ms, mx) <- runReport comp
-  case mx of
-    Nothing -> embed $ assertFailure $ unlines
-      ( ("The following " ++ show (length ms) ++ " messages were reported:")
-      : map showPrettyMessage ms
-      )
-    Just x -> return x
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
