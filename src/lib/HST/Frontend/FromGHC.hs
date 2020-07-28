@@ -8,24 +8,26 @@
 module HST.Frontend.FromGHC where
 
 import           Data.Data                      ( Data )
+import           Data.Map                       ( Map )
+import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe
                                                 , mapMaybe
                                                 )
 
-import qualified "ghc-lib-parser" GHC.Hs       as GHC
-import qualified "ghc-lib-parser" SrcLoc       as GHC
-import qualified "ghc-lib-parser" RdrName      as GHC
-import qualified "ghc-lib-parser" OccName      as GHC
-import qualified "ghc-lib-parser" BasicTypes   as GHC
 import qualified "ghc-lib-parser" Bag          as GHC
-import qualified "ghc-lib-parser" TysWiredIn   as GHC
+import qualified "ghc-lib-parser" BasicTypes   as GHC
+import qualified "ghc-lib-parser" ConLike      as GHC
+import qualified "ghc-lib-parser" DataCon      as GHC
+import qualified "ghc-lib-parser" DynFlags     as GHC
+import qualified "ghc-lib-parser" GHC.Hs       as GHC
+import qualified "ghc-lib-parser" GHC.Hs.Dump  as GHC
 import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC
-import qualified "ghc-lib-parser" TyCon        as GHC
-import qualified "ghc-lib-parser" Type         as GHC
-import qualified "ghc-lib-parser" DynFlags     as GHC
-import qualified "ghc-lib-parser" GHC.Hs.Dump  as GHC
 import qualified "ghc-lib-parser" Outputable   as GHC
+import qualified "ghc-lib-parser" RdrName      as GHC
+import qualified "ghc-lib-parser" SrcLoc       as GHC
+import qualified "ghc-lib-parser" Type         as GHC
+import qualified "ghc-lib-parser" TysWiredIn   as GHC
 import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config
                                                as GHC
 
@@ -353,7 +355,8 @@ transformRdrName (GHC.L s (GHC.Qual modName name)) =
       , GHC.isDataOcc name
       )
 transformRdrName (GHC.L s (GHC.Exact name)) =
-  let s' = transformSrcSpan s in (S.Special s' (transformName s' name), True)
+  let s' = transformSrcSpan s
+  in  (S.Special s' (transformSpecialCon s' name), True)
 transformRdrName _ = error "Unsupported RdrName"
 
 -- | Transforms a GHC located unqualified reader name into an HST name.
@@ -364,30 +367,33 @@ transformRdrNameUnqual _ = error "Expected an unqualified name"
 
 -- | Transforms a GHC name with an HST source span into an HST special
 --   constructor.
-transformName :: S.SrcSpan GHC -> GHC.Name -> S.SpecialCon GHC
-transformName s name = case lookup name (specialConMap s) of
-  Just sCon -> sCon
-  Nothing   -> case GHC.wiredInNameTyThing_maybe name of
-    -- TODO Can the other TyThing constructors occur?
-    Just (GHC.ATyCon tc) -> case GHC.tyConTuple_maybe tc of
-      Just GHC.BoxedTuple   -> S.TupleCon s S.Boxed (GHC.tyConArity tc)
-      Just GHC.UnboxedTuple -> S.TupleCon s S.Unboxed (GHC.tyConArity tc)
-      _                     -> error "Unexpected special constructor"
-    _ -> error "Expected a built-in special constructor"
+transformSpecialCon :: S.SrcSpan GHC -> GHC.Name -> S.SpecialCon GHC
+transformSpecialCon s name = case Map.lookup name specialDataConMap of
+  Just mkSpecialCon -> mkSpecialCon s
+  Nothing           -> case GHC.wiredInNameTyThing_maybe name of
+    Just (GHC.AConLike (GHC.RealDataCon dataCon))
+      | GHC.isUnboxedTupleCon dataCon -> S.TupleCon s S.Unboxed
+      $  GHC.dataConSourceArity dataCon
+      | GHC.isTupleDataCon dataCon -> S.TupleCon s S.Boxed
+      $  GHC.dataConSourceArity dataCon
+    _ -> error
+      (  "Wired in data constructor not supported: "
+      ++ GHC.occNameString (GHC.nameOccName name)
+      )
 
--- | Takes an HST source span and maps GHC names to HST special constructors.
+-- | Maps GHC names of data constructors to functions that build HST special
+--   constructor nodes with the given source span.
 --
 --   Tuple constructors cannot be transformed with this map and are instead
---   transformed directly in 'transformName'.
+--   transformed directly in 'transformSpecialCon'.
 --   Expression holes appear at expression level in the GHC AST and are
 --   transformed in 'transformExpr' instead.
-specialConMap :: S.SrcSpan GHC -> [(GHC.Name, S.SpecialCon GHC)]
-specialConMap s =
-  [ (GHC.tyConName GHC.unitTyCon          , S.UnitCon s)
-  , (GHC.listTyConName                    , S.ListCon s)
-  , (GHC.tyConName GHC.funTyCon           , S.FunCon s)
-  , (GHC.consDataConName                  , S.Cons s)
-  , (GHC.tupleTyConName GHC.UnboxedTuple 0, S.UnboxedSingleCon s)
+specialDataConMap :: Map GHC.Name (S.SrcSpan GHC -> S.SpecialCon GHC)
+specialDataConMap = Map.fromList
+  [ (GHC.dataConName GHC.unitDataCon       , S.UnitCon)
+  , (GHC.dataConName GHC.nilDataCon        , S.ListCon)
+  , (GHC.dataConName GHC.consDataCon       , S.Cons)
+  , (GHC.dataConName GHC.unboxedUnitDataCon, S.UnboxedSingleCon)
   ]
 
 -- | Wraps a GHC source span into the HST type for source spans.
