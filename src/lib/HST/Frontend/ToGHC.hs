@@ -29,35 +29,33 @@ import qualified HST.Frontend.Syntax           as S
 import           HST.Frontend.FromGHC           ( GHC
                                                 , LitWrapper(Lit, OverLit)
                                                 , TypeWrapper(SigType)
+                                                , OriginalModuleHead
+                                                  ( originalModuleName
+                                                  , originalModuleExports
+                                                  , originalModuleImports
+                                                  , originalModuleDeprecMessage
+                                                  , originalModuleHaddockModHeader
+                                                  )
+                                                , DeclWrapper(Decl)
                                                 )
 
 -- | Transforms the @haskell-src-transformations@ representation of a Haskell
 --   module into the @ghc-lib-parser@ representation of a Haskell module by
 --   enriching it with information from the original GHC module.
-transformModule
-  :: GHC.HsModule GHC.GhcPs -> S.Module GHC -> GHC.HsModule GHC.GhcPs
-transformModule oModule (S.Module _ aDecls) = oModule
-  { GHC.hsmodDecls = combineDecls (GHC.hsmodDecls oModule)
-                                  (map transformDecl (filter isFun aDecls))
-  }
- where
-  isFun (S.FunBind _ _) = True
-  isFun _               = False
-  combineDecls (GHC.L _ (GHC.ValD _ GHC.FunBind{}) : oDecls) (aDecl : aDecls')
-    = aDecl : combineDecls oDecls aDecls'
-  combineDecls (oDecl : oDecls) aDecls' = oDecl : combineDecls oDecls aDecls'
-  combineDecls []               aDecls' = aDecls'
+transformModule :: S.Module GHC -> GHC.Located (GHC.HsModule GHC.GhcPs)
+transformModule (S.Module s omh _ decls) = GHC.L
+  (transformSrcSpan s)
+  GHC.HsModule { GHC.hsmodName             = originalModuleName omh
+               , GHC.hsmodExports          = originalModuleExports omh
+               , GHC.hsmodImports          = originalModuleImports omh
+               , GHC.hsmodDecls            = map transformDecl decls
+               , GHC.hsmodDeprecMessage    = originalModuleDeprecMessage omh
+               , GHC.hsmodHaddockModHeader = originalModuleHaddockModHeader omh
+               }
 
 -- | Transforms an HST declaration into an GHC located declaration.
 transformDecl :: S.Decl GHC -> GHC.LHsDecl GHC.GhcPs
-transformDecl (S.DataDecl _ _) =
-  error "Data type declarations should not be transformed back"
-transformDecl (S.TypeSig s names (SigType typ)) = GHC.L
-  (transformSrcSpan s)
-  (GHC.SigD
-    GHC.NoExtField
-    (GHC.TypeSig GHC.NoExtField (map (transformName GHC.dataName) names) typ)
-  )
+transformDecl (S.DataDecl _ (Decl oDecl) _ _) = oDecl
 transformDecl (S.FunBind s matches) =
   let s' = transformSrcSpan s
   in  GHC.L
@@ -77,6 +75,7 @@ transformDecl (S.FunBind s matches) =
   getMatchesName (S.Match _ name _ _ _ : _) = name
   getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = name
   getMatchesName _ = error "Empty match group"
+transformDecl (S.OtherDecl _ (Decl oDecl)) = oDecl
 
 -- | Transforms an HST binding group into a GHC located binding group.
 transformMaybeBinds :: Maybe (S.Binds GHC) -> GHC.LHsLocalBinds GHC.GhcPs
@@ -172,7 +171,7 @@ transformGuardedRhs (S.GuardedRhs s ge be) = GHC.L
   (GHC.GRHS
     GHC.NoExtField
     [ GHC.L
-        (transformSrcSpan (S.getSrcExp ge))
+        (transformSrcSpan (S.getSrcSpan ge))
         (GHC.BodyStmt GHC.NoExtField
                       (transformExp ge)
                       GHC.noSyntaxExpr
@@ -222,7 +221,7 @@ transformExp (S.Lambda s pats e) =
       match = S.Match s
                       (S.Ident S.NoSrcSpan "")
                       pats
-                      (S.UnGuardedRhs (S.getSrcExp e) e)
+                      (S.UnGuardedRhs (S.getSrcSpan e) e)
                       Nothing
   in  GHC.L s'
             (GHC.HsLam GHC.NoExtField (transformMatches LambdaExp s' [match]))
@@ -251,7 +250,7 @@ transformExp (S.Tuple s boxed es) = GHC.L
   )
  where
   transformExpTuple :: S.Exp GHC -> GHC.LHsTupArg GHC.GhcPs
-  transformExpTuple e' = GHC.L (transformSrcSpan (S.getSrcExp e'))
+  transformExpTuple e' = GHC.L (transformSrcSpan (S.getSrcSpan e'))
                                (GHC.Present GHC.NoExtField (transformExp e'))
 transformExp (S.List s es) = GHC.L
   (transformSrcSpan s)
