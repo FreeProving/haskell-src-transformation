@@ -43,8 +43,8 @@ import           HST.Effect.Report              ( Report
                                                 , runReport
                                                 , showPrettyMessage
                                                 )
-import qualified HST.Frontend.FromHSE          as FromHSE
-import qualified HST.Frontend.ToHSE            as ToHSE
+import qualified HST.Frontend.HSE.From         as FromHSE
+import qualified HST.Frontend.HSE.To           as ToHSE
 
 -------------------------------------------------------------------------------
 -- Utility Functions                                                         --

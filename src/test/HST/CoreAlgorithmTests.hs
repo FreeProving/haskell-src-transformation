@@ -21,10 +21,10 @@ import           Test.HUnit.Base                ( assertFailure )
 
 import           HST.CoreAlgorithm              ( compareCons )
 import           HST.Effect.Report
-import           HST.Frontend.FromHSE           ( HSE )
-import qualified HST.Frontend.FromHSE          as FromHSE
+import           HST.Frontend.HSE.Config        ( HSE )
+import qualified HST.Frontend.HSE.From         as FromHSE
+import qualified HST.Frontend.HSE.To           as ToHSE
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | Tests for the "HST.CoreAlgorithm" module.
 testCoreAlgorithm :: Spec
