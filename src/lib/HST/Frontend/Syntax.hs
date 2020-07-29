@@ -119,7 +119,7 @@ instance HasSrcSpan Decl where
 --
 --   Data constructors should not be converted back. The original constructor
 --   declaration should be part of the 'OriginalDecl' of a 'DataDecl'.
-data ConDecl a = ConDecl { conDeclSource  :: SrcSpan a
+data ConDecl a = ConDecl { conDeclSrcSpan :: SrcSpan a
                          , conDeclName    :: Name a
                          , conDeclArity   :: Int
                          , conDeclIsInfix :: Bool
@@ -129,8 +129,7 @@ deriving instance ShowAST a => Show (ConDecl a)
 
 -- | Gets the source span information of a constructor declaration.
 instance HasSrcSpan ConDecl where
-  getSrcSpan (ConDecl srcSpan _ _       ) = srcSpan
-  getSrcSpan (InfixConDecl srcSpan _ _ _) = srcSpan
+  getSrcSpan = conDeclSrcSpan
 
 -------------------------------------------------------------------------------
 -- Function Declarations                                                     --

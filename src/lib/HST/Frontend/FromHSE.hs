@@ -242,20 +242,18 @@ transformConDecl
   :: Member Report r => HSE.ConDecl HSE.SrcSpanInfo -> Sem r (S.ConDecl HSE)
 transformConDecl (HSE.ConDecl s cName types) = do
   name' <- transformName cName
-  return $ S.ConDecl
-    { S.conDeclSource  = (transformSrcSpan s)
-    , S.conDeclName    = name'
-    , S.conDeclArity   = length types
-    , S.conDeclIsInfix = False
-    }
+  return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
+                   , S.conDeclName    = name'
+                   , S.conDeclArity   = length types
+                   , S.conDeclIsInfix = False
+                   }
 transformConDecl (HSE.InfixConDecl s _ cName _) = do
   name' <- transformName cName
-  return $ S.ConDecl
-    { S.conDeclSource  = (transformSrcSpan s)
-    , S.conDeclName    = name'
-    , S.conDeclArity   = 2
-    , S.conDeclIsInfix = True
-    }
+  return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
+                   , S.conDeclName    = name'
+                   , S.conDeclArity   = 2
+                   , S.conDeclIsInfix = True
+                   }
 transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
 
 -- | Transforms an HSE match into an HST match.

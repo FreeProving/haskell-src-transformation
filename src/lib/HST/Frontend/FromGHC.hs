@@ -8,9 +8,8 @@
 module HST.Frontend.FromGHC where
 
 import           Data.Data                      ( Data )
-import           Data.Maybe                     ( fromMaybe
-                                                , mapMaybe
-                                                )
+import           Data.Maybe                     ( fromMaybe )
+import           Data.List                      ( intercalate )
 
 import qualified "ghc-lib-parser" GHC.Hs       as GHC
 import qualified "ghc-lib-parser" SrcLoc       as GHC
@@ -35,6 +34,48 @@ import qualified HST.Frontend.Syntax           as S
 -- Type Family Instances                                                     --
 -------------------------------------------------------------------------------
 
+-- | Wrapper for the fields of modules that are not supported.
+data OriginalModuleHead = OriginalModuleHead
+  { originalModuleName             :: Maybe (GHC.Located GHC.ModuleName)
+  , originalModuleExports          :: Maybe (GHC.Located [GHC.LIE GHC.GhcPs])
+  , originalModuleImports          :: [GHC.LImportDecl GHC.GhcPs]
+  , originalModuleDeprecMessage    :: Maybe (GHC.Located GHC.WarningTxt)
+  , originalModuleHaddockModHeader :: Maybe GHC.LHsDocString
+  }
+
+instance Eq OriginalModuleHead where
+  omh1 == omh2 = all
+    id
+    [ originalModuleName omh1 == originalModuleName omh2
+    , originalModuleExports omh1 == originalModuleExports omh2
+    , defaultPrintEq (originalModuleImports omh1)
+      == defaultPrintEq (originalModuleImports omh2)
+    , originalModuleDeprecMessage omh1 == originalModuleDeprecMessage omh2
+    , originalModuleHaddockModHeader omh1 == originalModuleHaddockModHeader omh2
+    ]
+
+-- Is there a better solution for this Show instance? Deriving Show would be
+-- possible if a Show instance was available for every sub type of the record,
+-- but that would require Orphan instances or otherwise unnecessary wrappers
+-- for all of these sub types. 
+instance Show OriginalModuleHead where
+  show omh =
+    "OriginalModuleHead {"
+      ++ intercalate
+           ", "
+           [ "originalModuleName = "
+             ++ defaultPrintShow (originalModuleName omh)
+           , "originalModuleExports = "
+             ++ defaultPrintShow (originalModuleExports omh)
+           , "originalModuleImports = "
+             ++ defaultPrintShow (originalModuleImports omh)
+           , "originalModuleDeprecMessage = "
+             ++ defaultPrintShow (originalModuleDeprecMessage omh)
+           , "originalModuleHaddockModHeader = "
+             ++ defaultPrintShow (originalModuleHaddockModHeader omh)
+           ]
+      ++ "}"
+
 -- | Type representing the AST data structure of @ghc-lib-parser@.
 --
 --   Instantiates the type families for source spans, literals and type
@@ -45,6 +86,8 @@ data GHC
 type instance S.SrcSpanType GHC = GHC.SrcSpan
 type instance S.Literal GHC = LitWrapper
 type instance S.TypeExp GHC = TypeWrapper
+type instance S.OriginalModuleHead GHC = OriginalModuleHead
+type instance S.OriginalDecl GHC = DeclWrapper
 
 instance S.EqAST GHC
 instance S.ShowAST GHC
@@ -72,6 +115,14 @@ instance Eq TypeWrapper where
 
 instance Show TypeWrapper where
   show (SigType t) = defaultPrintShow t
+
+newtype DeclWrapper = Decl (GHC.LHsDecl GHC.GhcPs)
+
+instance Eq DeclWrapper where
+  Decl d1 == Decl d2 = defaultPrintEq d1 == defaultPrintEq d2
+
+instance Show DeclWrapper where
+  show (Decl d) = defaultPrintShow d
 
 -------------------------------------------------------------------------------
 -- Printing Functions for the @ghc-lib-parser@ AST                           --
@@ -108,33 +159,33 @@ defaultDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
 
 -- | Transforms the @ghc-lib-parser@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
-transformModule :: GHC.HsModule GHC.GhcPs -> S.Module GHC
-transformModule modul =
+transformModule :: GHC.Located (GHC.HsModule GHC.GhcPs) -> S.Module GHC
+transformModule (GHC.L s modul) =
   let modName' = case GHC.hsmodName modul of
-        Just (GHC.L s modName) ->
-          Just (transformModuleName (transformSrcSpan s) modName)
+        Just (GHC.L s' modName) ->
+          Just (transformModuleName (transformSrcSpan s') modName)
         Nothing -> Nothing
-  in  S.Module modName' (mapMaybe transformDecl (GHC.hsmodDecls modul))
+  in  S.Module
+        (transformSrcSpan s)
+        (OriginalModuleHead (GHC.hsmodName modul)
+                            (GHC.hsmodExports modul)
+                            (GHC.hsmodImports modul)
+                            (GHC.hsmodDeprecMessage modul)
+                            (GHC.hsmodHaddockModHeader modul)
+        )
+        modName'
+        (map transformDecl (GHC.hsmodDecls modul))
 
 -- | Transforms a located GHC declaration into an HST declaration.
---
---   Unlike the other transforming functions, the result is wrapped inside
---   the @Maybe@ type, so instead of an error, @Nothing@ is returned if the
---   GHC declaration cannot be transformed.
-transformDecl :: GHC.LHsDecl GHC.GhcPs -> Maybe (S.Decl GHC)
-transformDecl (GHC.L _ (GHC.TyClD _ dDecl@GHC.DataDecl{})) = Just
-  (S.DataDecl (transformRdrNameUnqual (GHC.tcdLName dDecl))
-              (transformDataDefn (GHC.tcdDataDefn dDecl))
-  )
+transformDecl :: GHC.LHsDecl GHC.GhcPs -> S.Decl GHC
+transformDecl decl@(GHC.L s (GHC.TyClD _ dDecl@GHC.DataDecl{})) = S.DataDecl
+  (transformSrcSpan s)
+  (Decl decl)
+  (transformRdrNameUnqual (GHC.tcdLName dDecl))
+  (transformDataDefn (GHC.tcdDataDefn dDecl))
 transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) =
-  Just
-    (S.FunBind (transformSrcSpan s) (transformMatchGroup (GHC.fun_matches fb)))
-transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
-  (S.TypeSig (transformSrcSpan s)
-             (map transformRdrNameUnqual names)
-             (SigType sigType)
-  )
-transformDecl _ = Nothing
+  S.FunBind (transformSrcSpan s) (transformMatchGroup (GHC.fun_matches fb))
+transformDecl decl@(GHC.L s _) = S.OtherDecl (transformSrcSpan s) (Decl decl)
 
 -- | Transforms a GHC data definition into HST constructor declarations.
 transformDataDefn :: GHC.HsDataDefn GHC.GhcPs -> [S.ConDecl GHC]
@@ -145,7 +196,8 @@ transformDataDefn _ = error "Unsupported data definition"
 -- | Transforms a located GHC constructor declaration into an HST constructor
 --   declaration.
 transformConDecl :: GHC.LConDecl GHC.GhcPs -> S.ConDecl GHC
-transformConDecl (GHC.L _ conDecl@GHC.ConDeclH98{}) = transformConDetails
+transformConDecl (GHC.L s conDecl@GHC.ConDeclH98{}) = transformConDetails
+  (transformSrcSpan s)
   (transformRdrNameUnqual (GHC.con_name conDecl))
   (GHC.con_args conDecl)
 transformConDecl _ = error "GADT constructors are not supported"
@@ -153,21 +205,24 @@ transformConDecl _ = error "GADT constructors are not supported"
 -- | Transforms an HST constructor name and GHC constructor details into an HST
 --   constructor declaration.
 transformConDetails
-  :: S.Name GHC
+  :: S.SrcSpan GHC
+  -> S.Name GHC
   -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
   -> S.ConDecl GHC
-transformConDetails name (GHC.PrefixCon args) = S.ConDecl
-  { S.conDeclName    = name
+transformConDetails s name (GHC.PrefixCon args) = S.ConDecl
+  { S.conDeclSrcSpan = s
+  , S.conDeclName    = name
   , S.conDeclArity   = length args
   , S.conDeclIsInfix = False
   }
-transformConDetails name (GHC.InfixCon _ _) = S.ConDecl
-  { S.conDeclName    = name
+transformConDetails s name (GHC.InfixCon _ _) = S.ConDecl
+  { S.conDeclSrcSpan = s
+  , S.conDeclName    = name
   , S.conDeclArity   = 2
   , S.conDeclIsInfix = True
   }
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
-transformConDetails _ _ = error "Record constructors are not supported"
+transformConDetails _ _ _ = error "Record constructors are not supported"
 
 -- | Transforms a GHC located binding group into an HST binding group.
 transformLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> Maybe (S.Binds GHC)
@@ -179,7 +234,7 @@ transformLocalBinds _ = error "Unsupported local bindings"
 -- | Transforms GHC value bindings into HST declarations.
 transformValBinds :: GHC.HsValBinds GHC.GhcPs -> [S.Decl GHC]
 transformValBinds (GHC.ValBinds _ binds sigs) = map
-  (fromMaybe (error "Unsupported declaration in bindings") . transformDecl)
+  transformDecl
   (  map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
          (GHC.bagToList binds)
   ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs
