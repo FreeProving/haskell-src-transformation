@@ -1,5 +1,13 @@
 {-# LANGUAGE PackageImports, TypeFamilies #-}
 
+-- | This module configures the HST syntax for the usage of @ghc-lib-parser@ as
+--   the front end by instantiating the type families of 'HST.Frontend.Syntax'
+--   with concrete types of the @ghc-lib-parser@ AST data structure or wrappers
+--   for these types.
+--
+--   This module also defines all instances necessary for being able to use
+--   @Eq@ and @Show@ for every component of the GHC-instantiated HST syntax.
+
 module HST.Frontend.GHC.Config where
 
 import           Data.Data                      ( Data )
@@ -20,6 +28,47 @@ import qualified HST.Frontend.Syntax           as S
 -------------------------------------------------------------------------------
 -- Type Family Instances                                                     --
 -------------------------------------------------------------------------------
+
+-- | Type representing the AST data structure of @ghc-lib-parser@.
+--
+--   Instantiates the type families for source spans, literals, type
+--   expressions, additional data from the original module and original
+--   declarations with the concrete types from @ghc-lib-parser@ or wrappers for
+--   these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to allow
+--   the usage of @==@ and @show@.
+data GHC
+type instance S.SrcSpanType GHC = GHC.SrcSpan
+type instance S.Literal GHC = LitWrapper
+type instance S.TypeExp GHC = TypeWrapper
+type instance S.OriginalModuleHead GHC = OriginalModuleHead
+type instance S.OriginalDecl GHC = DeclWrapper
+
+instance S.EqAST GHC
+instance S.ShowAST GHC
+
+-------------------------------------------------------------------------------
+-- Wrappers for @ghc-lib-parser@ Types                                       --
+-------------------------------------------------------------------------------
+
+-- | Wrapper for the two literal types (for regular and overloaded literals)
+--   used by @ghc-lib-parser@.
+data LitWrapper = Lit (GHC.HsLit GHC.GhcPs)
+                | OverLit (GHC.HsOverLit GHC.GhcPs)
+  deriving Eq
+
+instance Show LitWrapper where
+  show (Lit     l) = defaultPrintShow l
+  show (OverLit l) = defaultPrintShow l
+
+-- | Wrapper for the type for type expressions appearing in type signatures
+--   used by @ghc-lib-parser@.
+newtype TypeWrapper = SigType (GHC.LHsSigWcType GHC.GhcPs)
+
+instance Eq TypeWrapper where
+  SigType t1 == SigType t2 = defaultPrintEq t1 == defaultPrintEq t2
+
+instance Show TypeWrapper where
+  show (SigType t) = defaultPrintShow t
 
 -- | Wrapper for the fields of modules that are not supported.
 data OriginalModuleHead = OriginalModuleHead
@@ -62,46 +111,10 @@ instance Show OriginalModuleHead where
            ]
       ++ "}"
 
--- | Type representing the AST data structure of @ghc-lib-parser@.
+-- | Wrapper for the declaration type used by @ghc-lib-parser@.
 --
---   Instantiates the type families for source spans, literals and type
---   expressions with the concrete types from @ghc-lib-parser@ or wrappers for
---   these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to allow
---   the usage of @==@ and @show@.
-data GHC
-type instance S.SrcSpanType GHC = GHC.SrcSpan
-type instance S.Literal GHC = LitWrapper
-type instance S.TypeExp GHC = TypeWrapper
-type instance S.OriginalModuleHead GHC = OriginalModuleHead
-type instance S.OriginalDecl GHC = DeclWrapper
-
-instance S.EqAST GHC
-instance S.ShowAST GHC
-
--------------------------------------------------------------------------------
--- Wrappers for @ghc-lib-parser@ Types                                       --
--------------------------------------------------------------------------------
-
--- | Wrapper for the two literal types (for regular and overloaded literals)
---   used by @ghc-lib-parser@.
-data LitWrapper = Lit (GHC.HsLit GHC.GhcPs)
-                | OverLit (GHC.HsOverLit GHC.GhcPs)
-  deriving Eq
-
-instance Show LitWrapper where
-  show (Lit     l) = defaultPrintShow l
-  show (OverLit l) = defaultPrintShow l
-
--- | Wrapper for the type for type expressions appearing in type signatures
---   used by @ghc-lib-parser@.
-newtype TypeWrapper = SigType (GHC.LHsSigWcType GHC.GhcPs)
-
-instance Eq TypeWrapper where
-  SigType t1 == SigType t2 = defaultPrintEq t1 == defaultPrintEq t2
-
-instance Show TypeWrapper where
-  show (SigType t) = defaultPrintShow t
-
+--   Used to store declarations of the original module that are not supported
+--   by the pattern matching compiler.
 newtype DeclWrapper = Decl (GHC.LHsDecl GHC.GhcPs)
 
 instance Eq DeclWrapper where

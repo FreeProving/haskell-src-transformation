@@ -31,6 +31,10 @@ import           HST.Frontend.GHC.Config        ( GHC
                                                 )
 import qualified HST.Frontend.Syntax           as S
 
+-------------------------------------------------------------------------------
+-- Modules                                                                   --
+-------------------------------------------------------------------------------
+
 -- | Transforms the @ghc-lib-parser@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
 transformModule :: GHC.Located (GHC.HsModule GHC.GhcPs) -> S.Module GHC
@@ -50,6 +54,10 @@ transformModule (GHC.L s modul) =
         modName'
         (map transformDecl (GHC.hsmodDecls modul))
 
+-------------------------------------------------------------------------------
+-- Declarations                                                              --
+-------------------------------------------------------------------------------
+
 -- | Transforms a located GHC declaration into an HST declaration.
 transformDecl :: GHC.LHsDecl GHC.GhcPs -> S.Decl GHC
 transformDecl decl@(GHC.L s (GHC.TyClD _ dDecl@GHC.DataDecl{})) = S.DataDecl
@@ -60,6 +68,10 @@ transformDecl decl@(GHC.L s (GHC.TyClD _ dDecl@GHC.DataDecl{})) = S.DataDecl
 transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) =
   S.FunBind (transformSrcSpan s) (transformMatchGroup (GHC.fun_matches fb))
 transformDecl decl@(GHC.L s _) = S.OtherDecl (transformSrcSpan s) (Decl decl)
+
+-------------------------------------------------------------------------------
+-- Data Type Declarations                                                    --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC data definition into HST constructor declarations.
 transformDataDefn :: GHC.HsDataDefn GHC.GhcPs -> [S.ConDecl GHC]
@@ -97,6 +109,10 @@ transformConDetails s name (GHC.InfixCon _ _) = S.ConDecl
   }
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
 transformConDetails _ _ _ = error "Record constructors are not supported"
+
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC located binding group into an HST binding group.
 transformLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> Maybe (S.Binds GHC)
@@ -164,6 +180,10 @@ transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _)) = transformExpr body
 transformStmtExpr _ =
   error "Only boolean expressions are supported as statements"
 -- TODO Are there more statements that can be safely converted to boolean expressions?
+
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC boxity into an HST boxed mark.
 transformBoxity :: GHC.Boxity -> S.Boxed
@@ -238,6 +258,10 @@ transformTupleArg :: GHC.LHsTupArg GHC.GhcPs -> S.Exp GHC
 transformTupleArg (GHC.L _ (GHC.Present _ e)) = transformExpr e
 transformTupleArg _ = error "Missing argument in tuple"
 
+-------------------------------------------------------------------------------
+-- Patterns                                                                  --
+-------------------------------------------------------------------------------
+
 -- | Transforms a GHC located pattern into an HST pattern.
 transformPat :: GHC.LPat GHC.GhcPs -> S.Pat GHC
 transformPat (GHC.L s (GHC.VarPat _ name)) =
@@ -261,6 +285,10 @@ transformPat (GHC.L s (GHC.ListPat _ pats)) =
   S.PList (transformSrcSpan s) (map transformPat pats)
 transformPat (GHC.L s (GHC.WildPat _)) = S.PWildCard (transformSrcSpan s)
 transformPat _                         = error "Unsupported pattern"
+
+-------------------------------------------------------------------------------
+-- Names                                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC module name with an HST source span into an HST module
 --   name.
@@ -318,6 +346,10 @@ specialConMap s =
   , (GHC.consDataConName                  , S.Cons s)
   , (GHC.tupleTyConName GHC.UnboxedTuple 0, S.UnboxedSingleCon s)
   ]
+
+-------------------------------------------------------------------------------
+-- Source Spans                                                              --
+-------------------------------------------------------------------------------
 
 -- | Wraps a GHC source span into the HST type for source spans.
 transformSrcSpan :: GHC.SrcSpan -> S.SrcSpan GHC

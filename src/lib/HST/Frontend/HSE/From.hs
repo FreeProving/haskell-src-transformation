@@ -189,19 +189,16 @@ transformDecl decl@(HSE.ForImp s _ _ _ _ _) =
 transformDecl decl@(HSE.ForExp s _ _ _ _) =
   return $ S.OtherDecl (transformSrcSpan s) decl
 
+-------------------------------------------------------------------------------
+-- Data Type Declarations                                                    --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HSE declaration head into an HST declaration head.
 transformDeclHead :: HSE.DeclHead HSE.SrcSpanInfo -> Sem r (S.Name HSE)
 transformDeclHead (HSE.DHead _ dName    ) = transformName dName
 transformDeclHead (HSE.DHInfix _ _ dName) = transformName dName
 transformDeclHead (HSE.DHParen _ dHead  ) = transformDeclHead dHead
 transformDeclHead (HSE.DHApp _ dHead _  ) = transformDeclHead dHead
-
--- | Transforms an HSE binding group into an HST binding group.
-transformBinds
-  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
-transformBinds (HSE.BDecls s decls) = do
-  S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
-transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
 
 -- | Transforms an HSE qualified constructor declaration into an HST
 --   constructor declaration.
@@ -228,6 +225,17 @@ transformConDecl (HSE.InfixConDecl s _ cName _) = do
                    , S.conDeclIsInfix = True
                    }
 transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
+
+-- | Transforms an HSE binding group into an HST binding group.
+transformBinds
+  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
+transformBinds (HSE.BDecls s decls) = do
+  S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
+transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
+
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms an HSE match into an HST match.
 transformMatch

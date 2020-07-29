@@ -39,9 +39,15 @@ import           HST.Frontend.GHC.Config        ( GHC
                                                 , DeclWrapper(Decl)
                                                 )
 
+-------------------------------------------------------------------------------
+-- Modules                                                                   --
+-------------------------------------------------------------------------------
+
 -- | Transforms the @haskell-src-transformations@ representation of a Haskell
---   module into the @ghc-lib-parser@ representation of a Haskell module by
---   enriching it with information from the original GHC module.
+--   module into the @ghc-lib-parser@ representation of a Haskell module.
+--
+--   The module head is restored from the original module head. The module
+--   name field does not affect the name of the resulting module.
 transformModule :: S.Module GHC -> GHC.Located (GHC.HsModule GHC.GhcPs)
 transformModule (S.Module s omh _ decls) = GHC.L
   (transformSrcSpan s)
@@ -52,6 +58,10 @@ transformModule (S.Module s omh _ decls) = GHC.L
                , GHC.hsmodDeprecMessage    = originalModuleDeprecMessage omh
                , GHC.hsmodHaddockModHeader = originalModuleHaddockModHeader omh
                }
+
+-------------------------------------------------------------------------------
+-- Declarations                                                              --
+-------------------------------------------------------------------------------
 
 -- | Transforms an HST declaration into an GHC located declaration.
 transformDecl :: S.Decl GHC -> GHC.LHsDecl GHC.GhcPs
@@ -76,6 +86,10 @@ transformDecl (S.FunBind s matches) =
   getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = name
   getMatchesName _ = error "Empty match group"
 transformDecl (S.OtherDecl _ (Decl oDecl)) = oDecl
+
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms an HST binding group into a GHC located binding group.
 transformMaybeBinds :: Maybe (S.Binds GHC) -> GHC.LHsLocalBinds GHC.GhcPs
@@ -181,6 +195,10 @@ transformGuardedRhs (S.GuardedRhs s ge be) = GHC.L
     (transformExp be)
   )
 
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST boxed mark into a GHC boxity.
 transformBoxed :: S.Boxed -> GHC.Boxity
 transformBoxed S.Boxed   = GHC.Boxed
@@ -275,6 +293,10 @@ transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
   altToMatch (S.Alt s' pat rhs mBinds) =
     S.Match s' (S.Ident S.NoSrcSpan "") [pat] rhs mBinds
 
+-------------------------------------------------------------------------------
+-- Patterns                                                                  --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST pattern into a GHC located pattern.
 transformPat :: S.Pat GHC -> GHC.LPat GHC.GhcPs
 transformPat (S.PVar s name) = GHC.L
@@ -300,6 +322,10 @@ transformPat (S.PList s pats) = GHC.L
   (GHC.ListPat GHC.NoExtField (map transformPat pats))
 transformPat (S.PWildCard s) =
   GHC.L (transformSrcSpan s) (GHC.WildPat GHC.NoExtField)
+
+-------------------------------------------------------------------------------
+-- Names                                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms an HST module name into a GHC module name.
 transformModuleName :: S.ModuleName GHC -> GHC.ModuleName
@@ -352,6 +378,10 @@ transformSpecialCon (S.UnboxedSingleCon _) =
   GHC.tupleTyConName GHC.UnboxedTuple 0
 transformSpecialCon (S.ExprHole _) =
   error "Expression holes should be transformed in transformExp"
+
+-------------------------------------------------------------------------------
+-- Source Spans                                                              --
+-------------------------------------------------------------------------------
 
 -- | Unwraps the HST type for source spans into an GHC source span.
 transformSrcSpan :: S.SrcSpan GHC -> GHC.SrcSpan

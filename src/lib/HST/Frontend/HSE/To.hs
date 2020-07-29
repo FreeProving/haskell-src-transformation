@@ -54,6 +54,10 @@ transformDecl (S.FunBind s matches) =
 transformDecl (S.DataDecl _ originalDecl _ _) = originalDecl
 transformDecl (S.OtherDecl _ originalDecl   ) = originalDecl
 
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST binding group into an HSE binding group.
 transformBinds :: S.Binds HSE -> HSE.Binds HSE.SrcSpanInfo
 transformBinds (S.BDecls s decls) =
@@ -90,14 +94,14 @@ transformGuardedRhs (S.GuardedRhs s ge e) = HSE.GuardedRhs
   [HSE.Qualifier (transformSrcSpan (S.getSrcSpan ge)) (transformExp ge)]
   (transformExp e)
 
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST boxed mark into an HSE boxed mark.
 transformBoxed :: S.Boxed -> HSE.Boxed
 transformBoxed S.Boxed   = HSE.Boxed
 transformBoxed S.Unboxed = HSE.Unboxed
-
--------------------------------------------------------------------------------
--- Expressions                                                               --
--------------------------------------------------------------------------------
 
 -- | Transforms an HST expression into an HSE expression.
 transformExp :: S.Exp HSE -> HSE.Exp HSE.SrcSpanInfo
