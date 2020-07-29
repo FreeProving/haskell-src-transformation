@@ -34,8 +34,13 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Internal, Debug)
+                                                , Severity
+                                                  ( Debug
+                                                  , Error
+                                                  , Internal
+                                                  )
                                                 , msgSeverity
+                                                , reportFatal
                                                 , reportToHandleOrCancel
                                                 , filterReportedMessages
                                                 , exceptionToReport
@@ -51,6 +56,7 @@ import qualified HST.Frontend.FromHSE          as FromHSE
 import qualified HST.Frontend.Syntax           as S
 import qualified HST.Frontend.ToHSE            as ToHSE
 import           HST.Options                    ( Frontend(..)
+                                                , ghclibFrontendName
                                                 , optShowHelp
                                                 , optInputFiles
                                                 , optOutputDir
@@ -138,9 +144,8 @@ processInputFile
   :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFile = do
   input                <- embed $ readFile inputFile
-  frontendString       <- getOpt optFrontend
-  frontend             <- parseFrontend frontendString
-  (output, moduleName) <- processInput input frontend
+  frontend             <- parseFrontend =<< getOpt optFrontend
+  (output, moduleName) <- processInput frontend input
   maybeOutputDir       <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -153,19 +158,29 @@ processInputFile inputFile = do
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
 processInput
-  :: Members '[GetOpt] r => String -> Frontend -> Sem r (String, Maybe String)
-processInput input frontend = case frontend of
-  HSE -> do
-    let inputModule        = HSE.fromParseResult (HSE.parseModule input)
-        intermediateModule = FromHSE.transformModule inputModule
-    outputModule <- runEnv . runFresh $ do
-      intermediateModule' <- processModule intermediateModule
-      return $ ToHSE.transformModule inputModule intermediateModule'
-    return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
-  GHClib -> error "Not yet implemented"
+  :: Members '[GetOpt, Report] r
+  => Frontend
+  -> String
+  -> Sem r (String, Maybe String)
+processInput HSE input = do
+  let inputModule = HSE.fromParseResult (HSE.parseModule input)
+  intermediateModule <- FromHSE.transformModule inputModule
+  outputModule       <- runEnv . runFresh $ do
+    intermediateModule' <- processModule intermediateModule
+    return $ ToHSE.transformModule intermediateModule'
+  return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
  where
-  moduleName (S.Module name _) = fmap getName name
-  getName (S.ModuleName _ name) = name
+  moduleName :: S.Module a -> Maybe String
+  moduleName (S.Module _ _ name _) = fmap moduleName' name
+
+  moduleName' :: S.ModuleName a -> String
+  moduleName' (S.ModuleName _ name) = name
+processInput GHClib _ =
+  reportFatal
+    $  Message Error
+    $  "The `"
+    ++ ghclibFrontendName
+    ++ "` front end has not yet been implemented."
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --

@@ -4,6 +4,13 @@ module HST.CoreAlgorithmTests
 where
 
 import qualified Language.Haskell.Exts         as HSE
+import           Polysemy                       ( Member
+                                                , Sem
+                                                , runM
+                                                )
+import           Polysemy.Embed                 ( Embed
+                                                , embed
+                                                )
 import           Test.Hspec                     ( Spec
                                                 , Expectation
                                                 , context
@@ -13,7 +20,11 @@ import           Test.Hspec                     ( Spec
 import           Test.HUnit.Base                ( assertFailure )
 
 import           HST.CoreAlgorithm              ( compareCons )
+import           HST.Effect.Report
+import           HST.Frontend.FromHSE           ( HSE )
 import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.Syntax           as S
+import qualified HST.Frontend.ToHSE            as ToHSE
 
 -- | Tests for the "HST.CoreAlgorithm" module.
 testCoreAlgorithm :: Spec
@@ -22,37 +33,47 @@ testCoreAlgorithm = describe "HST.CoreAlgorithm" $ do
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
-parseTestPat :: String -> IO (HSE.Pat HSE.SrcSpanInfo)
+parseTestPat :: String -> IO (S.Pat HSE)
 parseTestPat patStr = case HSE.parsePat patStr of
-  HSE.ParseOk pat          -> return pat
+  HSE.ParseOk pat -> runM . reportToExpectation $ FromHSE.transformPat pat
   HSE.ParseFailed _ errMsg -> assertFailure errMsg
+
+-- | Handles the 'Report' effect by asserting that no fatal message is reported.
+--
+--   If there is a fatal message, all reported messages are included in
+--   the error message.
+reportToExpectation :: Member (Embed IO) r => Sem (Report ': r) a -> Sem r a
+reportToExpectation comp = do
+  (ms, mx) <- runReport comp
+  case mx of
+    Nothing -> embed $ assertFailure $ unlines
+      ("The following messages were reported:" : map showPrettyMessage ms)
+    Just x -> return x
 
 -- | Sets the expectation that the given patterns should have matching
 --   constructors.
-shouldMatchCons
-  :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
+shouldMatchCons :: S.Pat HSE -> S.Pat HSE -> Expectation
 shouldMatchCons pat1 pat2
-  | compareCons (FromHSE.transformPat pat1) (FromHSE.transformPat pat2)
+  | compareCons pat1 pat2
   = return ()
   | otherwise
   = assertFailure
     $  "\""
-    ++ HSE.prettyPrint pat1
+    ++ HSE.prettyPrint (ToHSE.transformPat pat1)
     ++ "\" and \""
-    ++ HSE.prettyPrint pat2
+    ++ HSE.prettyPrint (ToHSE.transformPat pat2)
     ++ "\" should match the same constructor but they do not"
 
 -- | Sets the expectation that the given patterns should not have matching
 --   constructors.
-shouldNotMatchCons
-  :: HSE.Pat HSE.SrcSpanInfo -> HSE.Pat HSE.SrcSpanInfo -> Expectation
+shouldNotMatchCons :: S.Pat HSE -> S.Pat HSE -> Expectation
 shouldNotMatchCons pat1 pat2
-  | compareCons (FromHSE.transformPat pat1) (FromHSE.transformPat pat2)
+  | compareCons pat1 pat2
   = assertFailure
     $  "\""
-    ++ HSE.prettyPrint pat1
+    ++ HSE.prettyPrint (ToHSE.transformPat pat1)
     ++ "\" and \""
-    ++ HSE.prettyPrint pat2
+    ++ HSE.prettyPrint (ToHSE.transformPat pat2)
     ++ "\" should not match the same constructor but they do"
   | otherwise
   = return ()

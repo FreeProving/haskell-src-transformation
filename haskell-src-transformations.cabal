@@ -93,11 +93,16 @@ library
                     , HST.Effect.Env
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
+                    , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Environment
+                    , HST.Environment.LookupOrReport
                     , HST.Environment.Prelude
                     , HST.Environment.Renaming
                     , HST.Options
+                    , HST.Util.PrettyName
+                    , HST.Util.Predicates
+                    , HST.Util.Selectors
 
 -- Build configuration for the command line interface.
 executable haskell-src-transformations
