@@ -8,12 +8,12 @@
 --   instantiated with the HSE types for source spans, literals and type
 --   expressions.
 
-module HST.Frontend.ToHSE where
+module HST.Frontend.HSE.To where
 
 import qualified Language.Haskell.Exts         as HSE
 
 import qualified HST.Frontend.Syntax           as S
-import           HST.Frontend.FromHSE           ( HSE
+import           HST.Frontend.HSE.Config        ( HSE
                                                 , OriginalModuleHead
                                                   ( originalModuleHead
                                                   , originalModulePragmas

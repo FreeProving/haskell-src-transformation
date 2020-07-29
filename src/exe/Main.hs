@@ -52,9 +52,9 @@ import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
                                                 )
-import qualified HST.Frontend.FromHSE          as FromHSE
+import qualified HST.Frontend.HSE.From         as FromHSE
+import qualified HST.Frontend.HSE.To           as ToHSE
 import qualified HST.Frontend.Syntax           as S
-import qualified HST.Frontend.ToHSE            as ToHSE
 import           HST.Options                    ( Frontend(..)
                                                 , ghclibFrontendName
                                                 , optShowHelp

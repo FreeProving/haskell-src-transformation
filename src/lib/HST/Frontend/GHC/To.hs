@@ -10,7 +10,7 @@
 --   instantiated with the GHC types for source spans, literals and type
 --   expressions.
 
-module HST.Frontend.ToGHC where
+module HST.Frontend.GHC.To where
 
 import qualified "ghc-lib-parser" GHC.Hs       as GHC
 import qualified "ghc-lib-parser" SrcLoc       as GHC
@@ -26,7 +26,7 @@ import qualified "ghc-lib-parser" TyCon        as GHC
 import qualified "ghc-lib-parser" Type         as GHC
 
 import qualified HST.Frontend.Syntax           as S
-import           HST.Frontend.FromGHC           ( GHC
+import           HST.Frontend.GHC.Config        ( GHC
                                                 , LitWrapper(Lit, OverLit)
                                                 , TypeWrapper(SigType)
                                                 , OriginalModuleHead

@@ -84,11 +84,13 @@ library
                     , HST.Feature.CaseCompletion
                     , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
-                    , HST.Frontend.FromGHC
-                    , HST.Frontend.FromHSE
+                    , HST.Frontend.GHC.Config
+                    , HST.Frontend.GHC.From
+                    , HST.Frontend.GHC.To
+                    , HST.Frontend.HSE.Config
+                    , HST.Frontend.HSE.From
+                    , HST.Frontend.HSE.To
                     , HST.Frontend.Syntax
-                    , HST.Frontend.ToGHC
-                    , HST.Frontend.ToHSE
                     , HST.Effect.Cancel
                     , HST.Effect.Env
                     , HST.Effect.Fresh

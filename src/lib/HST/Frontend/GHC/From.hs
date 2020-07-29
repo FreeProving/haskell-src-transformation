@@ -1,15 +1,13 @@
-{-# LANGUAGE PackageImports, TypeFamilies #-}
+{-# LANGUAGE PackageImports #-}
 
 -- | This module contains functions transforming Haskell modules and other
 --   constructs of the AST data structure of @ghc-lib-parser@ into the
 --   corresponding constructs of the AST data structure in the
 --   "HST.Frontend.Syntax" module.
 
-module HST.Frontend.FromGHC where
+module HST.Frontend.GHC.From where
 
-import           Data.Data                      ( Data )
 import           Data.Maybe                     ( fromMaybe )
-import           Data.List                      ( intercalate )
 
 import qualified "ghc-lib-parser" GHC.Hs       as GHC
 import qualified "ghc-lib-parser" SrcLoc       as GHC
@@ -22,140 +20,16 @@ import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC
 import qualified "ghc-lib-parser" TyCon        as GHC
 import qualified "ghc-lib-parser" Type         as GHC
-import qualified "ghc-lib-parser" DynFlags     as GHC
-import qualified "ghc-lib-parser" GHC.Hs.Dump  as GHC
-import qualified "ghc-lib-parser" Outputable   as GHC
-import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config
-                                               as GHC
 
+import           HST.Frontend.GHC.Config        ( GHC
+                                                , LitWrapper(Lit, OverLit)
+                                                , TypeWrapper(SigType)
+                                                , OriginalModuleHead
+                                                  ( OriginalModuleHead
+                                                  )
+                                                , DeclWrapper(Decl)
+                                                )
 import qualified HST.Frontend.Syntax           as S
-
--------------------------------------------------------------------------------
--- Type Family Instances                                                     --
--------------------------------------------------------------------------------
-
--- | Wrapper for the fields of modules that are not supported.
-data OriginalModuleHead = OriginalModuleHead
-  { originalModuleName             :: Maybe (GHC.Located GHC.ModuleName)
-  , originalModuleExports          :: Maybe (GHC.Located [GHC.LIE GHC.GhcPs])
-  , originalModuleImports          :: [GHC.LImportDecl GHC.GhcPs]
-  , originalModuleDeprecMessage    :: Maybe (GHC.Located GHC.WarningTxt)
-  , originalModuleHaddockModHeader :: Maybe GHC.LHsDocString
-  }
-
-instance Eq OriginalModuleHead where
-  omh1 == omh2 = all
-    id
-    [ originalModuleName omh1 == originalModuleName omh2
-    , originalModuleExports omh1 == originalModuleExports omh2
-    , defaultPrintEq (originalModuleImports omh1)
-      == defaultPrintEq (originalModuleImports omh2)
-    , originalModuleDeprecMessage omh1 == originalModuleDeprecMessage omh2
-    , originalModuleHaddockModHeader omh1 == originalModuleHaddockModHeader omh2
-    ]
-
--- Is there a better solution for this Show instance? Deriving Show would be
--- possible if a Show instance was available for every sub type of the record,
--- but that would require Orphan instances or otherwise unnecessary wrappers
--- for all of these sub types. 
-instance Show OriginalModuleHead where
-  show omh =
-    "OriginalModuleHead {"
-      ++ intercalate
-           ", "
-           [ "originalModuleName = "
-             ++ defaultPrintShow (originalModuleName omh)
-           , "originalModuleExports = "
-             ++ defaultPrintShow (originalModuleExports omh)
-           , "originalModuleImports = "
-             ++ defaultPrintShow (originalModuleImports omh)
-           , "originalModuleDeprecMessage = "
-             ++ defaultPrintShow (originalModuleDeprecMessage omh)
-           , "originalModuleHaddockModHeader = "
-             ++ defaultPrintShow (originalModuleHaddockModHeader omh)
-           ]
-      ++ "}"
-
--- | Type representing the AST data structure of @ghc-lib-parser@.
---
---   Instantiates the type families for source spans, literals and type
---   expressions with the concrete types from @ghc-lib-parser@ or wrappers for
---   these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to allow
---   the usage of @==@ and @show@.
-data GHC
-type instance S.SrcSpanType GHC = GHC.SrcSpan
-type instance S.Literal GHC = LitWrapper
-type instance S.TypeExp GHC = TypeWrapper
-type instance S.OriginalModuleHead GHC = OriginalModuleHead
-type instance S.OriginalDecl GHC = DeclWrapper
-
-instance S.EqAST GHC
-instance S.ShowAST GHC
-
--------------------------------------------------------------------------------
--- Wrappers for @ghc-lib-parser@ Types                                       --
--------------------------------------------------------------------------------
-
--- | Wrapper for the two literal types (for regular and overloaded literals)
---   used by @ghc-lib-parser@.
-data LitWrapper = Lit (GHC.HsLit GHC.GhcPs)
-                | OverLit (GHC.HsOverLit GHC.GhcPs)
-  deriving Eq
-
-instance Show LitWrapper where
-  show (Lit     l) = defaultPrintShow l
-  show (OverLit l) = defaultPrintShow l
-
--- | Wrapper for the type for type expressions appearing in type signatures
---   used by @ghc-lib-parser@.
-newtype TypeWrapper = SigType (GHC.LHsSigWcType GHC.GhcPs)
-
-instance Eq TypeWrapper where
-  SigType t1 == SigType t2 = defaultPrintEq t1 == defaultPrintEq t2
-
-instance Show TypeWrapper where
-  show (SigType t) = defaultPrintShow t
-
-newtype DeclWrapper = Decl (GHC.LHsDecl GHC.GhcPs)
-
-instance Eq DeclWrapper where
-  Decl d1 == Decl d2 = defaultPrintEq d1 == defaultPrintEq d2
-
-instance Show DeclWrapper where
-  show (Decl d) = defaultPrintShow d
-
--------------------------------------------------------------------------------
--- Printing Functions for the @ghc-lib-parser@ AST                           --
--------------------------------------------------------------------------------
-
--- | Prints a component of the @ghc-lib-parser@ AST data structure without
---   source span information and with line breaks.
---
---   This function is used for equality of @ghc-lib-parser@ AST components.
-defaultPrintEq :: Data a => a -> String
-defaultPrintEq d =
-  GHC.showSDoc defaultDynFlags (GHC.showAstData GHC.BlankSrcSpan d)
-
--- | Prints a component of the @ghc-lib-parser@ AST data structure with source
---   span information and without line breaks.
---
---   This function is used for showing @ghc-lib-parser@ AST components.
-defaultPrintShow :: Data a => a -> String
-defaultPrintShow d =
-  GHC.showSDocOneLine defaultDynFlags (GHC.showAstData GHC.NoBlankSrcSpan d)
-
--- | Returns default variants of the dynamic flags used by @ghc-lib-parser@.
---
---   These dynamic flags are used for parsing Haskell code and printing AST
---   components.
-defaultDynFlags :: GHC.DynFlags
--- TODO These DynFlags should be the same as the ones used for parsing Haskell
--- modules and should be defined in another module.
-defaultDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
-
--------------------------------------------------------------------------------
--- Transformation Functions                                                  --
--------------------------------------------------------------------------------
 
 -- | Transforms the @ghc-lib-parser@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
