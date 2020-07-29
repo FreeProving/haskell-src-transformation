@@ -28,7 +28,7 @@ import           HST.Frontend.Parser            ( ParsedModule
 import qualified HST.Frontend.Syntax           as S
 
 -- | Type class for "HST.Frontend.Syntax" configurations whose 'ParsedModule'
---   can be transformed to and from the the intermediate syntax.
+--   can be transformed to and from the intermediate syntax.
 class Transformable a where
   -- | Transforms a parsed module to the intermediate syntax.
   transformModule

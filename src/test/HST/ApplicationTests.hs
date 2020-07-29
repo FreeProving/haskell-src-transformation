@@ -128,7 +128,7 @@ testProcessModule = context "processModule" $ do
           [ "module A where"
           , "lengthL :: [a] -> Int"
           , "lengthL [] = 0"
-          , "lengthL(_:xs) = 1 + lengthL xs"
+          , "lengthL (_:xs) = 1 + lengthL xs"
           ]
         output         <- processTestModule input
         expectedOutput <- parseTestModule

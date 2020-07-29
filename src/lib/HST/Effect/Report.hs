@@ -144,7 +144,7 @@ filterReportedMessages p = intercept \case
 -- Interpretations for Other Effects                                         --
 -------------------------------------------------------------------------------
 
--- | Handels the 'Cancel' effect by reporting the given fatal error message
+-- | Handles the 'Cancel' effect by reporting the given fatal error message
 --   when the computation was canceled.
 cancelToReport :: Member Report r => Message -> Sem (Cancel ': r) a -> Sem r a
 cancelToReport cancelMessage =

@@ -7,7 +7,7 @@
 --
 --   The actions of the effect are the operations provided by the 'Parsable',
 --   'Transformable' and 'PrettyPrintable' type classes. Import this module
---   instead of the module that define the type classes.
+--   instead of the modules that define the type classes.
 
 module HST.Effect.WithFrontend
   ( -- * Effect
@@ -52,7 +52,7 @@ import           HST.Options                    ( Frontend(GHClib, HSE)
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
 
--- | An effect for computation that need to use different front ends for
+-- | An effect for computations that need to use different front ends for
 --   parsing, transforming and pretty-printing modules.
 data WithFrontend f m a where
   -- | Action for parsing a module.
