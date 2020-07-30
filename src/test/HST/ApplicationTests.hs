@@ -89,8 +89,8 @@ runTest comp =
 -- Expectation Setters                                                       --
 -------------------------------------------------------------------------------
 
--- | Pretty prints both the two given modules and tests whether the resulting
---   strings are equal modulo whitespace.
+-- | Pretty prints both given modules and tests whether the resulting strings
+--   are equal modulo whitespace.
 prettyModuleShouldBe
   :: Members '[WithFrontend f, SetExpectation] r
   => ParsedModule f
@@ -128,7 +128,7 @@ testProcessModule = context "processModule" $ do
           [ "module A where"
           , "lengthL :: [a] -> Int"
           , "lengthL [] = 0"
-          , "lengthL(_:xs) = 1 + lengthL xs"
+          , "lengthL (_:xs) = 1 + lengthL xs"
           ]
         output         <- processTestModule input
         expectedOutput <- parseTestModule

@@ -34,14 +34,14 @@ instance PrettyPrintable HSE where
   prettyPrintModule =
     HSE.prettyPrintStyleMode
         (HSE.Style { HSE.mode           = HSE.PageMode
-                   , HSE.lineLength     = 120
-                   , HSE.ribbonsPerLine = 1.5
+                   , HSE.lineLength     = 80
+                   , HSE.ribbonsPerLine = 1.0
                    }
         )
         HSE.defaultMode
       . getParsedModuleHSE
 
 -- | Pretty prints the given Haskell module with the pretty printer of
---   @ghc-lib@.
+--   @ghc-lib-parser@.
 instance PrettyPrintable GHC where
   prettyPrintModule = GHC.showPpr defaultDynFlags . getParsedModuleGHC

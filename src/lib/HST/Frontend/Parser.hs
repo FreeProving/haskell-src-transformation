@@ -58,7 +58,7 @@ class Parsable a where
     -> String   -- ^ The contents of the input file.
     -> Sem r (ParsedModule a)
 
--- | Parses a Haskell module with the parser from @haskell-src-exts@.
+-- | Parses a Haskell module with the parser of @haskell-src-exts@.
 instance Parsable HSE where
   data ParsedModule HSE
     = ParsedModuleHSE { getParsedModuleHSE :: HSE.Module HSE.SrcSpanInfo }
@@ -75,14 +75,14 @@ instance Parsable HSE where
           ++ ":"
           ++ show (HSE.srcLine srcLoc)
           ++ ":"
-          ++ show (HSE.srcLine srcLoc)
+          ++ show (HSE.srcColumn srcLoc)
           ++ "."
    where
      -- | Configuration of the @haskell-src-exts@ parser.
     parseMode :: HSE.ParseMode
     parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
--- | Parses a Haskell module with the parser from @ghc-lib@.
+-- | Parses a Haskell module with the parser of @ghc-lib-parser@.
 instance Parsable GHC where
   data ParsedModule GHC
     = ParsedModuleGHC { getParsedModuleGHC :: GHC.HsModule GHC.GhcPs }
@@ -110,7 +110,7 @@ instance Parsable GHC where
       GHC.mapBagM_ (reportErrMsg Error) errors
       unless (GHC.isEmptyBag errors) cancel
 
-    -- | Reports a error message or warning from @ghc-lib@.
+    -- | Reports an error message or warning from @ghc-lib-parser@.
     reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
     reportErrMsg severity msg =
       report
