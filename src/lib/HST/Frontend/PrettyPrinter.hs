@@ -15,7 +15,10 @@ import           HST.Frontend.FromGHC           ( GHC
                                                 , defaultDynFlags
                                                 )
 import           HST.Frontend.FromHSE           ( HSE )
-import           HST.Frontend.Parser
+import           HST.Frontend.Parser            ( ParsedModule
+                                                , getParsedModuleHSE
+                                                , getParsedModuleGHC
+                                                )
 
 -- | Type class for "HST.Frontend.Syntax" configurations whose 'ParsedModule's
 --   can be pretty-printed.
@@ -36,9 +39,9 @@ instance PrettyPrintable HSE where
                    }
         )
         HSE.defaultMode
-      . unParsedModuleHSE
+      . getParsedModuleHSE
 
 -- | Pretty prints the given Haskell module with the pretty printer of
 --   @ghc-lib@.
 instance PrettyPrintable GHC where
-  prettyPrintModule = GHC.showPpr defaultDynFlags . unParsedModuleGHC
+  prettyPrintModule = GHC.showPpr defaultDynFlags . getParsedModuleGHC

@@ -22,8 +22,8 @@ import           HST.Frontend.Parser            ( ParsedModule
                                                   ( ParsedModuleGHC
                                                   , ParsedModuleHSE
                                                   )
-                                                , unParsedModuleHSE
-                                                , unParsedModuleGHC
+                                                , getParsedModuleHSE
+                                                , getParsedModuleGHC
                                                 )
 import qualified HST.Frontend.Syntax           as S
 
@@ -45,11 +45,11 @@ class Transformable a where
     -> Sem r (ParsedModule a)
 
 instance Transformable HSE where
-  transformModule = return . FromHSE.transformModule . unParsedModuleHSE
+  transformModule = return . FromHSE.transformModule . getParsedModuleHSE
   unTransformModule =
-    return . ParsedModuleHSE .: ToHSE.transformModule . unParsedModuleHSE
+    return . ParsedModuleHSE .: ToHSE.transformModule . getParsedModuleHSE
 
 instance Transformable GHC where
-  transformModule = return . FromGHC.transformModule . unParsedModuleGHC
+  transformModule = return . FromGHC.transformModule . getParsedModuleGHC
   unTransformModule =
-    return . ParsedModuleGHC .: ToGHC.transformModule . unParsedModuleGHC
+    return . ParsedModuleGHC .: ToGHC.transformModule . getParsedModuleGHC

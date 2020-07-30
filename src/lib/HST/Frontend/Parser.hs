@@ -6,8 +6,8 @@
 module HST.Frontend.Parser
   ( Parsable(parseModule)
   , ParsedModule(ParsedModuleHSE, ParsedModuleGHC)
-  , unParsedModuleHSE
-  , unParsedModuleGHC
+  , getParsedModuleHSE
+  , getParsedModuleGHC
   )
 where
 
@@ -61,7 +61,7 @@ class Parsable a where
 -- | Parses a Haskell module with the parser from @haskell-src-exts@.
 instance Parsable HSE where
   data ParsedModule HSE
-    = ParsedModuleHSE { unParsedModuleHSE :: HSE.Module HSE.SrcSpanInfo }
+    = ParsedModuleHSE { getParsedModuleHSE :: HSE.Module HSE.SrcSpanInfo }
 
   parseModule inputFilename input =
     case HSE.parseModuleWithMode parseMode input of
@@ -85,7 +85,7 @@ instance Parsable HSE where
 -- | Parses a Haskell module with the parser from @ghc-lib@.
 instance Parsable GHC where
   data ParsedModule GHC
-    = ParsedModuleGHC { unParsedModuleGHC :: GHC.HsModule GHC.GhcPs }
+    = ParsedModuleGHC { getParsedModuleGHC :: GHC.HsModule GHC.GhcPs }
 
   parseModule inputFilename input =
     case GHC.parseFile inputFilename defaultDynFlags input of
