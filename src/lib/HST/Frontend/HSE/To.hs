@@ -204,8 +204,8 @@ transformSpecialCon (S.UnboxedSingleCon s) =
   HSE.UnboxedSingleCon (transformSrcSpan s)
 transformSpecialCon (S.TupleCon s bxd n) =
   HSE.TupleCon (transformSrcSpan s) (transformBoxed bxd) n
-transformSpecialCon (S.NilCon s) = HSE.ListCon (transformSrcSpan s)
-transformSpecialCon (S.ConsCon s) = HSE.Cons (transformSrcSpan s)
+transformSpecialCon (S.NilCon   s) = HSE.ListCon (transformSrcSpan s)
+transformSpecialCon (S.ConsCon  s) = HSE.Cons (transformSrcSpan s)
 transformSpecialCon (S.ExprHole s) = HSE.ExprHole (transformSrcSpan s)
 
 -------------------------------------------------------------------------------

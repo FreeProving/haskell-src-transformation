@@ -43,7 +43,7 @@ instance PrettyName (S.QOp a) where
 
 -- | Pretty prints the name of a special constructor.
 instance PrettyName (S.SpecialCon a) where
-  prettyName (S.UnitCon _) = "()"
+  prettyName (S.UnitCon          _) = "()"
   prettyName (S.UnboxedSingleCon _) = "(# #)"
   prettyName (S.TupleCon _ boxed n) =
     "(" ++ prettyBoxed ++ replicate n ',' ++ prettyBoxed ++ ")"
@@ -51,6 +51,6 @@ instance PrettyName (S.SpecialCon a) where
     prettyBoxed = case boxed of
       S.Boxed   -> ""
       S.Unboxed -> "#"
-  prettyName (S.NilCon  _) = "[]"
-  prettyName (S.ConsCon _) = "(:)"
-  prettyName (S.ExprHole         _) = "_"
+  prettyName (S.NilCon   _) = "[]"
+  prettyName (S.ConsCon  _) = "(:)"
+  prettyName (S.ExprHole _) = "_"

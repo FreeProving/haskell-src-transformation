@@ -88,10 +88,10 @@ shouldTransformTo
   -> [String]
   -> Sem r ()
 shouldTransformTo input expectedOutput = do
-  inputModule   <- parseTestModule input
-  inputModule'  <- transformModule inputModule
-  outputModule  <- runEnv . runFresh $ processModule inputModule'
-  outputModule' <- unTransformModule outputModule
+  inputModule          <- parseTestModule input
+  inputModule'         <- transformModule inputModule
+  outputModule         <- runEnv . runFresh $ processModule inputModule'
+  outputModule'        <- unTransformModule outputModule
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule' `prettyModuleShouldBe` expectedOutputModule
 

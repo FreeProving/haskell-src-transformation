@@ -14,7 +14,7 @@ module HST.Frontend.GHC.To where
 
 import qualified "ghc-lib-parser" Bag          as GHC
 import qualified "ghc-lib-parser" BasicTypes   as GHC
-import qualified "ghc-lib-parser" DataCon       as GHC
+import qualified "ghc-lib-parser" DataCon      as GHC
 import qualified "ghc-lib-parser" GHC.Hs       as GHC
 import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC

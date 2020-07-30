@@ -33,10 +33,7 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity
-                                                  ( Debug
-                                                  , Internal
-                                                  )
+                                                , Severity(Debug, Internal)
                                                 , exceptionToReport
                                                 , filterReportedMessages
                                                 , msgSeverity
