@@ -71,6 +71,9 @@ transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 -------------------------------------------------------------------------------
 
 -- | Transforms an HSE declaration into an HST declaration.
+--
+--   Unsupported declarations are preserved by wrapping them in the
+--   'S.OtherDecl' constructor.
 transformDecl
   :: Member Report r
   => HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
@@ -226,16 +229,16 @@ transformConDecl (HSE.InfixConDecl s _ cName _) = do
                    }
 transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
 
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HSE binding group into an HST binding group.
 transformBinds
   :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
 transformBinds (HSE.BDecls s decls) = do
   S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
 transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
-
--------------------------------------------------------------------------------
--- Function Declarations                                                     --
--------------------------------------------------------------------------------
 
 -- | Transforms an HSE match into an HST match.
 transformMatch

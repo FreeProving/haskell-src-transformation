@@ -93,6 +93,9 @@ transformModule (GHC.L s modul) =
 -------------------------------------------------------------------------------
 
 -- | Transforms a GHC located declaration into an HST declaration.
+--
+--   Unsupported declarations are preserved by wrapping them in the
+--   'S.OtherDecl' constructor.
 transformDecl :: Member Report r => GHC.LHsDecl GHC.GhcPs -> Sem r (S.Decl GHC)
 
 -- Data type and newtype declarations are supported.

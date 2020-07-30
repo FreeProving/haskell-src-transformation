@@ -44,7 +44,8 @@ import           HST.Frontend.GHC.Config        ( GHC
 -------------------------------------------------------------------------------
 
 -- | Transforms the @haskell-src-transformations@ representation of a Haskell
---   module into the @ghc-lib-parser@ representation of a Haskell module.
+--   module into the @ghc-lib-parser@ representation of a located Haskell
+--   module.
 --
 --   The module head is restored from the original module head. The module
 --   name field does not affect the name of the resulting module.
