@@ -349,8 +349,8 @@ transformSpecialCon s name = case Map.lookup name specialDataConMap of
 specialDataConMap :: Map GHC.Name (S.SrcSpan GHC -> S.SpecialCon GHC)
 specialDataConMap = Map.fromList
   [ (GHC.dataConName GHC.unitDataCon       , S.UnitCon)
-  , (GHC.dataConName GHC.nilDataCon        , S.ListCon)
-  , (GHC.dataConName GHC.consDataCon       , S.Cons)
+  , (GHC.dataConName GHC.nilDataCon        , S.NilCon)
+  , (GHC.dataConName GHC.consDataCon       , S.ConsCon)
   , (GHC.dataConName GHC.unboxedUnitDataCon, S.UnboxedSingleCon)
   ]
 

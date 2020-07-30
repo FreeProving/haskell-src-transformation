@@ -60,8 +60,8 @@ getPatConName (S.PInfixApp _ _ conName _) = return conName
 
 -- Constructor patterns with special syntax.
 getPatConName (S.PList _ pats)
-  | null pats = return $ S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan)
-  | otherwise = return $ S.Special S.NoSrcSpan (S.Cons S.NoSrcSpan)
+  | null pats = return $ S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
+  | otherwise = return $ S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
 getPatConName (S.PTuple _ boxed pats) =
   return $ S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan boxed (length pats))
 

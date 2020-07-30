@@ -12,18 +12,16 @@
 
 module HST.Frontend.GHC.To where
 
-import qualified "ghc-lib-parser" GHC.Hs       as GHC
-import qualified "ghc-lib-parser" SrcLoc       as GHC
-import qualified "ghc-lib-parser" RdrName      as GHC
-import qualified "ghc-lib-parser" TcEvidence   as GHC
-import qualified "ghc-lib-parser" BasicTypes   as GHC
 import qualified "ghc-lib-parser" Bag          as GHC
-import qualified "ghc-lib-parser" OccName      as GHC
-import qualified "ghc-lib-parser" TysWiredIn   as GHC
+import qualified "ghc-lib-parser" BasicTypes   as GHC
+import qualified "ghc-lib-parser" DataCon       as GHC
+import qualified "ghc-lib-parser" GHC.Hs       as GHC
 import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC
-import qualified "ghc-lib-parser" TyCon        as GHC
-import qualified "ghc-lib-parser" Type         as GHC
+import qualified "ghc-lib-parser" RdrName      as GHC
+import qualified "ghc-lib-parser" SrcLoc       as GHC
+import qualified "ghc-lib-parser" TcEvidence   as GHC
+import qualified "ghc-lib-parser" TysWiredIn   as GHC
 
 import qualified HST.Frontend.Syntax           as S
 import           HST.Frontend.GHC.Config        ( GHC
@@ -368,14 +366,13 @@ transformQOp (S.QConOp s qName) = GHC.L
 --   Expression holes appear at expression level in the GHC AST and are
 --   transformed in 'transformExp' instead.
 transformSpecialCon :: S.SpecialCon GHC -> GHC.Name
-transformSpecialCon (S.UnitCon _) = GHC.tyConName GHC.unitTyCon
-transformSpecialCon (S.ListCon _) = GHC.listTyConName
-transformSpecialCon (S.FunCon  _) = GHC.tyConName GHC.funTyCon
-transformSpecialCon (S.TupleCon _ boxed arity) =
-  GHC.tyConName (GHC.tupleTyCon (transformBoxed boxed) arity)
-transformSpecialCon (S.Cons _) = GHC.consDataConName
+transformSpecialCon (S.UnitCon _) = GHC.dataConName GHC.unitDataCon
 transformSpecialCon (S.UnboxedSingleCon _) =
-  GHC.tupleTyConName GHC.UnboxedTuple 0
+  GHC.dataConName GHC.unboxedUnitDataCon
+transformSpecialCon (S.TupleCon _ boxed arity) =
+  GHC.dataConName (GHC.tupleDataCon (transformBoxed boxed) arity)
+transformSpecialCon (S.NilCon  _) = GHC.dataConName GHC.nilDataCon
+transformSpecialCon (S.ConsCon _) = GHC.dataConName GHC.consDataCon
 transformSpecialCon (S.ExprHole _) =
   error "Expression holes should be transformed in transformExp"
 
