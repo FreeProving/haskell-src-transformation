@@ -88,23 +88,30 @@ library
                     , HST.Effect.Env
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
+                    , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Effect.WithFrontend
                     , HST.Environment
+                    , HST.Environment.LookupOrReport
                     , HST.Environment.Prelude
                     , HST.Environment.Renaming
                     , HST.Feature.CaseCompletion
                     , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
-                    , HST.Frontend.FromGHC
-                    , HST.Frontend.FromHSE
+                    , HST.Frontend.GHC.Config
+                    , HST.Frontend.GHC.From
+                    , HST.Frontend.GHC.To
+                    , HST.Frontend.HSE.Config
+                    , HST.Frontend.HSE.From
+                    , HST.Frontend.HSE.To
                     , HST.Frontend.Parser
                     , HST.Frontend.PrettyPrinter
                     , HST.Frontend.Syntax
-                    , HST.Frontend.ToGHC
-                    , HST.Frontend.ToHSE
                     , HST.Frontend.Transformer
                     , HST.Options
+                    , HST.Util.Predicates
+                    , HST.Util.PrettyName
+                    , HST.Util.Selectors
 
 -- Build configuration for the command line interface.
 executable haskell-src-transformations

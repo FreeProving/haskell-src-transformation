@@ -1,142 +1,80 @@
-{-# LANGUAGE PackageImports, TypeFamilies #-}
+{-# LANGUAGE PackageImports #-}
 
 -- | This module contains functions transforming Haskell modules and other
 --   constructs of the AST data structure of @ghc-lib-parser@ into the
 --   corresponding constructs of the AST data structure in the
 --   "HST.Frontend.Syntax" module.
 
-module HST.Frontend.FromGHC where
+module HST.Frontend.GHC.From where
 
-import           Data.Data                      ( Data )
+
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( fromMaybe
-                                                , mapMaybe
-                                                )
+import           Data.Maybe                     ( fromMaybe )
 
 import qualified "ghc-lib-parser" Bag          as GHC
 import qualified "ghc-lib-parser" BasicTypes   as GHC
 import qualified "ghc-lib-parser" ConLike      as GHC
 import qualified "ghc-lib-parser" DataCon      as GHC
-import qualified "ghc-lib-parser" DynFlags     as GHC
 import qualified "ghc-lib-parser" GHC.Hs       as GHC
-import qualified "ghc-lib-parser" GHC.Hs.Dump  as GHC
 import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC
-import qualified "ghc-lib-parser" Outputable   as GHC
 import qualified "ghc-lib-parser" RdrName      as GHC
 import qualified "ghc-lib-parser" SrcLoc       as GHC
 import qualified "ghc-lib-parser" Type         as GHC
 import qualified "ghc-lib-parser" TysWiredIn   as GHC
-import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config
-                                               as GHC
 
+import           HST.Frontend.GHC.Config        ( GHC
+                                                , LitWrapper(Lit, OverLit)
+                                                , TypeWrapper(SigType)
+                                                , OriginalModuleHead
+                                                  ( OriginalModuleHead
+                                                  )
+                                                , DeclWrapper(Decl)
+                                                )
 import qualified HST.Frontend.Syntax           as S
 
 -------------------------------------------------------------------------------
--- Type Family Instances                                                     --
--------------------------------------------------------------------------------
-
--- | Type representing the AST data structure of @ghc-lib-parser@.
---
---   Instantiates the type families for source spans, literals and type
---   expressions with the concrete types from @ghc-lib-parser@ or wrappers for
---   these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to allow
---   the usage of @==@ and @show@.
-data GHC
-type instance S.SrcSpanType GHC = GHC.SrcSpan
-type instance S.Literal GHC = LitWrapper
-type instance S.TypeExp GHC = TypeWrapper
-
-instance S.EqAST GHC
-instance S.ShowAST GHC
-
--------------------------------------------------------------------------------
--- Wrappers for @ghc-lib-parser@ Types                                       --
--------------------------------------------------------------------------------
-
--- | Wrapper for the two literal types (for regular and overloaded literals)
---   used by @ghc-lib-parser@.
-data LitWrapper = Lit (GHC.HsLit GHC.GhcPs)
-                | OverLit (GHC.HsOverLit GHC.GhcPs)
-  deriving Eq
-
-instance Show LitWrapper where
-  show (Lit     l) = defaultPrintShow l
-  show (OverLit l) = defaultPrintShow l
-
--- | Wrapper for the type for type expressions appearing in type signatures
---   used by @ghc-lib-parser@.
-newtype TypeWrapper = SigType (GHC.LHsSigWcType GHC.GhcPs)
-
-instance Eq TypeWrapper where
-  SigType t1 == SigType t2 = defaultPrintEq t1 == defaultPrintEq t2
-
-instance Show TypeWrapper where
-  show (SigType t) = defaultPrintShow t
-
--------------------------------------------------------------------------------
--- Printing Functions for the @ghc-lib-parser@ AST                           --
--------------------------------------------------------------------------------
-
--- | Prints a component of the @ghc-lib-parser@ AST data structure without
---   source span information and with line breaks.
---
---   This function is used for equality of @ghc-lib-parser@ AST components.
-defaultPrintEq :: Data a => a -> String
-defaultPrintEq d =
-  GHC.showSDoc defaultDynFlags (GHC.showAstData GHC.BlankSrcSpan d)
-
--- | Prints a component of the @ghc-lib-parser@ AST data structure with source
---   span information and without line breaks.
---
---   This function is used for showing @ghc-lib-parser@ AST components.
-defaultPrintShow :: Data a => a -> String
-defaultPrintShow d =
-  GHC.showSDocOneLine defaultDynFlags (GHC.showAstData GHC.NoBlankSrcSpan d)
-
--- | Returns default variants of the dynamic flags used by @ghc-lib-parser@.
---
---   These dynamic flags are used for parsing Haskell code and printing AST
---   components.
-defaultDynFlags :: GHC.DynFlags
--- TODO These DynFlags should be the same as the ones used for parsing Haskell
--- modules and should be defined in another module.
-defaultDynFlags = GHC.defaultDynFlags GHC.fakeSettings GHC.fakeLlvmConfig
-
--------------------------------------------------------------------------------
--- Transformation Functions                                                  --
+-- Modules                                                                   --
 -------------------------------------------------------------------------------
 
 -- | Transforms the @ghc-lib-parser@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
-transformModule :: GHC.HsModule GHC.GhcPs -> S.Module GHC
-transformModule modul =
+transformModule :: GHC.Located (GHC.HsModule GHC.GhcPs) -> S.Module GHC
+transformModule (GHC.L s modul) =
   let modName' = case GHC.hsmodName modul of
-        Just (GHC.L s modName) ->
-          Just (transformModuleName (transformSrcSpan s) modName)
+        Just (GHC.L s' modName) ->
+          Just (transformModuleName (transformSrcSpan s') modName)
         Nothing -> Nothing
-  in  S.Module modName' (mapMaybe transformDecl (GHC.hsmodDecls modul))
+  in  S.Module
+        (transformSrcSpan s)
+        (OriginalModuleHead (GHC.hsmodName modul)
+                            (GHC.hsmodExports modul)
+                            (GHC.hsmodImports modul)
+                            (GHC.hsmodDeprecMessage modul)
+                            (GHC.hsmodHaddockModHeader modul)
+        )
+        modName'
+        (map transformDecl (GHC.hsmodDecls modul))
+
+-------------------------------------------------------------------------------
+-- Declarations                                                              --
+-------------------------------------------------------------------------------
 
 -- | Transforms a located GHC declaration into an HST declaration.
---
---   Unlike the other transforming functions, the result is wrapped inside
---   the @Maybe@ type, so instead of an error, @Nothing@ is returned if the
---   GHC declaration cannot be transformed.
-transformDecl :: GHC.LHsDecl GHC.GhcPs -> Maybe (S.Decl GHC)
-transformDecl (GHC.L _ (GHC.TyClD _ dDecl@GHC.DataDecl{})) = Just
-  (S.DataDecl (transformRdrNameUnqual (GHC.tcdLName dDecl))
-              (transformDataDefn (GHC.tcdDataDefn dDecl))
-  )
+transformDecl :: GHC.LHsDecl GHC.GhcPs -> S.Decl GHC
+transformDecl decl@(GHC.L s (GHC.TyClD _ dDecl@GHC.DataDecl{})) = S.DataDecl
+  (transformSrcSpan s)
+  (Decl decl)
+  (transformRdrNameUnqual (GHC.tcdLName dDecl))
+  (transformDataDefn (GHC.tcdDataDefn dDecl))
 transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind{})) =
-  Just
-    (S.FunBind (transformSrcSpan s) (transformMatchGroup (GHC.fun_matches fb)))
-transformDecl (GHC.L s (GHC.SigD _ (GHC.TypeSig _ names sigType))) = Just
-  (S.TypeSig (transformSrcSpan s)
-             (map transformRdrNameUnqual names)
-             (SigType sigType)
-  )
-transformDecl _ = Nothing
+  S.FunBind (transformSrcSpan s) (transformMatchGroup (GHC.fun_matches fb))
+transformDecl decl@(GHC.L s _) = S.OtherDecl (transformSrcSpan s) (Decl decl)
+
+-------------------------------------------------------------------------------
+-- Data Type Declarations                                                    --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC data definition into HST constructor declarations.
 transformDataDefn :: GHC.HsDataDefn GHC.GhcPs -> [S.ConDecl GHC]
@@ -147,7 +85,8 @@ transformDataDefn _ = error "Unsupported data definition"
 -- | Transforms a located GHC constructor declaration into an HST constructor
 --   declaration.
 transformConDecl :: GHC.LConDecl GHC.GhcPs -> S.ConDecl GHC
-transformConDecl (GHC.L _ conDecl@GHC.ConDeclH98{}) = transformConDetails
+transformConDecl (GHC.L s conDecl@GHC.ConDeclH98{}) = transformConDetails
+  (transformSrcSpan s)
   (transformRdrNameUnqual (GHC.con_name conDecl))
   (GHC.con_args conDecl)
 transformConDecl _ = error "GADT constructors are not supported"
@@ -155,21 +94,28 @@ transformConDecl _ = error "GADT constructors are not supported"
 -- | Transforms an HST constructor name and GHC constructor details into an HST
 --   constructor declaration.
 transformConDetails
-  :: S.Name GHC
+  :: S.SrcSpan GHC
+  -> S.Name GHC
   -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
   -> S.ConDecl GHC
-transformConDetails name (GHC.PrefixCon args) = S.ConDecl
-  { S.conDeclName    = name
+transformConDetails s name (GHC.PrefixCon args) = S.ConDecl
+  { S.conDeclSrcSpan = s
+  , S.conDeclName    = name
   , S.conDeclArity   = length args
   , S.conDeclIsInfix = False
   }
-transformConDetails name (GHC.InfixCon _ _) = S.ConDecl
-  { S.conDeclName    = name
+transformConDetails s name (GHC.InfixCon _ _) = S.ConDecl
+  { S.conDeclSrcSpan = s
+  , S.conDeclName    = name
   , S.conDeclArity   = 2
   , S.conDeclIsInfix = True
   }
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
-transformConDetails _ _ = error "Record constructors are not supported"
+transformConDetails _ _ _ = error "Record constructors are not supported"
+
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC located binding group into an HST binding group.
 transformLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> Maybe (S.Binds GHC)
@@ -181,7 +127,7 @@ transformLocalBinds _ = error "Unsupported local bindings"
 -- | Transforms GHC value bindings into HST declarations.
 transformValBinds :: GHC.HsValBinds GHC.GhcPs -> [S.Decl GHC]
 transformValBinds (GHC.ValBinds _ binds sigs) = map
-  (fromMaybe (error "Unsupported declaration in bindings") . transformDecl)
+  transformDecl
   (  map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
          (GHC.bagToList binds)
   ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs
@@ -237,6 +183,10 @@ transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _)) = transformExpr body
 transformStmtExpr _ =
   error "Only boolean expressions are supported as statements"
 -- TODO Are there more statements that can be safely converted to boolean expressions?
+
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC boxity into an HST boxed mark.
 transformBoxity :: GHC.Boxity -> S.Boxed
@@ -311,6 +261,10 @@ transformTupleArg :: GHC.LHsTupArg GHC.GhcPs -> S.Exp GHC
 transformTupleArg (GHC.L _ (GHC.Present _ e)) = transformExpr e
 transformTupleArg _ = error "Missing argument in tuple"
 
+-------------------------------------------------------------------------------
+-- Patterns                                                                  --
+-------------------------------------------------------------------------------
+
 -- | Transforms a GHC located pattern into an HST pattern.
 transformPat :: GHC.LPat GHC.GhcPs -> S.Pat GHC
 transformPat (GHC.L s (GHC.VarPat _ name)) =
@@ -334,6 +288,10 @@ transformPat (GHC.L s (GHC.ListPat _ pats)) =
   S.PList (transformSrcSpan s) (map transformPat pats)
 transformPat (GHC.L s (GHC.WildPat _)) = S.PWildCard (transformSrcSpan s)
 transformPat _                         = error "Unsupported pattern"
+
+-------------------------------------------------------------------------------
+-- Names                                                                     --
+-------------------------------------------------------------------------------
 
 -- | Transforms a GHC module name with an HST source span into an HST module
 --   name.
@@ -395,6 +353,10 @@ specialDataConMap = Map.fromList
   , (GHC.dataConName GHC.consDataCon       , S.Cons)
   , (GHC.dataConName GHC.unboxedUnitDataCon, S.UnboxedSingleCon)
   ]
+
+-------------------------------------------------------------------------------
+-- Source Spans                                                              --
+-------------------------------------------------------------------------------
 
 -- | Wraps a GHC source span into the HST type for source spans.
 transformSrcSpan :: GHC.SrcSpan -> S.SrcSpan GHC

@@ -36,10 +36,10 @@ import           HST.Effect.Report              ( Message(Message)
 import           HST.Effect.Cancel              ( Cancel
                                                 , cancel
                                                 )
-import           HST.Frontend.FromGHC           ( GHC
+import           HST.Frontend.GHC.Config        ( GHC
                                                 , defaultDynFlags
                                                 )
-import           HST.Frontend.FromHSE           ( HSE )
+import           HST.Frontend.HSE.Config        ( HSE )
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   can be parsed.
@@ -84,14 +84,14 @@ instance Parsable HSE where
 
 -- | Parses a Haskell module with the parser of @ghc-lib-parser@.
 instance Parsable GHC where
-  data ParsedModule GHC
-    = ParsedModuleGHC { getParsedModuleGHC :: GHC.HsModule GHC.GhcPs }
+  data ParsedModule GHC = ParsedModuleGHC
+    { getParsedModuleGHC :: GHC.Located (GHC.HsModule GHC.GhcPs) }
 
   parseModule inputFilename input =
     case GHC.parseFile inputFilename defaultDynFlags input of
       GHC.POk state inputModule -> do
         reportParsingMessages state
-        return (ParsedModuleGHC (GHC.unLoc inputModule))
+        return (ParsedModuleGHC inputModule)
       GHC.PFailed state -> do
         reportParsingMessages state
         cancel

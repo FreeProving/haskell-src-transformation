@@ -56,17 +56,6 @@ parseTestModule
   -> Sem r (ParsedModule f)
 parseTestModule = parseModule "<test-input>" . unlines
 
--- | Applies 'processModule' and transforms the processed module back to the
---   AST of the front end.
-processTestModule
-  :: (S.EqAST f, Members '[GetOpt, WithFrontend f] r)
-  => ParsedModule f
-  -> Sem r (ParsedModule f)
-processTestModule inputModule = runEnv . runFresh $ do
-  inputModule' <- transformModule inputModule
-  outputModule <- processModule inputModule'
-  unTransformModule inputModule outputModule
-
 -- | Runs the given computation with an empty environment and no additional
 --   command line arguments.
 runTest
@@ -89,10 +78,27 @@ runTest comp =
 -- Expectation Setters                                                       --
 -------------------------------------------------------------------------------
 
+-- | Parses the given modules, processes the input module with 'processModule'
+--   and sets the expectation that the given output module is produced.
+shouldTransformTo
+  :: ( S.EqAST f
+     , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
+     )
+  => [String]
+  -> [String]
+  -> Sem r ()
+shouldTransformTo input expectedOutput = do
+  inputModule   <- parseTestModule input
+  inputModule'  <- transformModule inputModule
+  outputModule  <- runEnv . runFresh $ processModule inputModule'
+  outputModule' <- unTransformModule inputModule outputModule
+  expectedOutputModule <- parseTestModule expectedOutput
+  outputModule' `prettyModuleShouldBe` expectedOutputModule
+
 -- | Pretty prints both given modules and tests whether the resulting strings
 --   are equal modulo whitespace.
 prettyModuleShouldBe
-  :: Members '[WithFrontend f, SetExpectation] r
+  :: Members '[SetExpectation, WithFrontend f] r
   => ParsedModule f
   -> ParsedModule f
   -> Sem r ()
@@ -113,86 +119,58 @@ testApplication = describe "HST.Application" $ do
 -- | Test cases for 'processModule'.
 testProcessModule :: Spec
 testProcessModule = context "processModule" $ do
-  it "should leave functions without pattern matching unchanged"
-    $ runTest
-    -- $ runWithAllFrontends
-    $ do
-        input  <- parseTestModule ["module A where", "f :: a -> a", "f x = x"]
-        output <- processTestModule input
-        output `prettyModuleShouldBe` input
-  it "should transform pattern matching into case expressions"
-    $ runTest
-    -- $ runWithAllFrontends
-    $ do
-        input <- parseTestModule
-          [ "module A where"
-          , "lengthL :: [a] -> Int"
-          , "lengthL [] = 0"
-          , "lengthL (_:xs) = 1 + lengthL xs"
-          ]
-        output         <- processTestModule input
-        expectedOutput <- parseTestModule
-          [ "module A where"
-          , "lengthL :: [a] -> Int"
-          , "lengthL a0 = case a0 of"
-          , "  []    -> 0"
-          , "  a1:a2 -> 1 + lengthL a2"
-          ]
-        output `prettyModuleShouldBe` expectedOutput
-  it "should transform pattern matching in a partial function"
-    $ runTest
-    -- $ runWithAllFrontends
-    $ do
-        input <- parseTestModule
-          ["module A where", "head :: [a] -> a", "head (x:xs) = x"]
-        output         <- processTestModule input
-        expectedOutput <- parseTestModule
-          [ "module A where"
-          , "head :: [a] -> a"
-          , "head a0 = case a0 of"
-          , "  a1 : a2 -> a1"
-          , "  [] -> undefined"
-          ]
-        output `prettyModuleShouldBe` expectedOutput
-  it "should accept a simple guarded expression"
-    $ runTest
-    -- $ runWithAllFrontends
-    $ do
-        input <- parseTestModule
-          ["module A where", "id :: a -> a", "id x | otherwise = x"]
-        output         <- processTestModule input
-        expectedOutput <- parseTestModule
-          [ "module A where"
-          , "id :: a -> a"
-          , "id a0 = let a2 = undefined"
-          , "            a1 = case a0 of"
-          , "              a3 -> if otherwise then a3"
-          , "                                 else a2"
-          , "         in a1"
-          ]
-        output `prettyModuleShouldBe` expectedOutput
-  it "should accept a more complex guarded function"
-    $ runTest
-    -- $ runWithAllFrontends
-    $ do
-        input <- parseTestModule
-          [ "module A where"
-          , "useless :: (a -> Bool) -> a -> a -> a"
-          , "useless p x y | p x       = x"
-          , "              | otherwise = y"
-          ]
-        output         <- processTestModule input
-        expectedOutput <- parseTestModule
-          [ "module A where"
-          , "useless :: (a -> Bool) -> a -> a -> a"
-          , "useless a0 a1 a2 ="
-          , "  let a4 = undefined"
-          , "      a3 = case a0 of"
-          , "        a5 -> case a1 of"
-          , "          a6 -> case a2 of"
-          , "            a7 -> if a5 a6 then a6"
-          , "                           else if otherwise then a7"
-          , "                                             else a4"
-          , "  in a3"
-          ]
-        output `prettyModuleShouldBe` expectedOutput
+  it "should leave functions without pattern matching unchanged" $ runTest $ do
+    shouldTransformTo ["module A where", "f :: a -> a", "f x = x"]
+                      ["module A where", "f :: a -> a", "f x = x"]
+  it "should transform pattern matching into case expressions" $ runTest $ do
+    shouldTransformTo
+      [ "module A where"
+      , "lengthL :: [a] -> Int"
+      , "lengthL [] = 0"
+      , "lengthL(_:xs) = 1 + lengthL xs"
+      ]
+      [ "module A where"
+      , "lengthL :: [a] -> Int"
+      , "lengthL a0 = case a0 of"
+      , "  []    -> 0"
+      , "  a1:a2 -> 1 + lengthL a2"
+      ]
+  it "should transform pattern matching in a partial function" $ runTest $ do
+    shouldTransformTo
+      ["module A where", "head :: [a] -> a", "head (x:xs) = x"]
+      [ "module A where"
+      , "head :: [a] -> a"
+      , "head a0 = case a0 of"
+      , "  a1 : a2 -> a1"
+      , "  [] -> undefined"
+      ]
+  it "should accept a simple guarded expression" $ runTest $ do
+    shouldTransformTo
+      ["module A where", "id :: a -> a", "id x | otherwise = x"]
+      [ "module A where"
+      , "id :: a -> a"
+      , "id a0 = let a1 = case a0 of"
+      , "              a3 -> if otherwise then a3"
+      , "                                 else a2"
+      , "            a2 = undefined"
+      , "        in a1"
+      ]
+  it "should accept a more complex guarded function" $ runTest $ do
+    shouldTransformTo
+      [ "module A where"
+      , "useless :: (a -> Bool) -> a -> a -> a"
+      , "useless p x y | p x       = x"
+      , "              | otherwise = y"
+      ]
+      [ "module A where"
+      , "useless :: (a -> Bool) -> a -> a -> a"
+      , "useless a0 a1 a2 ="
+      , "  let a3 = case a0 of"
+      , "        a5 -> case a1 of"
+      , "          a6 -> case a2 of"
+      , "            a7 -> if a5 a6 then a6"
+      , "                           else if otherwise then a7"
+      , "                                             else a4"
+      , "      a4 = undefined"
+      , "  in a3"
+      ]

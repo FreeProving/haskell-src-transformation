@@ -33,7 +33,10 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Debug, Internal)
+                                                , Severity
+                                                  ( Debug
+                                                  , Internal
+                                                  )
                                                 , exceptionToReport
                                                 , filterReportedMessages
                                                 , msgSeverity
@@ -141,17 +144,17 @@ application = do
 --   its parent directories are created.
 processInputFile
   :: Members '[Cancel, Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
-processInputFile inputFile = do
-  input                <- embed $ readFile inputFile
-  frontendString       <- getOpt optFrontend
-  frontend             <- parseFrontend frontendString
-  (output, moduleName) <- processInput frontend inputFile input
+processInputFile inputFilename = do
+  input                <- embed $ readFile inputFilename
+  frontend             <- parseFrontend =<< getOpt optFrontend
+  (output, moduleName) <- processInput frontend inputFilename input
   maybeOutputDir       <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
-      let outputFile = outputDir </> makeOutputFileName inputFile moduleName
-      embed $ createDirectoryIfMissing True (takeDirectory outputFile)
-      embed $ writeFile outputFile output
+      let outputFilename =
+            outputDir </> makeOutputFileName inputFilename moduleName
+      embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
+      embed $ writeFile outputFilename output
     Nothing -> embed $ putStrLn output
 
 -- | Parses a given string to a module using the given front end, then applies
@@ -174,7 +177,7 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
  where
   -- | Gets the name of the given module.
   getModuleName :: S.Module a -> Maybe String
-  getModuleName (S.Module moduleName _) = fmap getModuleName' moduleName
+  getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
 
   -- | Unwraps the given 'S.ModuleName'.
   getModuleName' :: S.ModuleName a -> String

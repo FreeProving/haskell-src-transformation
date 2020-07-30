@@ -21,6 +21,7 @@ module HST.Effect.Report
   , reportFatal
     -- * Interpretations
   , runReport
+  , evalReport
   , reportToOutputOrCancel
   , reportToHandleOrCancel
   , filterReportedMessages
@@ -28,6 +29,7 @@ module HST.Effect.Report
   , cancelToReport
   , errorToReport
   , exceptionToReport
+  , failToReport
   )
 where
 
@@ -51,8 +53,12 @@ import           Polysemy.Error                 ( Error
                                                 , runError
                                                 , fromExceptionSem
                                                 )
+import           Polysemy.Fail                  ( Fail
+                                                , runFail
+                                                )
 import           Polysemy.Final                 ( Final )
 import           Polysemy.Output                ( Output
+                                                , ignoreOutput
                                                 , output
                                                 , runOutputList
                                                 )
@@ -106,6 +112,13 @@ makeSem ''Report
 --   messages up to the fatal message are collected.
 runReport :: Sem (Report ': r) a -> Sem r ([Message], Maybe a)
 runReport = runOutputList . runCancel . reportToOutputOrCancel . raiseUnder2
+
+-- | Handles the 'Report' effect by discarding all reported messages.
+--
+--   The return value of the handled computation is wrapped in @Maybe@.
+--   If a fatal message is reported, @Nothing@ is returned.
+evalReport :: Sem (Report ': r) a -> Sem r (Maybe a)
+evalReport = ignoreOutput . runCancel . reportToOutputOrCancel . raiseUnder2
 
 -- | Handles the 'Report' effect by 'output'ing all reported messages.
 --
@@ -167,3 +180,17 @@ exceptionToReport
   -> Sem r a
 exceptionToReport exceptionToMessage =
   errorToReport exceptionToMessage . fromExceptionSem . raise
+
+-- | Handles the 'Fail' effect by reporting a internal fatal error if the
+--   given computation fails.
+--
+--   This handler can be used to report pattern matching failures in @do@
+--   blocks as shown in the example below since there is a @MonadFail@ instance
+--   for @Member Fail r => Sem r a@.
+--
+--   > foo :: Member Report r => Sem r a
+--   > foo = failToReport $ do
+--   >   (x, y) <- bar
+--   >   …
+failToReport :: Member Report r => Sem (Fail ': r) a -> Sem r a
+failToReport = runFail >=> either (reportFatal . Message Internal) return

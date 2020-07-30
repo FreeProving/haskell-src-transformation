@@ -11,10 +11,10 @@ where
 import qualified "ghc-lib-parser" Outputable   as GHC
 import qualified Language.Haskell.Exts         as HSE
 
-import           HST.Frontend.FromGHC           ( GHC
+import           HST.Frontend.GHC.Config        ( GHC
                                                 , defaultDynFlags
                                                 )
-import           HST.Frontend.FromHSE           ( HSE )
+import           HST.Frontend.HSE.Config        ( HSE )
 import           HST.Frontend.Parser            ( ParsedModule
                                                 , getParsedModuleHSE
                                                 , getParsedModuleGHC

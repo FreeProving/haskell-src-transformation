@@ -36,8 +36,8 @@ import           HST.Effect.Report              ( Report )
 import           HST.Frontend.Parser            ( Parsable
                                                 , ParsedModule
                                                 )
-import           HST.Frontend.FromGHC           ( GHC )
-import           HST.Frontend.FromHSE           ( HSE )
+import           HST.Frontend.GHC.Config        ( GHC )
+import           HST.Frontend.HSE.Config        ( HSE )
 import qualified HST.Frontend.Parser
 import           HST.Frontend.PrettyPrinter     ( PrettyPrintable )
 import qualified HST.Frontend.PrettyPrinter

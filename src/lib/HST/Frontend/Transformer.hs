@@ -12,12 +12,12 @@ import           Polysemy                       ( Member
                                                 )
 
 import           HST.Effect.Report              ( Report )
-import           HST.Frontend.FromGHC           ( GHC )
-import qualified HST.Frontend.FromGHC          as FromGHC
-import           HST.Frontend.FromHSE           ( HSE )
-import qualified HST.Frontend.FromHSE          as FromHSE
-import qualified HST.Frontend.ToGHC            as ToGHC
-import qualified HST.Frontend.ToHSE            as ToHSE
+import           HST.Frontend.GHC.Config        ( GHC )
+import qualified HST.Frontend.GHC.From         as FromGHC
+import qualified HST.Frontend.GHC.To           as ToGHC
+import           HST.Frontend.HSE.Config        ( HSE )
+import qualified HST.Frontend.HSE.From         as FromHSE
+import qualified HST.Frontend.HSE.To           as ToHSE
 import           HST.Frontend.Parser            ( ParsedModule
                                                   ( ParsedModuleGHC
                                                   , ParsedModuleHSE
@@ -45,11 +45,9 @@ class Transformable a where
     -> Sem r (ParsedModule a)
 
 instance Transformable HSE where
-  transformModule = return . FromHSE.transformModule . getParsedModuleHSE
-  unTransformModule =
-    return . ParsedModuleHSE .: ToHSE.transformModule . getParsedModuleHSE
+  transformModule   = FromHSE.transformModule . getParsedModuleHSE
+  unTransformModule = return . ParsedModuleHSE .: const ToHSE.transformModule
 
 instance Transformable GHC where
-  transformModule = return . FromGHC.transformModule . getParsedModuleGHC
-  unTransformModule =
-    return . ParsedModuleGHC .: ToGHC.transformModule . getParsedModuleGHC
+  transformModule   = return . FromGHC.transformModule . getParsedModuleGHC
+  unTransformModule = return . ParsedModuleGHC .: const ToGHC.transformModule

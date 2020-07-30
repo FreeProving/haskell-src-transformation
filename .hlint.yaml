@@ -19,8 +19,11 @@
 
 # Aliases for qualified imports.
 - modules:
-  - {name: [ HST.CoreAlgorithm ], as: CA}
+  - {name: [ Data.Map.Strict ], as: Map}
+  - {name: [ HST.Frontend.HSE.From ], as: FromHSE}
+  - {name: [ HST.Frontend.HSE.To ], as: ToHSE}
+  - {name: [ HST.Frontend.GHC.From ], as: FromGHC}
+  - {name: [ HST.Frontend.GHC.To ], as: ToGHC}
   - {name: [ HST.Frontend.Syntax ], as: S}
-  - {name: [ HST.Frontend.FromHSE ], as: FromHSE}
-  - {name: [ HST.Frontend.ToHSE ], as: ToHSE}
+  - {name: [ Language.Haskell.Exts ], as: HSE}
   - {name: [ Test.HUnit.Base ], as: HUnit}
