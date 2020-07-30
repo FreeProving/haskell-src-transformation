@@ -47,5 +47,5 @@ instance Transformable HSE where
   unTransformModule = return . ParsedModuleHSE . ToHSE.transformModule
 
 instance Transformable GHC where
-  transformModule   = return . FromGHC.transformModule . getParsedModuleGHC
-  unTransformModule = return . ParsedModuleGHC . ToGHC.transformModule
+  transformModule   = FromGHC.transformModule . getParsedModuleGHC
+  unTransformModule = fmap ParsedModuleGHC . ToGHC.transformModule

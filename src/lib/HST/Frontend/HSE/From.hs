@@ -12,9 +12,10 @@ import           Polysemy                       ( Member
 
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Error, Info)
-                                                , report
+                                                , Severity(Error)
+                                                , notSupported
                                                 , reportFatal
+                                                , skipNotSupported
                                                 )
 import           HST.Frontend.HSE.Config        ( HSE
                                                 , OriginalModuleHead
@@ -22,27 +23,6 @@ import           HST.Frontend.HSE.Config        ( HSE
                                                   )
                                                 )
 import qualified HST.Frontend.Syntax           as S
-
-------------------------------------------------------------------------------
--- Error messages                                                           --
-------------------------------------------------------------------------------
-
--- | Reports a fatal error that the given feature is not supported.
-notSupported
-  :: Member Report r
-  => String -- ^ The name of the feature (plural) that is not supported.
-  -> Sem r b
-notSupported feature =
-  reportFatal $ Message Error $ feature ++ " are not supported!"
-
--- | Informs the user that the given feature is not supported and the
---   corresponding AST node will be skipped.
-skipNotSupported
-  :: Member Report r
-  => String -- ^ The name of the feature (plural) that is not supported.
-  -> Sem r ()
-skipNotSupported feature =
-  report $ Message Info $ feature ++ " are not supported and will be skipped!"
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -71,6 +51,9 @@ transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 -------------------------------------------------------------------------------
 
 -- | Transforms an HSE declaration into an HST declaration.
+--
+--   Unsupported declarations are preserved by wrapping them in the
+--   'S.OtherDecl' constructor.
 transformDecl
   :: Member Report r
   => HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
@@ -226,16 +209,16 @@ transformConDecl (HSE.InfixConDecl s _ cName _) = do
                    }
 transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
 
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HSE binding group into an HST binding group.
 transformBinds
   :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
 transformBinds (HSE.BDecls s decls) = do
   S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
 transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
-
--------------------------------------------------------------------------------
--- Function Declarations                                                     --
--------------------------------------------------------------------------------
 
 -- | Transforms an HSE match into an HST match.
 transformMatch

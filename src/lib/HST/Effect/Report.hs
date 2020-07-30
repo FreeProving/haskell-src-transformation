@@ -30,6 +30,9 @@ module HST.Effect.Report
   , errorToReport
   , exceptionToReport
   , failToReport
+    -- * Error Messages for AST Transformation
+  , notSupported
+  , skipNotSupported
   )
 where
 
@@ -194,3 +197,24 @@ exceptionToReport exceptionToMessage =
 --   >   …
 failToReport :: Member Report r => Sem (Fail ': r) a -> Sem r a
 failToReport = runFail >=> either (reportFatal . Message Internal) return
+
+------------------------------------------------------------------------------
+-- Error Messages for AST Transformation                                    --
+------------------------------------------------------------------------------
+
+-- | Reports a fatal error that the given feature is not supported.
+notSupported
+  :: Member Report r
+  => String -- ^ The name of the feature (plural) that is not supported.
+  -> Sem r b
+notSupported feature =
+  reportFatal $ Message Error $ feature ++ " are not supported!"
+
+-- | Informs the user that the given feature is not supported and the
+--   corresponding AST node will be skipped.
+skipNotSupported
+  :: Member Report r
+  => String -- ^ The name of the feature (plural) that is not supported.
+  -> Sem r ()
+skipNotSupported feature =
+  report $ Message Info $ feature ++ " are not supported and will be skipped!"
