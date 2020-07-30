@@ -39,6 +39,6 @@ instance PrettyPrintable HSE where
       . unParsedModuleHSE
 
 -- | Pretty prints the given Haskell module with the pretty printer of
---   @ghc-lib@.
+--   @ghc-lib-parser@.
 instance PrettyPrintable GHC where
   prettyPrintModule = GHC.showPpr defaultDynFlags . unParsedModuleGHC

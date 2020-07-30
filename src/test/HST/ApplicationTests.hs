@@ -89,8 +89,8 @@ runTest comp =
 -- Expectation Setters                                                       --
 -------------------------------------------------------------------------------
 
--- | Pretty prints both the two given modules and tests whether the resulting
---   strings are equal modulo whitespace.
+-- | Pretty prints both given modules and tests whether the resulting strings
+--   are equal modulo whitespace.
 prettyModuleShouldBe
   :: Members '[WithFrontend f, SetExpectation] r
   => ParsedModule f
