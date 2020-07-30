@@ -486,9 +486,9 @@ transformPat (GHC.L s (GHC.ConPatIn name cpds)) = do
   case (cpds, isCon) of
     (GHC.InfixCon pat1 pat2, True) ->
       S.PInfixApp s'
-        <$> (transformPat pat1)
-        <*> (return name')
-        <*> (transformPat pat2)
+        <$> transformPat pat1
+        <*> return name'
+        <*> transformPat pat2
     (GHC.PrefixCon pats, True) -> S.PApp s' name' <$> mapM transformPat pats
     (_, True) -> notSupported "Record constructors are not supported"
     _ -> notSupported "Only constructors can be applied in patterns"

@@ -255,7 +255,7 @@ transformExp (S.Var s name) = do
   return $ GHC.L (transformSrcSpan s) exp'
 transformExp (S.Con s name) =
   GHC.L (transformSrcSpan s)
-    <$> GHC.HsVar GHC.NoExtField
+    .   GHC.HsVar GHC.NoExtField
     <$> transformQName GHC.dataName name
 transformExp (S.Lit s (Lit lit)) =
   return $ GHC.L (transformSrcSpan s) (GHC.HsLit GHC.NoExtField lit)
@@ -426,7 +426,7 @@ transformQOp (S.QConOp s qName) =
 --
 --   Expression holes appear at expression level in the GHC AST and are
 --   transformed in 'transformExp' instead.
-transformSpecialCon :: Member Report r => S.SpecialCon GHC -> Sem r (GHC.Name)
+transformSpecialCon :: Member Report r => S.SpecialCon GHC -> Sem r GHC.Name
 transformSpecialCon (S.UnitCon _) = return $ GHC.tyConName GHC.unitTyCon
 transformSpecialCon (S.ListCon _) = return GHC.listTyConName
 transformSpecialCon (S.FunCon  _) = return $ GHC.tyConName GHC.funTyCon
