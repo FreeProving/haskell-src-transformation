@@ -6,7 +6,6 @@ module HST.Frontend.Transformer
   )
 where
 
-import           Data.Composition               ( (.:) )
 import           Polysemy                       ( Member
                                                 , Sem
                                                 )
@@ -40,14 +39,13 @@ class Transformable a where
   --   printable module.
   unTransformModule
     :: Member Report r
-    => ParsedModule a -- ^ The original input module. TODO remove me
-    -> S.Module a     -- ^ The module to transform.
+    => S.Module a     -- ^ The module to transform.
     -> Sem r (ParsedModule a)
 
 instance Transformable HSE where
   transformModule   = FromHSE.transformModule . getParsedModuleHSE
-  unTransformModule = return . ParsedModuleHSE .: const ToHSE.transformModule
+  unTransformModule = return . ParsedModuleHSE . ToHSE.transformModule
 
 instance Transformable GHC where
   transformModule   = return . FromGHC.transformModule . getParsedModuleGHC
-  unTransformModule = return . ParsedModuleGHC .: const ToGHC.transformModule
+  unTransformModule = return . ParsedModuleGHC . ToGHC.transformModule

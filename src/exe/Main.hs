@@ -171,7 +171,7 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
   intermediateModule <- transformModule inputModule
   outputModule       <- runEnv . runFresh $ do
     intermediateModule' <- processModule intermediateModule
-    unTransformModule inputModule intermediateModule'
+    unTransformModule intermediateModule'
   output <- prettyPrintModule outputModule
   return (output, getModuleName intermediateModule)
  where

@@ -91,7 +91,7 @@ shouldTransformTo input expectedOutput = do
   inputModule   <- parseTestModule input
   inputModule'  <- transformModule inputModule
   outputModule  <- runEnv . runFresh $ processModule inputModule'
-  outputModule' <- unTransformModule inputModule outputModule
+  outputModule' <- unTransformModule outputModule
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule' `prettyModuleShouldBe` expectedOutputModule
 

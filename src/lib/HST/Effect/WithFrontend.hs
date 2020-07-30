@@ -68,8 +68,7 @@ data WithFrontend f m a where
 
   -- | Action for transforming a module back.
   UnTransformModule
-    ::ParsedModule f -- ^ The original input module.
-    -> S.Module f    -- ^ The module to transform back.
+    ::S.Module f    -- ^ The module to transform back.
     -> WithFrontend f m (ParsedModule f)
 
   -- | Action for pretty printing a module.
@@ -97,12 +96,12 @@ runWithFrontendInstances
 runWithFrontendInstances = interpret \case
   ParseModule inputFile input ->
     HST.Frontend.Parser.parseModule inputFile input
-  TransformModule inputModule ->
-    HST.Frontend.Transformer.transformModule inputModule
-  UnTransformModule inputModule inputModule' ->
-    HST.Frontend.Transformer.unTransformModule inputModule inputModule'
-  PrettyPrintModule inputModule ->
-    return $ HST.Frontend.PrettyPrinter.prettyPrintModule inputModule
+  TransformModule parsedModule ->
+    HST.Frontend.Transformer.transformModule parsedModule
+  UnTransformModule transformedModule ->
+    HST.Frontend.Transformer.unTransformModule transformedModule
+  PrettyPrintModule parsedModule ->
+    return $ HST.Frontend.PrettyPrinter.prettyPrintModule parsedModule
 
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running
 --   the computation with the type class instances for the configuration data
