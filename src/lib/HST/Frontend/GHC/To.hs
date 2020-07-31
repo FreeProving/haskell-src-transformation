@@ -28,7 +28,7 @@ import           Polysemy                       ( Member
 
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Error)
+                                                , Severity(Internal)
                                                 , reportFatal
                                                 )
 import qualified HST.Frontend.Syntax           as S
@@ -100,7 +100,7 @@ transformDecl (S.FunBind s matches          ) = do
   getMatchesName (S.Match _ name _ _ _ : _) = return name
   getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = return name
   getMatchesName [] = reportFatal $ Message
-    Error
+    Internal
     "Encountered empty match group in function binding during retransformation!"
 transformDecl (S.OtherDecl _ (Decl oDecl)) = return oDecl
 
@@ -137,10 +137,10 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
       GHC.L s' (GHC.SigD _ sig) -> return (funBinds', GHC.L s' sig : sigs')
       _ ->
         reportFatal
-          $  Message Error
+          $  Message Internal
           $  "Encountered unexpected declaration in binding group during "
-          ++ "retransformation! (Only function and signature declarations are "
-          ++ "allowed)"
+          ++ "retransformation. Only function and signature declarations are "
+          ++ "allowed!"
 
 -- | Type for the contexts where a match or match group can occur in the GHC
 --   AST data structure.
@@ -434,10 +434,10 @@ transformSpecialCon (S.NilCon  _) = return $ GHC.dataConName GHC.nilDataCon
 transformSpecialCon (S.ConsCon _) = return $ GHC.dataConName GHC.consDataCon
 transformSpecialCon (S.ExprHole _) =
   reportFatal
-    $  Message Error
-    $  "Encountered expression hole at name level in retransformation! "
-    ++ "(Expression holes should be transformed at expression level with "
-    ++ "the ghc-lib front end)"
+    $  Message Internal
+    $  "Encountered expression hole at name level in retransformation. "
+    ++ "Expression holes should be transformed at expression level with "
+    ++ "the ghc-lib front end!"
 
 -------------------------------------------------------------------------------
 -- Source Spans                                                              --

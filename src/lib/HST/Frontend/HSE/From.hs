@@ -13,9 +13,7 @@ import           Polysemy                       ( Member
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
                                                 , Severity(Error)
-                                                , notSupported
                                                 , reportFatal
-                                                , skipNotSupported
                                                 )
 import           HST.Frontend.HSE.Config        ( HSE
                                                 , OriginalModuleHead
@@ -23,6 +21,10 @@ import           HST.Frontend.HSE.Config        ( HSE
                                                   )
                                                 )
 import qualified HST.Frontend.Syntax           as S
+import           HST.Frontend.Transformer.Messages
+                                                ( notSupported
+                                                , skipNotSupported
+                                                )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
