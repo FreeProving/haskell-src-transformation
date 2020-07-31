@@ -91,6 +91,7 @@ library
                     , HST.Frontend.HSE.From
                     , HST.Frontend.HSE.To
                     , HST.Frontend.Syntax
+                    , HST.Frontend.Transformer.Messages
                     , HST.Effect.Cancel
                     , HST.Effect.Env
                     , HST.Effect.Fresh

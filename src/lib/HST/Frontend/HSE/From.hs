@@ -10,16 +10,17 @@ import           Polysemy                       ( Member
                                                 , Sem
                                                 )
 
-import           HST.Effect.Report              ( Report
-                                                , notSupported
-                                                , skipNotSupported
-                                                )
+import           HST.Effect.Report              ( Report )
 import           HST.Frontend.HSE.Config        ( HSE
                                                 , OriginalModuleHead
                                                   ( OriginalModuleHead
                                                   )
                                                 )
 import qualified HST.Frontend.Syntax           as S
+import           HST.Frontend.Transformer.Messages
+                                                ( notSupported
+                                                , skipNotSupported
+                                                )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
