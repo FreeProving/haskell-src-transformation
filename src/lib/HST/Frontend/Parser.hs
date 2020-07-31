@@ -78,7 +78,7 @@ instance Parsable HSE where
           ++ show (HSE.srcColumn srcLoc)
           ++ "."
    where
-     -- | Configuration of the @haskell-src-exts@ parser.
+    -- | Configuration of the @haskell-src-exts@ parser.
     parseMode :: HSE.ParseMode
     parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
@@ -96,12 +96,12 @@ instance Parsable GHC where
         reportParsingMessages state
         cancel
    where
-     -- | Reports all errors and warnings that were reported during parsing.
-     --
-     --   Cancels the computation if there is a parsing error. There can be
-     --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
-     --   language extensions are needed such that the parsed AST represents
-     --   a valid module).
+    -- | Reports all errors and warnings that were reported during parsing.
+    --
+    --   Cancels the computation if there is a parsing error. There can be
+    --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
+    --   language extensions are needed such that the parsed AST represents
+    --   a valid module).
     reportParsingMessages
       :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
     reportParsingMessages state = do
