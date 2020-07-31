@@ -107,7 +107,7 @@ runWithFrontendInstances = interpret \case
 --   the computation with the type class instances for the configuration data
 --   type of the given 'Frontend'.
 --
---   Only 'Parseable', 'Transformable' and 'PrettyPrintable' are needed by
+--   Only 'Parsable', 'Transformable' and 'PrettyPrintable' are needed by
 --   'runWithFrontendInstances'. The 'S.EqAST' and 'S.ShowAST' type class
 --   constraints are included to allow computations that need to show or
 --   compare ASTs.
