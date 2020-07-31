@@ -2,10 +2,13 @@
 --   options.
 
 module HST.Options
-  ( Frontend(..)
-  , Options(..)
+  ( Options(..)
   , defaultOptions
+    -- Frontend Options
+  , Frontend(..)
   , frontendMap
+  , hseFrontendName
+  , ghclibFrontendName
     -- * Command Line Option Parser
   , optionDescriptors
   , parseArgs
@@ -38,17 +41,18 @@ data Frontend = HSE | GHClib
   deriving (Eq, Show)
 
 -- | Name of the 'HSE' front end.
-hse :: String
-hse = "haskell-src-exts"
+hseFrontendName :: String
+hseFrontendName = "haskell-src-exts"
 
 -- | Name of the 'GHClib' front end.
-ghclib :: String
-ghclib = "ghc-lib"
+ghclibFrontendName :: String
+ghclibFrontendName = "ghc-lib"
 
 -- | Map that maps strings to the corresponding front ends. Used for parsing
 --   the front end option.
 frontendMap :: Map String Frontend
-frontendMap = Map.fromList [(hse, HSE), (ghclib, GHClib)]
+frontendMap =
+  Map.fromList [(hseFrontendName, HSE), (ghclibFrontendName, GHClib)]
 
 -- | Parses a given string to one of the front ends.
 parseFrontend :: Member Report r => String -> Sem r Frontend
@@ -88,7 +92,7 @@ defaultOptions = Options { optShowHelp     = False
                          , optEnableDebug  = False
                          , optTrivialCase  = False
                          , optOptimizeCase = True
-                         , optFrontend     = hse
+                         , optFrontend     = hseFrontendName
                          }
 
 -------------------------------------------------------------------------------
