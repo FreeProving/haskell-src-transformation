@@ -26,3 +26,4 @@
   - {name: [ HST.Frontend.HSE.To ], as: ToHSE}
   - {name: [ HST.Frontend.Syntax ], as: S}
   - {name: [ Language.Haskell.Exts ], as: HSE}
+  - {name: [ Test.HUnit.Base ], as: HUnit}

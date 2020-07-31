@@ -82,7 +82,7 @@ data OriginalModuleHead = OriginalModuleHead
 -- Is there a better solution for these instances? Deriving Eq or Show would be
 -- possible if this instance was available for every sub type of the record,
 -- but that would require Orphan instances or otherwise unnecessary wrappers
--- for all of these sub types. 
+-- for all of these sub types.
 instance Eq OriginalModuleHead where
   omh1 == omh2 = and
     [ originalModuleName omh1 == originalModuleName omh2

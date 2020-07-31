@@ -10,7 +10,11 @@ import           Polysemy                       ( Member
                                                 , Sem
                                                 )
 
-import           HST.Effect.Report              ( Report )
+import           HST.Effect.Report              ( Message(Message)
+                                                , Report
+                                                , Severity(Error)
+                                                , reportFatal
+                                                )
 import           HST.Frontend.HSE.Config        ( HSE
                                                 , OriginalModuleHead
                                                   ( OriginalModuleHead
@@ -407,7 +411,8 @@ transformModuleName (HSE.ModuleName s name) =
   return $ S.ModuleName (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified name into an HST qualified name.
-transformQName :: HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
+transformQName
+  :: Member Report r => HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
 transformQName (HSE.Qual s modName name) =
   S.Qual (transformSrcSpan s)
     <$> transformModuleName modName
@@ -423,7 +428,7 @@ transformName (HSE.Ident  s name) = return $ S.Ident (transformSrcSpan s) name
 transformName (HSE.Symbol s name) = return $ S.Symbol (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified operator into an HST qualified operator.
-transformQOp :: HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
+transformQOp :: Member Report r => HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
 transformQOp (HSE.QVarOp s qName) =
   S.QVarOp (transformSrcSpan s) <$> transformQName qName
 transformQOp (HSE.QConOp s qName) =
@@ -431,16 +436,19 @@ transformQOp (HSE.QConOp s qName) =
 
 -- | Transforms an HSE special constructor into an HST special constructor.
 transformSpecialCon
-  :: HSE.SpecialCon HSE.SrcSpanInfo -> Sem r (S.SpecialCon HSE)
+  :: Member Report r
+  => HSE.SpecialCon HSE.SrcSpanInfo
+  -> Sem r (S.SpecialCon HSE)
 transformSpecialCon (HSE.UnitCon s) = return $ S.UnitCon (transformSrcSpan s)
-transformSpecialCon (HSE.ListCon s) = return $ S.ListCon (transformSrcSpan s)
-transformSpecialCon (HSE.FunCon  s) = return $ S.FunCon (transformSrcSpan s)
-transformSpecialCon (HSE.TupleCon s bxd n) =
-  S.TupleCon (transformSrcSpan s) <$> transformBoxed bxd <*> return n
-transformSpecialCon (HSE.Cons s) = return $ S.Cons (transformSrcSpan s)
 transformSpecialCon (HSE.UnboxedSingleCon s) =
   return $ S.UnboxedSingleCon (transformSrcSpan s)
+transformSpecialCon (HSE.TupleCon s bxd n) =
+  S.TupleCon (transformSrcSpan s) <$> transformBoxed bxd <*> return n
+transformSpecialCon (HSE.ListCon  s) = return $ S.NilCon (transformSrcSpan s)
+transformSpecialCon (HSE.Cons     s) = return $ S.ConsCon (transformSrcSpan s)
 transformSpecialCon (HSE.ExprHole s) = return $ S.ExprHole (transformSrcSpan s)
+transformSpecialCon (HSE.FunCon _) =
+  reportFatal $ Message Error $ "Expected data constructor but got (->)."
 
 -------------------------------------------------------------------------------
 -- Source Spans                                                              --

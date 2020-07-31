@@ -200,13 +200,12 @@ transformQOp (S.QConOp s qName) =
 -- | Transforms an HST special constructor into an HSE special constructor.
 transformSpecialCon :: S.SpecialCon HSE -> HSE.SpecialCon HSE.SrcSpanInfo
 transformSpecialCon (S.UnitCon s) = HSE.UnitCon (transformSrcSpan s)
-transformSpecialCon (S.ListCon s) = HSE.ListCon (transformSrcSpan s)
-transformSpecialCon (S.FunCon  s) = HSE.FunCon (transformSrcSpan s)
-transformSpecialCon (S.TupleCon s bxd n) =
-  HSE.TupleCon (transformSrcSpan s) (transformBoxed bxd) n
-transformSpecialCon (S.Cons s) = HSE.Cons (transformSrcSpan s)
 transformSpecialCon (S.UnboxedSingleCon s) =
   HSE.UnboxedSingleCon (transformSrcSpan s)
+transformSpecialCon (S.TupleCon s bxd n) =
+  HSE.TupleCon (transformSrcSpan s) (transformBoxed bxd) n
+transformSpecialCon (S.NilCon   s) = HSE.ListCon (transformSrcSpan s)
+transformSpecialCon (S.ConsCon  s) = HSE.Cons (transformSrcSpan s)
 transformSpecialCon (S.ExprHole s) = HSE.ExprHole (transformSrcSpan s)
 
 -------------------------------------------------------------------------------

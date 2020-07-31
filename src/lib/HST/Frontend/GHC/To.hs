@@ -12,18 +12,16 @@
 
 module HST.Frontend.GHC.To where
 
-import qualified "ghc-lib-parser" GHC.Hs       as GHC
-import qualified "ghc-lib-parser" SrcLoc       as GHC
-import qualified "ghc-lib-parser" RdrName      as GHC
-import qualified "ghc-lib-parser" TcEvidence   as GHC
-import qualified "ghc-lib-parser" BasicTypes   as GHC
 import qualified "ghc-lib-parser" Bag          as GHC
-import qualified "ghc-lib-parser" OccName      as GHC
-import qualified "ghc-lib-parser" TysWiredIn   as GHC
+import qualified "ghc-lib-parser" BasicTypes   as GHC
+import qualified "ghc-lib-parser" DataCon      as GHC
+import qualified "ghc-lib-parser" GHC.Hs       as GHC
 import qualified "ghc-lib-parser" Module       as GHC
 import qualified "ghc-lib-parser" Name         as GHC
-import qualified "ghc-lib-parser" TyCon        as GHC
-import qualified "ghc-lib-parser" Type         as GHC
+import qualified "ghc-lib-parser" RdrName      as GHC
+import qualified "ghc-lib-parser" SrcLoc       as GHC
+import qualified "ghc-lib-parser" TcEvidence   as GHC
+import qualified "ghc-lib-parser" TysWiredIn   as GHC
 import           Polysemy                       ( Member
                                                 , Sem
                                                 )
@@ -427,14 +425,13 @@ transformQOp (S.QConOp s qName) =
 --   Expression holes appear at expression level in the GHC AST and are
 --   transformed in 'transformExp' instead.
 transformSpecialCon :: Member Report r => S.SpecialCon GHC -> Sem r GHC.Name
-transformSpecialCon (S.UnitCon _) = return $ GHC.tyConName GHC.unitTyCon
-transformSpecialCon (S.ListCon _) = return GHC.listTyConName
-transformSpecialCon (S.FunCon  _) = return $ GHC.tyConName GHC.funTyCon
-transformSpecialCon (S.TupleCon _ boxed arity) =
-  return $ GHC.tyConName (GHC.tupleTyCon (transformBoxed boxed) arity)
-transformSpecialCon (S.Cons _) = return GHC.consDataConName
+transformSpecialCon (S.UnitCon _) = return $ GHC.dataConName GHC.unitDataCon
 transformSpecialCon (S.UnboxedSingleCon _) =
-  return $ GHC.tupleTyConName GHC.UnboxedTuple 0
+  return $ GHC.dataConName GHC.unboxedUnitDataCon
+transformSpecialCon (S.TupleCon _ boxed arity) =
+  return $ GHC.dataConName (GHC.tupleDataCon (transformBoxed boxed) arity)
+transformSpecialCon (S.NilCon  _) = return $ GHC.dataConName GHC.nilDataCon
+transformSpecialCon (S.ConsCon _) = return $ GHC.dataConName GHC.consDataCon
 transformSpecialCon (S.ExprHole _) =
   reportFatal
     $  Message Internal

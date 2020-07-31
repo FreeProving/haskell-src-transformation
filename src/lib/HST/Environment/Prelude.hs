@@ -82,19 +82,19 @@ pairConEntry = ConEntry
 -- | Environment entry for the list data type.
 listDataEntry :: DataEntry a
 listDataEntry = DataEntry
-  { dataEntryName = S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan)
+  { dataEntryName = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
   , dataEntryCons = map conEntryName listConEntries
   }
 
 -- | Environment entry for the pair data constructor.
 listConEntries :: [ConEntry a]
 listConEntries =
-  [ ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.ListCon S.NoSrcSpan)
+  [ ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
              , conEntryArity   = 0
              , conEntryIsInfix = False
              , conEntryType    = dataEntryName listDataEntry
              }
-  , ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.Cons S.NoSrcSpan)
+  , ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
              , conEntryArity   = 2
              , conEntryIsInfix = True
              , conEntryType    = dataEntryName listDataEntry

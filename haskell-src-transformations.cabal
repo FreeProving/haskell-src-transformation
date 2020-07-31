@@ -59,9 +59,11 @@ common deps
                      , FlexibleContexts
                      , LambdaCase
                      , PackageImports
+                     , RankNTypes
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TemplateHaskell
+                     , TypeApplications
                      , TypeFamilies
   ghc-options:         -Wall
 
@@ -81,6 +83,17 @@ library
   hs-source-dirs:     src/lib
   exposed-modules:    HST.Application
                     , HST.CoreAlgorithm
+                    , HST.Effect.Cancel
+                    , HST.Effect.Env
+                    , HST.Effect.Fresh
+                    , HST.Effect.GetOpt
+                    , HST.Effect.PatternStack
+                    , HST.Effect.Report
+                    , HST.Effect.WithFrontend
+                    , HST.Environment
+                    , HST.Environment.LookupOrReport
+                    , HST.Environment.Prelude
+                    , HST.Environment.Renaming
                     , HST.Feature.CaseCompletion
                     , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
@@ -90,21 +103,14 @@ library
                     , HST.Frontend.HSE.Config
                     , HST.Frontend.HSE.From
                     , HST.Frontend.HSE.To
+                    , HST.Frontend.Parser
+                    , HST.Frontend.PrettyPrinter
                     , HST.Frontend.Syntax
+                    , HST.Frontend.Transformer
                     , HST.Frontend.Transformer.Messages
-                    , HST.Effect.Cancel
-                    , HST.Effect.Env
-                    , HST.Effect.Fresh
-                    , HST.Effect.GetOpt
-                    , HST.Effect.PatternStack
-                    , HST.Effect.Report
-                    , HST.Environment
-                    , HST.Environment.LookupOrReport
-                    , HST.Environment.Prelude
-                    , HST.Environment.Renaming
                     , HST.Options
-                    , HST.Util.PrettyName
                     , HST.Util.Predicates
+                    , HST.Util.PrettyName
                     , HST.Util.Selectors
 
 -- Build configuration for the command line interface.
@@ -130,6 +136,7 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
                     , HST.Effect.ReportTests
+                    , HST.Effect.SetExpectation
   build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8

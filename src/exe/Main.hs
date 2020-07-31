@@ -10,7 +10,6 @@ import           Control.Exception              ( SomeException
                                                 , displayException
                                                 )
 import           Data.List.Extra                ( splitOn )
-import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Members
                                                 , Sem
                                                 )
@@ -34,29 +33,29 @@ import           System.IO                      ( stderr )
 import           HST.Application                ( processModule )
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity
-                                                  ( Debug
-                                                  , Error
-                                                  , Internal
-                                                  )
-                                                , msgSeverity
-                                                , reportFatal
-                                                , reportToHandleOrCancel
-                                                , filterReportedMessages
+                                                , Severity(Debug, Internal)
                                                 , exceptionToReport
+                                                , filterReportedMessages
+                                                , msgSeverity
+                                                , reportToHandleOrCancel
                                                 )
-import           HST.Effect.Cancel              ( cancelToExit )
+import           HST.Effect.Cancel              ( Cancel
+                                                , cancelToExit
+                                                )
 import           HST.Effect.Env                 ( runEnv )
 import           HST.Effect.Fresh               ( runFresh )
 import           HST.Effect.GetOpt              ( GetOpt
                                                 , getOpt
                                                 , runWithArgsIO
                                                 )
-import qualified HST.Frontend.HSE.From         as FromHSE
-import qualified HST.Frontend.HSE.To           as ToHSE
+import           HST.Effect.WithFrontend        ( parseModule
+                                                , prettyPrintModule
+                                                , runWithFrontend
+                                                , transformModule
+                                                , unTransformModule
+                                                )
 import qualified HST.Frontend.Syntax           as S
 import           HST.Options                    ( Frontend(..)
-                                                , ghclibFrontendName
                                                 , optShowHelp
                                                 , optInputFiles
                                                 , optOutputDir
@@ -114,14 +113,14 @@ main =
 --   applied on the parsed input module and a state constructed from the
 --   command line arguments. The output is either printed to the console
 --   or a file.
-application :: Members '[Embed IO, GetOpt, Report] r => Sem r ()
+application :: Members '[Cancel, Embed IO, GetOpt, Report] r => Sem r ()
 application = do
   -- Filter reported message based on @--debug@ flag.
   debuggingEnabled <- getOpt optEnableDebug
   filterReportedMessages (\msg -> debuggingEnabled || msgSeverity msg /= Debug)
     $ do
-        -- Show usage information when the @--help@ flag is specified or there is no
-        -- input file.
+        -- Show usage information when the @--help@ flag is specified or there
+        -- is no input file.
         showHelp   <- getOpt optShowHelp
         inputFiles <- getOpt optInputFiles
         if showHelp || null inputFiles
@@ -141,46 +140,45 @@ application = do
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
 processInputFile
-  :: Members '[Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
-processInputFile inputFile = do
-  input                <- embed $ readFile inputFile
+  :: Members '[Cancel, Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
+processInputFile inputFilename = do
+  input                <- embed $ readFile inputFilename
   frontend             <- parseFrontend =<< getOpt optFrontend
-  (output, moduleName) <- processInput frontend input
+  (output, moduleName) <- processInput frontend inputFilename input
   maybeOutputDir       <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
-      let outputFile = outputDir </> makeOutputFileName inputFile moduleName
-      embed $ createDirectoryIfMissing True (takeDirectory outputFile)
-      embed $ writeFile outputFile output
+      let outputFilename =
+            outputDir </> makeOutputFileName inputFilename moduleName
+      embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
+      embed $ writeFile outputFilename output
     Nothing -> embed $ putStrLn output
 
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
 processInput
-  :: Members '[GetOpt, Report] r
-  => Frontend
-  -> String
+  :: Members '[Cancel, GetOpt, Report] r
+  => Frontend -- ^ The frontend to use to parse and print the file.
+  -> FilePath -- ^ The name of the input file.
+  -> String   -- ^ The contents of the input file.
   -> Sem r (String, Maybe String)
-processInput HSE input = do
-  let inputModule = HSE.fromParseResult (HSE.parseModule input)
-  intermediateModule <- FromHSE.transformModule inputModule
+processInput frontend inputFilename input = runWithFrontend frontend $ do
+  inputModule        <- parseModule inputFilename input
+  intermediateModule <- transformModule inputModule
   outputModule       <- runEnv . runFresh $ do
     intermediateModule' <- processModule intermediateModule
-    return $ ToHSE.transformModule intermediateModule'
-  return (prettyPrintModuleHSE outputModule, moduleName intermediateModule)
+    unTransformModule intermediateModule'
+  output <- prettyPrintModule outputModule
+  return (output, getModuleName intermediateModule)
  where
-  moduleName :: S.Module a -> Maybe String
-  moduleName (S.Module _ _ name _) = fmap moduleName' name
+  -- | Gets the name of the given module.
+  getModuleName :: S.Module a -> Maybe String
+  getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
 
-  moduleName' :: S.ModuleName a -> String
-  moduleName' (S.ModuleName _ name) = name
-processInput GHClib _ =
-  reportFatal
-    $  Message Error
-    $  "The `"
-    ++ ghclibFrontendName
-    ++ "` front end has not yet been implemented."
+  -- | Unwraps the given 'S.ModuleName'.
+  getModuleName' :: S.ModuleName a -> String
+  getModuleName' (S.ModuleName _ name) = name
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
@@ -201,14 +199,3 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName :: FilePath
   outputFileName =
     maybe (takeBaseName inputFile) (joinPath . splitOn ".") modName
-
-
--- | Pretty prints the given Haskell module.
-prettyPrintModuleHSE :: HSE.Module HSE.SrcSpanInfo -> String
-prettyPrintModuleHSE = HSE.prettyPrintStyleMode
-  (HSE.Style { HSE.mode           = HSE.PageMode
-             , HSE.lineLength     = 120
-             , HSE.ribbonsPerLine = 1.5
-             }
-  )
-  HSE.defaultMode
