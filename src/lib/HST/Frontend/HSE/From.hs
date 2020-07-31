@@ -214,7 +214,7 @@ transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
 -- | Transforms an HSE binding group into an HST binding group.
 transformBinds
   :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
-transformBinds (HSE.BDecls s decls) = do
+transformBinds (HSE.BDecls s decls) =
   S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
 transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
 
