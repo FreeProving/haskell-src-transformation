@@ -592,7 +592,7 @@ transformSpecialCon s name = case Map.lookup name specialDataConMap of
     _ ->
       reportFatal
         $ Message Error
-        $ (  "Wired in data constructor not supported: "
+        $ (  "Wired-in data constructor not supported: "
           ++ GHC.occNameString (GHC.nameOccName name)
           )
 
