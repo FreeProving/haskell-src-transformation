@@ -20,9 +20,9 @@
 # Aliases for qualified imports.
 - modules:
   - {name: [ Data.Map.Strict ], as: Map}
-  - {name: [ HST.Frontend.HSE.From ], as: FromHSE}
-  - {name: [ HST.Frontend.HSE.To ], as: ToHSE}
   - {name: [ HST.Frontend.GHC.From ], as: FromGHC}
   - {name: [ HST.Frontend.GHC.To ], as: ToGHC}
+  - {name: [ HST.Frontend.HSE.From ], as: FromHSE}
+  - {name: [ HST.Frontend.HSE.To ], as: ToHSE}
   - {name: [ HST.Frontend.Syntax ], as: S}
   - {name: [ Language.Haskell.Exts ], as: HSE}
