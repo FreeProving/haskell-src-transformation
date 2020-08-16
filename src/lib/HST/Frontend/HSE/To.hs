@@ -8,12 +8,12 @@
 --   instantiated with the HSE types for source spans, literals and type
 --   expressions.
 
-module HST.Frontend.ToHSE where
+module HST.Frontend.HSE.To where
 
 import qualified Language.Haskell.Exts         as HSE
 
 import qualified HST.Frontend.Syntax           as S
-import           HST.Frontend.FromHSE           ( HSE
+import           HST.Frontend.HSE.Config        ( HSE
                                                 , OriginalModuleHead
                                                   ( originalModuleHead
                                                   , originalModulePragmas
@@ -54,6 +54,10 @@ transformDecl (S.FunBind s matches) =
 transformDecl (S.DataDecl _ originalDecl _ _) = originalDecl
 transformDecl (S.OtherDecl _ originalDecl   ) = originalDecl
 
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST binding group into an HSE binding group.
 transformBinds :: S.Binds HSE -> HSE.Binds HSE.SrcSpanInfo
 transformBinds (S.BDecls s decls) =
@@ -90,14 +94,14 @@ transformGuardedRhs (S.GuardedRhs s ge e) = HSE.GuardedRhs
   [HSE.Qualifier (transformSrcSpan (S.getSrcSpan ge)) (transformExp ge)]
   (transformExp e)
 
+-------------------------------------------------------------------------------
+-- Expressions                                                               --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HST boxed mark into an HSE boxed mark.
 transformBoxed :: S.Boxed -> HSE.Boxed
 transformBoxed S.Boxed   = HSE.Boxed
 transformBoxed S.Unboxed = HSE.Unboxed
-
--------------------------------------------------------------------------------
--- Expressions                                                               --
--------------------------------------------------------------------------------
 
 -- | Transforms an HST expression into an HSE expression.
 transformExp :: S.Exp HSE -> HSE.Exp HSE.SrcSpanInfo
@@ -196,13 +200,12 @@ transformQOp (S.QConOp s qName) =
 -- | Transforms an HST special constructor into an HSE special constructor.
 transformSpecialCon :: S.SpecialCon HSE -> HSE.SpecialCon HSE.SrcSpanInfo
 transformSpecialCon (S.UnitCon s) = HSE.UnitCon (transformSrcSpan s)
-transformSpecialCon (S.ListCon s) = HSE.ListCon (transformSrcSpan s)
-transformSpecialCon (S.FunCon  s) = HSE.FunCon (transformSrcSpan s)
-transformSpecialCon (S.TupleCon s bxd n) =
-  HSE.TupleCon (transformSrcSpan s) (transformBoxed bxd) n
-transformSpecialCon (S.Cons s) = HSE.Cons (transformSrcSpan s)
 transformSpecialCon (S.UnboxedSingleCon s) =
   HSE.UnboxedSingleCon (transformSrcSpan s)
+transformSpecialCon (S.TupleCon s bxd n) =
+  HSE.TupleCon (transformSrcSpan s) (transformBoxed bxd) n
+transformSpecialCon (S.NilCon   s) = HSE.ListCon (transformSrcSpan s)
+transformSpecialCon (S.ConsCon  s) = HSE.Cons (transformSrcSpan s)
 transformSpecialCon (S.ExprHole s) = HSE.ExprHole (transformSrcSpan s)
 
 -------------------------------------------------------------------------------

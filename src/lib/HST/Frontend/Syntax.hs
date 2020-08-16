@@ -119,15 +119,17 @@ instance HasSrcSpan Decl where
 --
 --   Data constructors should not be converted back. The original constructor
 --   declaration should be part of the 'OriginalDecl' of a 'DataDecl'.
-data ConDecl a = ConDecl (SrcSpan a) (Name a) [TypeExp a]
-               | InfixConDecl (SrcSpan a) (TypeExp a) (Name a) (TypeExp a)
-deriving instance EqAST a => Eq (ConDecl a)
+data ConDecl a = ConDecl { conDeclSrcSpan :: SrcSpan a
+                         , conDeclName    :: Name a
+                         , conDeclArity   :: Int
+                         , conDeclIsInfix :: Bool
+                         }
+  deriving Eq
 deriving instance ShowAST a => Show (ConDecl a)
 
 -- | Gets the source span information of a constructor declaration.
 instance HasSrcSpan ConDecl where
-  getSrcSpan (ConDecl srcSpan _ _       ) = srcSpan
-  getSrcSpan (InfixConDecl srcSpan _ _ _) = srcSpan
+  getSrcSpan = conDeclSrcSpan
 
 -------------------------------------------------------------------------------
 -- Function Declarations                                                     --
@@ -371,13 +373,12 @@ instance HasSrcSpan QOp where
   getSrcSpan (QVarOp srcSpan _) = srcSpan
   getSrcSpan (QConOp srcSpan _) = srcSpan
 
--- | A built-in constructor with special syntax.
+-- | A built-in data constructor with special syntax.
 data SpecialCon a = UnitCon (SrcSpan a)
-                  | ListCon (SrcSpan a)
-                  | FunCon (SrcSpan a)
-                  | TupleCon (SrcSpan a) Boxed Int
-                  | Cons (SrcSpan a)
                   | UnboxedSingleCon (SrcSpan a)
+                  | TupleCon (SrcSpan a) Boxed Int
+                  | NilCon (SrcSpan a)
+                  | ConsCon (SrcSpan a)
                   | ExprHole (SrcSpan a)
   deriving (Eq, Ord)
 deriving instance ShowAST a => Show (SpecialCon a)
@@ -385,13 +386,12 @@ deriving instance ShowAST a => Show (SpecialCon a)
 -- | Gets the source span information of a built-in constructor with special
 --   syntax.
 instance HasSrcSpan SpecialCon where
-  getSrcSpan (UnitCon srcSpan         ) = srcSpan
-  getSrcSpan (ListCon srcSpan         ) = srcSpan
-  getSrcSpan (FunCon  srcSpan         ) = srcSpan
-  getSrcSpan (TupleCon srcSpan _ _    ) = srcSpan
-  getSrcSpan (Cons             srcSpan) = srcSpan
+  getSrcSpan (UnitCon          srcSpan) = srcSpan
   getSrcSpan (UnboxedSingleCon srcSpan) = srcSpan
-  getSrcSpan (ExprHole         srcSpan) = srcSpan
+  getSrcSpan (TupleCon srcSpan _ _    ) = srcSpan
+  getSrcSpan (NilCon   srcSpan        ) = srcSpan
+  getSrcSpan (ConsCon  srcSpan        ) = srcSpan
+  getSrcSpan (ExprHole srcSpan        ) = srcSpan
 
 -- | 'SpecialCon'structors can be used everywhere where 'QName's are expected
 --    by wrapping them with 'Special'.

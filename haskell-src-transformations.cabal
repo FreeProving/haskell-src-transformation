@@ -31,14 +31,16 @@ flag PolysemyPluginEnabled {
 
 -- Common settings and dependencies that are used by all stanzas below.
 common deps
-  build-depends:       base             >= 4.12  && < 4.13
-                     , containers       >= 0.6   && < 0.7
-                     , directory        >= 1.3   && < 1.4
-                     , extra            >= 1.7   && < 1.8
-                     , haskell-src-exts >= 1.23  && < 1.24
-                     , mtl              >= 2.2   && < 2.3
-                     , polysemy         >= 1.3   && < 1.4
-                     , polysemy-plugin  >= 0.2.5 && < 0.2.6
+  build-depends:       base              >= 4.12      && < 4.13
+                     , containers        >= 0.6       && < 0.7
+                     , directory         >= 1.3       && < 1.4
+                     , extra             >= 1.7       && < 1.8
+                     , ghc-lib-parser    >= 8.10      && < 8.11
+                     , ghc-lib-parser-ex >= 8.10.0.15 && < 8.10.0.16
+                     , haskell-src-exts  >= 1.23      && < 1.24
+                     , mtl               >= 2.2       && < 2.3
+                     , polysemy          >= 1.3       && < 1.4
+                     , polysemy-plugin   >= 0.2.5     && < 0.2.6
 
   -- Base language which the package is written in.
   --
@@ -56,9 +58,12 @@ common deps
   other-extensions:    BlockArguments
                      , FlexibleContexts
                      , LambdaCase
+                     , PackageImports
+                     , RankNTypes
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TemplateHaskell
+                     , TypeApplications
                      , TypeFamilies
   ghc-options:         -Wall
 
@@ -78,25 +83,34 @@ library
   hs-source-dirs:     src/lib
   exposed-modules:    HST.Application
                     , HST.CoreAlgorithm
-                    , HST.Feature.CaseCompletion
-                    , HST.Feature.GuardElimination
-                    , HST.Feature.Optimization
-                    , HST.Frontend.Syntax
-                    , HST.Frontend.FromHSE
-                    , HST.Frontend.ToHSE
                     , HST.Effect.Cancel
                     , HST.Effect.Env
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
                     , HST.Effect.PatternStack
                     , HST.Effect.Report
+                    , HST.Effect.WithFrontend
                     , HST.Environment
                     , HST.Environment.LookupOrReport
                     , HST.Environment.Prelude
                     , HST.Environment.Renaming
+                    , HST.Feature.CaseCompletion
+                    , HST.Feature.GuardElimination
+                    , HST.Feature.Optimization
+                    , HST.Frontend.GHC.Config
+                    , HST.Frontend.GHC.From
+                    , HST.Frontend.GHC.To
+                    , HST.Frontend.HSE.Config
+                    , HST.Frontend.HSE.From
+                    , HST.Frontend.HSE.To
+                    , HST.Frontend.Parser
+                    , HST.Frontend.PrettyPrinter
+                    , HST.Frontend.Syntax
+                    , HST.Frontend.Transformer
+                    , HST.Frontend.Transformer.Messages
                     , HST.Options
-                    , HST.Util.PrettyName
                     , HST.Util.Predicates
+                    , HST.Util.PrettyName
                     , HST.Util.Selectors
 
 -- Build configuration for the command line interface.
@@ -122,6 +136,7 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
                     , HST.Effect.ReportTests
+                    , HST.Effect.SetExpectation
   build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8

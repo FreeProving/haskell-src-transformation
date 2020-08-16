@@ -1,11 +1,9 @@
-{-# LANGUAGE TypeFamilies #-}
-
 -- | This module contains functions transforming Haskell modules and other
 --   constructs of the AST data structure of @haskell-src-exts@ into the
 --   corresponding constructs of the AST data structure in the
 --   "HST.Frontend.Syntax" module.
 
-module HST.Frontend.FromHSE where
+module HST.Frontend.HSE.From where
 
 import qualified Language.Haskell.Exts         as HSE
 import           Polysemy                       ( Member
@@ -14,62 +12,19 @@ import           Polysemy                       ( Member
 
 import           HST.Effect.Report              ( Message(Message)
                                                 , Report
-                                                , Severity(Error, Info)
-                                                , report
+                                                , Severity(Error)
                                                 , reportFatal
                                                 )
+import           HST.Frontend.HSE.Config        ( HSE
+                                                , OriginalModuleHead
+                                                  ( OriginalModuleHead
+                                                  )
+                                                )
 import qualified HST.Frontend.Syntax           as S
-
--------------------------------------------------------------------------------
--- Type Family Instances                                                     --
--------------------------------------------------------------------------------
-
--- TODO Move type family instances to own @HST.Frontend.Syntax.HSE@ module.
-
--- | Wrapper for the fields of modules that are not supported.
-data OriginalModuleHead = OriginalModuleHead
-  { originalModuleHead    :: Maybe (HSE.ModuleHead HSE.SrcSpanInfo)
-  , originalModulePragmas :: [HSE.ModulePragma HSE.SrcSpanInfo]
-  , originalModuleImports :: [HSE.ImportDecl HSE.SrcSpanInfo]
-  }
- deriving (Eq, Show)
-
--- | Type representing the AST data structure of @haskell-src-exts@.
---
---   Instantiates the type families for source spans, literals and type
---   expressions with the concrete types from @haskell-src-exts@. Also adds
---   instances for 'S.EqAST' and 'S.ShowAST' to allow the usage of @==@ and
---   @show@.
-data HSE
-type instance S.SrcSpanType HSE = HSE.SrcSpanInfo
-type instance S.Literal HSE = HSE.Literal HSE.SrcSpanInfo
-type instance S.TypeExp HSE = HSE.Type HSE.SrcSpanInfo
-type instance S.OriginalModuleHead HSE = OriginalModuleHead
-type instance S.OriginalDecl HSE = HSE.Decl HSE.SrcSpanInfo
-
-instance S.EqAST HSE
-instance S.ShowAST HSE
-
-------------------------------------------------------------------------------
--- Error messages                                                           --
-------------------------------------------------------------------------------
-
--- | Reports a fatal error that the given feature is not supported.
-notSupported
-  :: Member Report r
-  => String -- ^ The name of the feature (plural) that is not supported.
-  -> Sem r b
-notSupported feature =
-  reportFatal $ Message Error $ feature ++ " are not supported!"
-
--- | Informs the user that the given feature is not supported and the
---   corresponding AST node will be skipped.
-skipNotSupported
-  :: Member Report r
-  => String -- ^ The name of the feature (plural) that is not supported.
-  -> Sem r ()
-skipNotSupported feature =
-  report $ Message Info $ feature ++ " are not supported and will be skipped!"
+import           HST.Frontend.Transformer.Messages
+                                                ( notSupported
+                                                , skipNotSupported
+                                                )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -98,6 +53,9 @@ transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 -------------------------------------------------------------------------------
 
 -- | Transforms an HSE declaration into an HST declaration.
+--
+--   Unsupported declarations are preserved by wrapping them in the
+--   'S.OtherDecl' constructor.
 transformDecl
   :: Member Report r
   => HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
@@ -216,19 +174,16 @@ transformDecl decl@(HSE.ForImp s _ _ _ _ _) =
 transformDecl decl@(HSE.ForExp s _ _ _ _) =
   return $ S.OtherDecl (transformSrcSpan s) decl
 
+-------------------------------------------------------------------------------
+-- Data Type Declarations                                                    --
+-------------------------------------------------------------------------------
+
 -- | Transforms an HSE declaration head into an HST declaration head.
 transformDeclHead :: HSE.DeclHead HSE.SrcSpanInfo -> Sem r (S.Name HSE)
 transformDeclHead (HSE.DHead _ dName    ) = transformName dName
 transformDeclHead (HSE.DHInfix _ _ dName) = transformName dName
 transformDeclHead (HSE.DHParen _ dHead  ) = transformDeclHead dHead
 transformDeclHead (HSE.DHApp _ dHead _  ) = transformDeclHead dHead
-
--- | Transforms an HSE binding group into an HST binding group.
-transformBinds
-  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
-transformBinds (HSE.BDecls s decls) =
-  S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
-transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
 
 -- | Transforms an HSE qualified constructor declaration into an HST
 --   constructor declaration.
@@ -242,11 +197,30 @@ transformConDecl
   :: Member Report r => HSE.ConDecl HSE.SrcSpanInfo -> Sem r (S.ConDecl HSE)
 transformConDecl (HSE.ConDecl s cName types) = do
   name' <- transformName cName
-  return (S.ConDecl (transformSrcSpan s) name' types)
-transformConDecl (HSE.InfixConDecl s t1 cName t2) = do
+  return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
+                   , S.conDeclName    = name'
+                   , S.conDeclArity   = length types
+                   , S.conDeclIsInfix = False
+                   }
+transformConDecl (HSE.InfixConDecl s _ cName _) = do
   name' <- transformName cName
-  return (S.InfixConDecl (transformSrcSpan s) t1 name' t2)
+  return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
+                   , S.conDeclName    = name'
+                   , S.conDeclArity   = 2
+                   , S.conDeclIsInfix = True
+                   }
 transformConDecl (HSE.RecDecl _ _ _) = notSupported "Records"
+
+-------------------------------------------------------------------------------
+-- Function Declarations                                                     --
+-------------------------------------------------------------------------------
+
+-- | Transforms an HSE binding group into an HST binding group.
+transformBinds
+  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
+transformBinds (HSE.BDecls s decls) =
+  S.BDecls (transformSrcSpan s) <$> mapM transformDecl decls
+transformBinds (HSE.IPBinds _ _) = notSupported "Implicit-parameters"
 
 -- | Transforms an HSE match into an HST match.
 transformMatch
@@ -437,7 +411,8 @@ transformModuleName (HSE.ModuleName s name) =
   return $ S.ModuleName (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified name into an HST qualified name.
-transformQName :: HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
+transformQName
+  :: Member Report r => HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
 transformQName (HSE.Qual s modName name) =
   S.Qual (transformSrcSpan s)
     <$> transformModuleName modName
@@ -453,7 +428,7 @@ transformName (HSE.Ident  s name) = return $ S.Ident (transformSrcSpan s) name
 transformName (HSE.Symbol s name) = return $ S.Symbol (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified operator into an HST qualified operator.
-transformQOp :: HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
+transformQOp :: Member Report r => HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
 transformQOp (HSE.QVarOp s qName) =
   S.QVarOp (transformSrcSpan s) <$> transformQName qName
 transformQOp (HSE.QConOp s qName) =
@@ -461,16 +436,19 @@ transformQOp (HSE.QConOp s qName) =
 
 -- | Transforms an HSE special constructor into an HST special constructor.
 transformSpecialCon
-  :: HSE.SpecialCon HSE.SrcSpanInfo -> Sem r (S.SpecialCon HSE)
+  :: Member Report r
+  => HSE.SpecialCon HSE.SrcSpanInfo
+  -> Sem r (S.SpecialCon HSE)
 transformSpecialCon (HSE.UnitCon s) = return $ S.UnitCon (transformSrcSpan s)
-transformSpecialCon (HSE.ListCon s) = return $ S.ListCon (transformSrcSpan s)
-transformSpecialCon (HSE.FunCon  s) = return $ S.FunCon (transformSrcSpan s)
-transformSpecialCon (HSE.TupleCon s bxd n) =
-  S.TupleCon (transformSrcSpan s) <$> transformBoxed bxd <*> return n
-transformSpecialCon (HSE.Cons s) = return $ S.Cons (transformSrcSpan s)
 transformSpecialCon (HSE.UnboxedSingleCon s) =
   return $ S.UnboxedSingleCon (transformSrcSpan s)
+transformSpecialCon (HSE.TupleCon s bxd n) =
+  S.TupleCon (transformSrcSpan s) <$> transformBoxed bxd <*> return n
+transformSpecialCon (HSE.ListCon  s) = return $ S.NilCon (transformSrcSpan s)
+transformSpecialCon (HSE.Cons     s) = return $ S.ConsCon (transformSrcSpan s)
 transformSpecialCon (HSE.ExprHole s) = return $ S.ExprHole (transformSrcSpan s)
+transformSpecialCon (HSE.FunCon _) =
+  reportFatal $ Message Error $ "Expected data constructor but got (->)."
 
 -------------------------------------------------------------------------------
 -- Source Spans                                                              --

@@ -361,7 +361,7 @@ decomposeConPat (S.PList _ ps)
   | null ps = return (S.PList S.NoSrcSpan [], [], [])
   | otherwise = do
     let (n : nv) = ps
-        listCon  = S.Special S.NoSrcSpan $ S.Cons S.NoSrcSpan
+        listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
     decomposeConPat (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
 decomposeConPat (S.PTuple _ bxd ps) = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
