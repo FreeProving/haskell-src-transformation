@@ -1,9 +1,13 @@
 module TestModuleAlgo where
 
 data Bool = True | False
+
 data Two a = Null | One a | Two a a
+
 data Rule l r = l :- r
+
 data Maybe a = Just a | Nothing
+
 type QueueI a = ([a], [a])
 
 -- function contains no patterns on left side
@@ -17,7 +21,7 @@ notP False = True
 
 -- partial defined on toplevel
 addPT :: Num a => Two a -> Two a
-addPT (One x  ) = One x
+addPT (One x)   = One x
 addPT (Two x y) = One (x + y)
 
 -- function with sugared Haskell types + wildcard
@@ -27,8 +31,8 @@ mapP f (x : xs) = f x : mapP f xs
 
 -- non-uniform function with sugared Haskell types
 zip :: [a] -> [b] -> [(a, b)]
-zip []       _        = []
-zip _        []       = []
+zip [] _ = []
+zip _ [] = []
 zip (x : xs) (y : ys) = (x, y) : zip xs ys
 
 -- self defined infix constructors

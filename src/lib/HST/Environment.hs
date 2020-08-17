@@ -1,6 +1,5 @@
 -- | This module contains an abstract data type for the pattern matching
 --   compiler's state.
-
 module HST.Environment
   ( -- * Environment Entries
     ConEntry(..)
@@ -14,18 +13,16 @@ module HST.Environment
     -- * Insertion
   , insertConEntry
   , insertDataEntry
-  )
-where
+  ) where
 
-import           Data.Map.Strict                ( Map )
-import qualified Data.Map.Strict               as Map
+import           Data.Map.Strict ( Map )
+import qualified Data.Map.Strict as Map
 
-import qualified HST.Frontend.Syntax           as S
+import qualified HST.Frontend.Syntax as S
 
 -------------------------------------------------------------------------------
 -- Aliases for Names in the Environment                                      --
 -------------------------------------------------------------------------------
-
 -- | The name of a data type.
 type TypeName a = S.QName a
 
@@ -35,7 +32,6 @@ type ConName a = S.QName a
 -------------------------------------------------------------------------------
 -- Environment Entries                                                       --
 -------------------------------------------------------------------------------
-
 -- | An entry of the 'Environment' for a data constructor that is in scope.
 data ConEntry a = ConEntry
   { conEntryName    :: ConName a
@@ -44,7 +40,7 @@ data ConEntry a = ConEntry
     -- ^ The number of fields of the constructor.
   , conEntryIsInfix :: Bool
     -- ^ Whether the constructor should be written in infix notation or not.
-  , conEntryType    ::  TypeName a
+  , conEntryType    :: TypeName a
     -- ^ The name of the data type that the constructor belongs to.
   }
 
@@ -60,7 +56,6 @@ data DataEntry a = DataEntry
 -------------------------------------------------------------------------------
 -- Environment                                                               --
 -------------------------------------------------------------------------------
-
 -- | A data type for the state of the pattern matching compiler.
 data Environment a = Environment
   { envConEntries  :: Map (ConName a) (ConEntry a)
@@ -71,13 +66,12 @@ data Environment a = Environment
 
 -- | An empty 'Environment'.
 emptyEnv :: Environment a
-emptyEnv =
-  Environment { envConEntries = Map.empty, envDataEntries = Map.empty }
+emptyEnv
+  = Environment { envConEntries = Map.empty, envDataEntries = Map.empty }
 
 -------------------------------------------------------------------------------
 -- Lookup                                                                    --
 -------------------------------------------------------------------------------
-
 -- | Looks up the entry of a data constructor with the given name in the
 --   environment.
 --
@@ -94,7 +88,6 @@ lookupDataEntry name = Map.lookup name . envDataEntries
 -------------------------------------------------------------------------------
 -- Insertion                                                                 --
 -------------------------------------------------------------------------------
-
 -- | Inserts the given entry for a data constructor into the environment.
 insertConEntry :: ConEntry a -> Environment a -> Environment a
 insertConEntry entry env = env
