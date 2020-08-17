@@ -1,5 +1,3 @@
-{-# LANGUAGE PackageImports #-}
-
 -- | This module contains functions for pretty-printing modules that have
 --   been converted back from the intermediate representation.
 module HST.Frontend.PrettyPrinter ( PrettyPrintable(prettyPrintModule) ) where

@@ -1,5 +1,3 @@
-{-# LANGUAGE PackageImports #-}
-
 -- | This module contains functions transforming Haskell modules and other
 --   constructs of the AST data structure of the "HST.Frontend.Syntax" module
 --   into the corresponding constructs of the AST data structure of

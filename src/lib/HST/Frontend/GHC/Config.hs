@@ -1,4 +1,3 @@
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | This module configures the HST syntax for the usage of @ghc-lib-parser@ as

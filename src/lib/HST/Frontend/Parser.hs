@@ -1,4 +1,3 @@
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | This module contains functions for parsing Haskell modules with the
