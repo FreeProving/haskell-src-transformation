@@ -186,8 +186,11 @@ createAltsForMissingCons
   -> Sem r [S.Alt a]
 createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
  where
-   createAltForMissingCon :: (Member Fresh r, S.EqAST a) => S.Pat a -> S.Exp a
-                          -> ConEntry a -> Sem r (S.Alt a)
+   createAltForMissingCon :: (Member Fresh r, S.EqAST a)
+                          => S.Pat a
+                          -> S.Exp a
+                          -> ConEntry a
+                          -> Sem r (S.Alt a)
    createAltForMissingCon pat e conEntry = do
      nvars <- replicateM (conEntryArity conEntry)
        (freshVarPat genericFreshPrefix)
@@ -302,7 +305,8 @@ computeAlt _ _ _ []
 --   Returns the pattern with replaced child patterns and a list of new and
 --   old child patterns.
 decomposeConPat :: Members '[Fresh, Report] r
-                => S.Pat a -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
+                => S.Pat a
+                -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
 decomposeConPat (S.PApp _ qname ps) = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)

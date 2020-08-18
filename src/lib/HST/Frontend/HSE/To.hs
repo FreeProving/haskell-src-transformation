@@ -12,8 +12,7 @@ module HST.Frontend.HSE.To where
 import qualified Language.Haskell.Exts as HSE
 
 import           HST.Frontend.HSE.Config
-  ( HSE
-  , OriginalModuleHead(originalModuleHead, originalModulePragmas,
+  ( HSE, OriginalModuleHead(originalModuleHead, originalModulePragmas,
                    originalModuleImports) )
 import qualified HST.Frontend.Syntax as S
 

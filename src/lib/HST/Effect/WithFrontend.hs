@@ -71,7 +71,8 @@ makeSem ''WithFrontend
 runWithFrontendInstances
   :: forall f r a.
   (Parsable f, Transformable f, PrettyPrintable f, Members '[Cancel, Report] r)
-  => Sem (WithFrontend f ': r) a -> Sem r a
+  => Sem (WithFrontend f ': r) a
+  -> Sem r a
 runWithFrontendInstances = interpret \case
   ParseModule inputFile input         ->
     HST.Frontend.Parser.parseModule inputFile input
@@ -91,10 +92,12 @@ runWithFrontendInstances = interpret \case
 --   constraints are included to allow computations that need to show or
 --   compare ASTs.
 runWithFrontend
-  :: Members '[Cancel, Report] r => Frontend
+  :: Members '[Cancel, Report] r
+  => Frontend
   -> (forall f.
       (Parsable f, Transformable f, PrettyPrintable f, S.EqAST f, S.ShowAST f)
-      => Sem (WithFrontend f ': r) a) -> Sem r a
+      => Sem (WithFrontend f ': r) a)
+  -> Sem r a
 runWithFrontend HSE    = runWithFrontendInstances @HSE
 runWithFrontend GHClib = runWithFrontendInstances @GHC
 
@@ -104,6 +107,7 @@ runWithAllFrontends
   :: Members '[Cancel, Report] r
   => (forall f.
       (Parsable f, Transformable f, PrettyPrintable f, S.EqAST f, S.ShowAST f)
-      => Sem (WithFrontend f ': r) a) -> Sem r ()
+      => Sem (WithFrontend f ': r) a)
+  -> Sem r ()
 runWithAllFrontends comp = mapM_ (`runWithFrontend` comp)
   (Map.elems frontendMap)

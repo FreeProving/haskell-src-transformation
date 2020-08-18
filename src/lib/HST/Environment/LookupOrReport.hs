@@ -20,8 +20,8 @@ import           HST.Util.PrettyName ( prettyName )
 --   current environment.
 --
 --   Reports a fatal error if the constructor could not be found.
-lookupConEntryOrReport :: Members '[Env a, Report] r => S.QName a -> Sem r
-                       (ConEntry a)
+lookupConEntryOrReport
+  :: Members '[Env a, Report] r => S.QName a -> Sem r (ConEntry a)
 lookupConEntryOrReport conName = do
   maybeConEntry <- inEnv $ lookupConEntry conName
   case maybeConEntry of
@@ -34,8 +34,8 @@ lookupConEntryOrReport conName = do
 --   current environment.
 --
 --   Reports a fatal error if the constructor could not be found.
-lookupDataEntryOrReport :: Members '[Env a, Report] r => S.QName a -> Sem r
-                        (DataEntry a)
+lookupDataEntryOrReport
+  :: Members '[Env a, Report] r => S.QName a -> Sem r (DataEntry a)
 lookupDataEntryOrReport dataName = do
   maybeDataEntry <- inEnv $ lookupDataEntry dataName
   case maybeDataEntry of

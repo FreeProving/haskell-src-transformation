@@ -59,7 +59,8 @@ runWithArgs args comp = do
 --   them to the computation.
 --
 --   If the command line options cannot be parsed, a fatal error is reported.
-runWithArgsIO :: Members '[Report, Embed IO] r => Sem (GetOpt ': r) a -> Sem r a
+runWithArgsIO
+  :: Members '[Report, Embed IO] r => Sem (GetOpt ': r) a -> Sem r a
 runWithArgsIO comp = do
   args <- embed getArgs
   runWithArgs args comp

@@ -34,7 +34,8 @@ import           HST.Frontend.Transformer.Messages
 -------------------------------------------------------------------------------
 -- | Transforms the @ghc-lib-parser@ representation of a located Haskell module
 --   into the @haskell-src-transformations@ representation of a Haskell module.
-transformModule :: Member Report r => GHC.Located (GHC.HsModule GHC.GhcPs)
+transformModule :: Member Report r
+                => GHC.Located (GHC.HsModule GHC.GhcPs)
                 -> Sem r (S.Module GHC)
 transformModule (GHC.L s modul)
   = let modName' = transformModuleName <$> GHC.hsmodName modul
@@ -144,8 +145,9 @@ transformDecl (GHC.L _ (GHC.XHsDecl x)) = GHC.noExtCon x
 --   definitions are not supported by the pattern matching compiler and are
 --   therefore skipped. @Nothing@ is returned if the data definition itself or
 --   any of its constructors is not supported.
-transformDataDefn :: Member Report r => GHC.HsDataDefn GHC.GhcPs -> Sem r
-                  (Maybe [S.ConDecl GHC])
+transformDataDefn :: Member Report r
+                  => GHC.HsDataDefn GHC.GhcPs
+                  -> Sem r (Maybe [S.ConDecl GHC])
 transformDataDefn GHC.HsDataDefn { GHC.dd_cons = cons } = do
   conDecls <- mapM transformConDecl cons
   return $ if all isJust conDecls then Just (catMaybes conDecls) else Nothing
@@ -157,8 +159,8 @@ transformDataDefn (GHC.XHsDataDefn x) = GHC.noExtCon x
 --   The result is wrapped inside the @Maybe@ type since some kinds of
 --   constructors are not supported by the pattern matching compiler in which
 --   case the corresponding data definition is skipped.
-transformConDecl :: Member Report r => GHC.LConDecl GHC.GhcPs -> Sem r
-                 (Maybe (S.ConDecl GHC))
+transformConDecl
+  :: Member Report r => GHC.LConDecl GHC.GhcPs -> Sem r (Maybe (S.ConDecl GHC))
 transformConDecl (GHC.L s conDecl@GHC.ConDeclH98 {}) = do
   name <- transformRdrNameUnqual (GHC.con_name conDecl)
   transformConDetails (transformSrcSpan s) name (GHC.con_args conDecl)
@@ -173,9 +175,11 @@ transformConDecl (GHC.L _ (GHC.XConDecl x))          = GHC.noExtCon x
 --   The result is wrapped inside the @Maybe@ type since some kinds of
 --   constructors are not supported by the pattern matching compiler in which
 --   case the corresponding data definition is skipped.
-transformConDetails
-  :: Member Report r => S.SrcSpan GHC -> S.Name GHC -> GHC.HsConDetails
-  (GHC.LBangType GHC.GhcPs) recType -> Sem r (Maybe (S.ConDecl GHC))
+transformConDetails :: Member Report r
+                    => S.SrcSpan GHC
+                    -> S.Name GHC
+                    -> GHC.HsConDetails (GHC.LBangType GHC.GhcPs) recType
+                    -> Sem r (Maybe (S.ConDecl GHC))
 transformConDetails s name (GHC.PrefixCon args) = return
   $ Just S.ConDecl { S.conDeclSrcSpan = s
                    , S.conDeclName    = name
@@ -197,8 +201,9 @@ transformConDetails _ _ (GHC.RecCon _)          = do
 -- Function Declarations                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms a GHC located binding group into an HST binding group.
-transformLocalBinds :: Member Report r => GHC.LHsLocalBinds GHC.GhcPs -> Sem r
-                    (Maybe (S.Binds GHC))
+transformLocalBinds :: Member Report r
+                    => GHC.LHsLocalBinds GHC.GhcPs
+                    -> Sem r (Maybe (S.Binds GHC))
 transformLocalBinds (GHC.L s (GHC.HsValBinds _ binds)) = do
   binds' <- transformValBinds binds
   return $ Just (S.BDecls (transformSrcSpan s) binds')
@@ -218,15 +223,17 @@ transformValBinds (GHC.XValBindsLR _)
   = notSupported "Value bindings extensions"
 
 -- | Transforms a GHC match group into HST matches.
-transformMatchGroup :: Member Report r => GHC.MatchGroup GHC.GhcPs
-                    (GHC.LHsExpr GHC.GhcPs) -> Sem r [S.Match GHC]
+transformMatchGroup :: Member Report r
+                    => GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
+                    -> Sem r [S.Match GHC]
 transformMatchGroup GHC.MG { GHC.mg_alts = GHC.L _ matches }
   = mapM transformMatch matches
 transformMatchGroup (GHC.XMatchGroup x) = GHC.noExtCon x
 
 -- | Transforms a GHC located match into an HST match.
-transformMatch :: Member Report r => GHC.LMatch GHC.GhcPs
-               (GHC.LHsExpr GHC.GhcPs) -> Sem r (S.Match GHC)
+transformMatch :: Member Report r
+               => GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
+               -> Sem r (S.Match GHC)
 transformMatch (GHC.L s match@GHC.Match {}) = do
   let s' = transformSrcSpan s
   (name', fixity) <- case GHC.m_ctxt match of
@@ -244,7 +251,8 @@ transformMatch (GHC.L _ (GHC.XMatch x))     = GHC.noExtCon x
 
 -- | Transforms GHC guarded right-hand sides into an HST right-hand side and
 --   binding group.
-transformGRHSs :: Member Report r => GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
+transformGRHSs :: Member Report r
+               => GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
                -> Sem r (S.Rhs GHC, Maybe (S.Binds GHC))
 transformGRHSs grhss@GHC.GRHSs {} = do
   binds <- transformLocalBinds (GHC.grhssLocalBinds grhss)
@@ -260,7 +268,8 @@ transformGRHSs (GHC.XGRHSs x)     = GHC.noExtCon x
 
 -- | Transforms a GHC guarded right-hand side into an HST guarded right-hand
 --   side.
-transformGRHS :: Member Report r => GHC.LGRHS GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
+transformGRHS :: Member Report r
+              => GHC.LGRHS GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
               -> Sem r (S.GuardedRhs GHC)
 transformGRHS (GHC.L s (GHC.GRHS _ [gStmt] body))
   = S.GuardedRhs (transformSrcSpan s) <$> transformStmtExpr gStmt
@@ -271,8 +280,9 @@ transformGRHS (GHC.L _ (GHC.XGRHS x))             = GHC.noExtCon x
 
 -- | Transforms a GHC located statement consisting only of a single expression
 --   into an HST expression.
-transformStmtExpr :: Member Report r => GHC.LStmt GHC.GhcPs
-                  (GHC.LHsExpr GHC.GhcPs) -> Sem r (S.Exp GHC)
+transformStmtExpr :: Member Report r
+                  => GHC.LStmt GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
+                  -> Sem r (S.Exp GHC)
 transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _))   = transformExpr body
 -- TODO Are there more statements that can be safely converted to boolean expressions?
 transformStmtExpr (GHC.L _ (GHC.LastStmt _ _ _ _))
@@ -419,8 +429,8 @@ transformExpr (GHC.L _ (GHC.XExpr x)) = GHC.noExtCon x
 
 -- | Transforms a GHC located tuple argument consisting of an expression into
 --   an HST expression.
-transformTupleArg :: Member Report r => GHC.LHsTupArg GHC.GhcPs -> Sem r
-                  (S.Exp GHC)
+transformTupleArg
+  :: Member Report r => GHC.LHsTupArg GHC.GhcPs -> Sem r (S.Exp GHC)
 transformTupleArg (GHC.L _ (GHC.Present _ e)) = transformExpr e
 transformTupleArg (GHC.L _ (GHC.Missing _))
   = notSupported "Missing tuple arguments"
@@ -504,8 +514,8 @@ transformRdrName (GHC.L _ (GHC.Orig _ _))
   = notSupported "Original names"
 
 -- | Transforms a GHC located unqualified reader name into an HST name.
-transformRdrNameUnqual :: Member Report r => GHC.Located GHC.RdrName -> Sem r
-                       (S.Name GHC)
+transformRdrNameUnqual
+  :: Member Report r => GHC.Located GHC.RdrName -> Sem r (S.Name GHC)
 transformRdrNameUnqual (GHC.L s (GHC.Unqual occName)) = return
   $ S.Ident (transformSrcSpan s) (GHC.occNameString occName)
 transformRdrNameUnqual (GHC.L _ (GHC.Qual _ _))
@@ -517,8 +527,8 @@ transformRdrNameUnqual (GHC.L _ (GHC.Exact _))
 
 -- | Transforms a GHC name with an HST source span into an HST special
 --   constructor.
-transformSpecialCon :: Member Report r => S.SrcSpan GHC -> GHC.Name -> Sem r
-                    (S.SpecialCon GHC)
+transformSpecialCon
+  :: Member Report r => S.SrcSpan GHC -> GHC.Name -> Sem r (S.SpecialCon GHC)
 transformSpecialCon s name = case Map.lookup name specialDataConMap of
   Just mkSpecialCon -> return $ mkSpecialCon s
   Nothing           -> case GHC.wiredInNameTyThing_maybe name of

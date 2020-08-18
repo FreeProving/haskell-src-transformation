@@ -20,15 +20,15 @@ import qualified HST.Frontend.Syntax as S
 --   can be transformed to and from the intermediate syntax.
 class Transformable a where
   -- | Transforms a parsed module to the intermediate syntax.
-  transformModule
-    :: Member Report r => ParsedModule a -- ^ The parsed module to transform.
-    -> Sem r (S.Module a)
+  transformModule :: Member Report r
+                  => ParsedModule a -- ^ The parsed module to transform.
+                  -> Sem r (S.Module a)
 
   -- | Transforms a module from the intermediate syntax back to a pretty
   --   printable module.
-  unTransformModule
-    :: Member Report r => S.Module a     -- ^ The module to transform.
-    -> Sem r (ParsedModule a)
+  unTransformModule :: Member Report r
+                    => S.Module a     -- ^ The module to transform.
+                    -> Sem r (ParsedModule a)
 
 instance Transformable HSE where
   transformModule   = FromHSE.transformModule . getParsedModuleHSE

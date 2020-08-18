@@ -45,8 +45,8 @@ type StackMap a = Map (S.QName a) [S.Pat a]
 runPatternStack :: Sem (PatternStack a ': r) b -> Sem r b
 runPatternStack = evalState Map.empty . patternStackToState
  where
-   patternStackToState :: Sem (PatternStack a ': r) b -> Sem
-                       (State (StackMap a) ': r) b
+   patternStackToState
+     :: Sem (PatternStack a ': r) b -> Sem (State (StackMap a) ': r) b
    patternStackToState = reinterpret \case
      PushPattern name pat -> modify $ Map.alter (maybeCons pat) name
      PeekPattern name     -> gets $ fmap head . Map.lookup name

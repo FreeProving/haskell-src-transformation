@@ -37,10 +37,10 @@ class Parsable a where
   --
   --   Syntax errors are reported. The computation can be canceled even if
   --   there is no fatal error.
-  parseModule
-    :: Members '[Report, Cancel] r => FilePath -- ^ The name of the input file.
-    -> String   -- ^ The contents of the input file.
-    -> Sem r (ParsedModule a)
+  parseModule :: Members '[Report, Cancel] r
+              => FilePath -- ^ The name of the input file.
+              -> String   -- ^ The contents of the input file.
+              -> Sem r (ParsedModule a)
 
 -- | Parses a Haskell module with the parser of @haskell-src-exts@.
 instance Parsable HSE where

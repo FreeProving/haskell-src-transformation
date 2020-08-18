@@ -40,8 +40,9 @@ import qualified HST.Frontend.Syntax as S
 --
 --   The module head is restored from the original module head. The module
 --   name field does not affect the name of the resulting module.
-transformModule :: Member Report r => S.Module GHC -> Sem r
-                (GHC.Located (GHC.HsModule GHC.GhcPs))
+transformModule :: Member Report r
+                => S.Module GHC
+                -> Sem r (GHC.Located (GHC.HsModule GHC.GhcPs))
 transformModule (S.Module s omh _ decls) = do
   decls' <- mapM transformDecl decls
   return
@@ -86,8 +87,9 @@ transformDecl (S.OtherDecl _ (Decl oDecl)) = return oDecl
 -- Function Declarations                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms an HST binding group into a GHC located binding group.
-transformMaybeBinds :: Member Report r => Maybe (S.Binds GHC) -> Sem r
-                    (GHC.LHsLocalBinds GHC.GhcPs)
+transformMaybeBinds :: Member Report r
+                    => Maybe (S.Binds GHC)
+                    -> Sem r (GHC.LHsLocalBinds GHC.GhcPs)
 transformMaybeBinds Nothing = return
   $ GHC.L GHC.noSrcSpan (GHC.EmptyLocalBinds GHC.NoExtField)
 transformMaybeBinds (Just (S.BDecls s decls)) = do
@@ -97,8 +99,10 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
     (GHC.HsValBinds GHC.NoExtField
      (GHC.ValBinds GHC.NoExtField (GHC.listToBag funBinds) sigs))
  where
-   splitBDecls :: Member Report r => [GHC.LHsDecl GHC.GhcPs] -> Sem r
-               ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
+   splitBDecls
+     :: Member Report r
+     => [GHC.LHsDecl GHC.GhcPs]
+     -> Sem r ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
    splitBDecls [] = return $ ([], [])
    splitBDecls (decl : decls') = do
      (funBinds', sigs') <- splitBDecls decls'
@@ -119,9 +123,11 @@ data MatchContext = Function | LambdaExp | CaseAlt
 
 -- | Transforms a match context, a GHC source span of the matches and a list of
 --   HST matches with into a GHC match group.
-transformMatches
-  :: Member Report r => MatchContext -> GHC.SrcSpan -> [S.Match GHC] -> Sem r
-  (GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
+transformMatches :: Member Report r
+                 => MatchContext
+                 -> GHC.SrcSpan
+                 -> [S.Match GHC]
+                 -> Sem r (GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
 transformMatches ctxt s matches = do
   matches' <- mapM (transformMatch ctxt) matches
   return GHC.MG { GHC.mg_ext    = GHC.NoExtField
@@ -130,8 +136,10 @@ transformMatches ctxt s matches = do
                 }
 
 -- | Transforms an HST match with a match context into a GHC located match.
-transformMatch :: Member Report r => MatchContext -> S.Match GHC -> Sem r
-               (GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
+transformMatch :: Member Report r
+               => MatchContext
+               -> S.Match GHC
+               -> Sem r (GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
 transformMatch ctxt match = do
   let (s, name, pats, rhs, mBinds, fixity) = case match of
         S.Match s' name' pats' rhs' mBinds'          ->
@@ -158,8 +166,10 @@ transformMatch ctxt match = do
 
 -- | Transforms an HST right-hand side and binding group into GHC guarded
 --   right-hand sides.
-transformRhs :: Member Report r => S.Rhs GHC -> Maybe (S.Binds GHC) -> Sem r
-             (GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
+transformRhs :: Member Report r
+             => S.Rhs GHC
+             -> Maybe (S.Binds GHC)
+             -> Sem r (GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
 transformRhs rhs mBinds = do
   grhss <- case rhs of
     S.UnGuardedRhs s e     -> do
@@ -174,8 +184,9 @@ transformRhs rhs mBinds = do
 
 -- | Transforms an HST guarded right-hand side into a GHC located guarded
 --   right-hand side.
-transformGuardedRhs :: Member Report r => S.GuardedRhs GHC -> Sem r
-                    (GHC.LGRHS GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
+transformGuardedRhs :: Member Report r
+                    => S.GuardedRhs GHC
+                    -> Sem r (GHC.LGRHS GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
 transformGuardedRhs (S.GuardedRhs s ge be) = do
   ge' <- transformExp ge
   be' <- transformExp be
@@ -244,8 +255,8 @@ transformExp (S.Tuple s boxed es) = GHC.L (transformSrcSpan s)
   <$> (GHC.ExplicitTuple GHC.NoExtField <$> mapM transformExpTuple es
        <*> return (transformBoxed boxed))
  where
-   transformExpTuple :: Member Report r => S.Exp GHC -> Sem r
-                     (GHC.LHsTupArg GHC.GhcPs)
+   transformExpTuple
+     :: Member Report r => S.Exp GHC -> Sem r (GHC.LHsTupArg GHC.GhcPs)
    transformExpTuple e' = GHC.L (transformSrcSpan (S.getSrcSpan e'))
      <$> (GHC.Present GHC.NoExtField <$> transformExp e')
 transformExp (S.List s es) = GHC.L (transformSrcSpan s)
@@ -256,8 +267,10 @@ transformExp (S.Paren s e) = GHC.L (transformSrcSpan s)
 transformExp (S.ExpTypeSig s e (SigType typ)) = GHC.L (transformSrcSpan s)
   <$> (GHC.ExprWithTySig GHC.NoExtField <$> transformExp e <*> return typ)
 
-transformAlts :: Member Report r => GHC.SrcSpan -> [S.Alt GHC] -> Sem r
-              (GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
+transformAlts :: Member Report r
+              => GHC.SrcSpan
+              -> [S.Alt GHC]
+              -> Sem r (GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
 
 -- The source span information of the group of case alternatives seems to be
 -- missing in the HSE syntax and therefore in our syntax, so the source span
@@ -301,8 +314,10 @@ transformModuleName (S.ModuleName _ str) = GHC.mkModuleName str
 
 -- | Transforms an HST qualified name with GHC name space into a GHC located
 --   reader name.
-transformQName :: Member Report r => GHC.NameSpace -> S.QName GHC -> Sem r
-               (GHC.Located GHC.RdrName)
+transformQName :: Member Report r
+               => GHC.NameSpace
+               -> S.QName GHC
+               -> Sem r (GHC.Located GHC.RdrName)
 transformQName nameSpace (S.Qual s modName name) = return
   $ GHC.L (transformSrcSpan s)
   (GHC.Qual (transformModuleName modName) (transformNameOcc nameSpace name))

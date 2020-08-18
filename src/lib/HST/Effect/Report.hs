@@ -96,8 +96,8 @@ evalReport = ignoreOutput . runCancel . reportToOutputOrCancel . raiseUnder2
 --
 --   If a fatal message is reported, the computation is 'cancel'ed
 --   prematurely.
-reportToOutputOrCancel :: Members '[Output Message, Cancel] r => Sem
-                       (Report ': r) a -> Sem r a
+reportToOutputOrCancel
+  :: Members '[Output Message, Cancel] r => Sem (Report ': r) a -> Sem r a
 reportToOutputOrCancel = interpret \case
   Report msg      -> output msg
   ReportFatal msg -> output msg >> cancel
@@ -107,8 +107,8 @@ reportToOutputOrCancel = interpret \case
 --
 --   If a fatal message is reported, the computation is 'cancel'ed
 --   prematurely.
-reportToHandleOrCancel :: Members '[Embed IO, Cancel] r => Handle -> Sem
-                       (Report ': r) a -> Sem r a
+reportToHandleOrCancel
+  :: Members '[Embed IO, Cancel] r => Handle -> Sem (Report ': r) a -> Sem r a
 reportToHandleOrCancel h = interpret \case
   Report msg      -> embed (hPutMessage msg)
   ReportFatal msg -> embed (hPutMessage msg) >> cancel
@@ -136,8 +136,8 @@ cancelToReport cancelMessage = runCancel
 
 -- | Handles the 'Error' effect by reporting thrown errors as the message
 --   returned by the given function for the error.
-errorToReport :: Member Report r => (e -> Message) -> Sem (Error e ': r) a
-              -> Sem r a
+errorToReport
+  :: Member Report r => (e -> Message) -> Sem (Error e ': r) a -> Sem r a
 errorToReport errorToMessage = runError
   >=> either (reportFatal . errorToMessage) return
 
@@ -145,7 +145,9 @@ errorToReport errorToMessage = runError
 --   by reporting the message returned by the given function for the thrown
 --   exception.
 exceptionToReport :: (Exception e, Members '[Final IO, Report] r)
-                  => (e -> Message) -> Sem r a -> Sem r a
+                  => (e -> Message)
+                  -> Sem r a
+                  -> Sem r a
 exceptionToReport exceptionToMessage
   = errorToReport exceptionToMessage . fromExceptionSem . raise
 

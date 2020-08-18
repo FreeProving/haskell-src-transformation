@@ -32,7 +32,8 @@ altToGExp (S.Alt _ pat rhs _) = GExp [pat] rhs
 --   binding for the error expression. The @i@-th binding uses the @(i + 1)@-th
 --   binding as an error expression.
 generateLet
-  :: Member Fresh r => [S.Exp a] -- ^ Variables to match.
+  :: Member Fresh r
+  => [S.Exp a] -- ^ Variables to match.
   -> S.Exp a   -- ^ Expression to use if patterns don't match or the guard is
                --   not satisfied.
   -> [GExp a]  -- ^ Patterns to match and the corresponding right-hand sides.

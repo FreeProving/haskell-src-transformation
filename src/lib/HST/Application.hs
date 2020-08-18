@@ -33,7 +33,8 @@ import           HST.Util.Selectors ( expFromUnguardedRhs )
 --
 --   Returns a new module with the transformed functions.
 processModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-              => S.Module a -> Sem r (S.Module a)
+              => S.Module a
+              -> Sem r (S.Module a)
 processModule m = do
   insertPreludeEntries
   collectDataInfo m
@@ -43,14 +44,16 @@ processModule m = do
 
 -- | Applies the core algorithm on each declaration in the given module.
 useAlgoModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-              => S.Module a -> Sem r (S.Module a)
+              => S.Module a
+              -> Sem r (S.Module a)
 useAlgoModule (S.Module s origModuleHead moduleName decls) = do
   decls' <- mapM useAlgoDecl decls
   return $ S.Module s origModuleHead moduleName decls'
 
 -- | Applies the core algorithm on the given declaration.
-useAlgoDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a) => S.Decl
-            a -> Sem r (S.Decl a)
+useAlgoDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
+            => S.Decl a
+            -> Sem r (S.Decl a)
 useAlgoDecl (S.FunBind _ ms) = do
   m' <- useAlgoMatches ms
   return (S.FunBind S.NoSrcSpan [m'])
@@ -62,7 +65,8 @@ useAlgoDecl v = return v
 --   If the function has only one rule and no pattern is a constructor
 --   pattern, the function is is left unchanged.
 useAlgoMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => [S.Match a] -> Sem r (S.Match a)
+               => [S.Match a]
+               -> Sem r (S.Match a)
 useAlgoMatches [m]
   | not (hasCons m) = return m
 useAlgoMatches ms  = useAlgo ms
@@ -75,7 +79,8 @@ hasCons (S.InfixMatch _ p1 _ ps _ _) = any isConPat (p1 : ps)
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-        => [S.Match a] -> Sem r (S.Match a)
+        => [S.Match a]
+        -> Sem r (S.Match a)
 useAlgo ms = do
   eqs <- mapM matchToEquation ms
   let name  = getMatchName (head ms)

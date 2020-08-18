@@ -23,8 +23,8 @@ optimize = runPatternStack . optimize'
 -- | Like 'optimize' but can access a stack of patterns for each local
 --   variable to remember the patterns that variables have been matched
 --   against.
-optimize' :: Members '[PatternStack a, Fresh, Report] r => S.Exp a -> Sem r
-          (S.Exp a)
+optimize'
+  :: Members '[PatternStack a, Fresh, Report] r => S.Exp a -> Sem r (S.Exp a)
 optimize' (S.InfixApp _ e1 qop e2) = do
   e1' <- optimize' e1
   e2' <- optimize' e2
@@ -71,8 +71,10 @@ optimize' e@(S.Lit _ _) = return e
 --   If the scrutinee is a variable that has been matched already, the
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
-optimizeCase :: Members '[PatternStack a, Fresh, Report] r => S.Exp a
-             -> [S.Alt a] -> Sem r (S.Exp a)
+optimizeCase :: Members '[PatternStack a, Fresh, Report] r
+             => S.Exp a
+             -> [S.Alt a]
+             -> Sem r (S.Exp a)
 optimizeCase (S.Var _ varName) alts = do
   mpat <- peekPattern varName
   case mpat of
@@ -129,7 +131,9 @@ selectPats _ = reportFatal
 
 -- | Renames the corresponding pairs of variable patterns in the given
 --   expression.
-renameAll :: Members '[Fresh, Report] r => [(S.Pat a, S.Pat a)] -> S.Exp a
+renameAll :: Members '[Fresh, Report] r
+          => [(S.Pat a, S.Pat a)]
+          -> S.Exp a
           -> Sem r (S.Exp a)
 
 -- TODO refactor higher order foldr
@@ -146,8 +150,10 @@ renameAll ((from, to) : r) e = do
 --
 --   While an alternative is optimized, the pattern is pushed to the stack
 --   of matched patterns for the scrutinee in the environment.
-addAndOpt :: Members '[PatternStack a, Fresh, Report] r => S.QName a
-          -> [S.Alt a] -> Sem r (S.Exp a)
+addAndOpt :: Members '[PatternStack a, Fresh, Report] r
+          => S.QName a
+          -> [S.Alt a]
+          -> Sem r (S.Exp a)
 addAndOpt v alts = do
   alts' <- mapM bindAndOpt alts
   return $ S.Case S.NoSrcSpan (S.Var S.NoSrcSpan v) alts'
@@ -159,8 +165,8 @@ addAndOpt v alts = do
      return alt'
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
-optimizeAlt :: Members '[PatternStack a, Fresh, Report] r => S.Alt a -> Sem r
-            (S.Alt a)
+optimizeAlt
+  :: Members '[PatternStack a, Fresh, Report] r => S.Alt a -> Sem r (S.Alt a)
 optimizeAlt (S.Alt _ p rhs _) = do
   e <- expFromUnguardedRhs rhs
   e' <- optimize' e

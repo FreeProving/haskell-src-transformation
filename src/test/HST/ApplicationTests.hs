@@ -26,15 +26,19 @@ import qualified HST.Frontend.Syntax as S
 -- Utility Functions                                                         --
 -------------------------------------------------------------------------------
 -- | Parses a module for testing purposes.
-parseTestModule :: Members '[Cancel, Report, WithFrontend f] r => [String]
+parseTestModule :: Members '[Cancel, Report, WithFrontend f] r
+                => [String]
                 -> Sem r (ParsedModule f)
 parseTestModule = parseModule "<test-input>" . unlines
 
 -- | Runs the given computation with an empty environment and no additional
 --   command line arguments.
-runTest :: (forall f. S.EqAST f => Sem
-            '[WithFrontend f, GetOpt, Cancel, Report, SetExpectation, Embed IO]
-            ()) -> IO ()
+runTest
+  :: (forall f.
+      S.EqAST f
+      => Sem '[WithFrontend f, GetOpt, Cancel, Report, SetExpectation, Embed IO]
+      ())
+  -> IO ()
 runTest comp = runM
   $ setExpectationToIO
   $ reportToSetExpectation
@@ -50,7 +54,10 @@ runTest comp = runM
 shouldTransformTo
   :: ( S.EqAST f
      , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
-     ) => [String] -> [String] -> Sem r ()
+     )
+  => [String]
+  -> [String]
+  -> Sem r ()
 shouldTransformTo input expectedOutput = do
   inputModule <- parseTestModule input
   inputModule' <- transformModule inputModule
@@ -62,7 +69,9 @@ shouldTransformTo input expectedOutput = do
 -- | Pretty prints both given modules and tests whether the resulting strings
 --   are equal modulo whitespace.
 prettyModuleShouldBe :: Members '[SetExpectation, WithFrontend f] r
-                     => ParsedModule f -> ParsedModule f -> Sem r ()
+                     => ParsedModule f
+                     -> ParsedModule f
+                     -> Sem r ()
 prettyModuleShouldBe m1 m2 = do
   p1 <- prettyPrintModule m1
   p2 <- prettyPrintModule m2

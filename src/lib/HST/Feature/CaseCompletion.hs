@@ -15,8 +15,10 @@ import           HST.Util.Selectors ( expFromUnguardedRhs )
 
 -- | Takes a given expression and applies the algorithm on it resulting in
 --   completed cases
-completeCase :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a) => Bool
-             -> S.Exp a -> Sem r (S.Exp a)
+completeCase :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
+             => Bool
+             -> S.Exp a
+             -> Sem r (S.Exp a)
 completeCase insideLet (S.Case _ expr as) = do
   v <- freshVarPat genericFreshPrefix
   eqs <- mapM getEqFromAlt as
@@ -70,7 +72,8 @@ completeCase _ e@(S.Con _ _) = return e
 completeCase _ e@(S.Lit _ _) = return e
 
 completeBindRhs :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-                => S.Binds a -> Sem r (S.Binds a)
+                => S.Binds a
+                -> Sem r (S.Binds a)
 completeBindRhs (S.BDecls _ decls) = do
   decls' <- mapM (applyCCDecl True) decls
   return $ S.BDecls S.NoSrcSpan decls'
@@ -81,7 +84,10 @@ getEqFromAlt (S.Alt _ pat rhs _) = do
   return ([pat], expr)
 
 completeLambda :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => [S.Pat a] -> S.Exp a -> Bool -> Sem r (S.Exp a)
+               => [S.Pat a]
+               -> S.Exp a
+               -> Bool
+               -> Sem r (S.Exp a)
 completeLambda ps e insideLet = do
   xs <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   e' <- completeCase insideLet e
@@ -90,25 +96,31 @@ completeLambda ps e insideLet = do
   return $ S.Lambda S.NoSrcSpan xs res
 
 applyCCModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-              => S.Module a -> Sem r (S.Module a)
+              => S.Module a
+              -> Sem r (S.Module a)
 applyCCModule (S.Module s origModuleHead moduleName decls) = do
   decls' <- mapM (applyCCDecl False) decls
   return $ S.Module s origModuleHead moduleName decls'
 
-applyCCDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a) => Bool
-            -> S.Decl a -> Sem r (S.Decl a)
+applyCCDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
+            => Bool
+            -> S.Decl a
+            -> Sem r (S.Decl a)
 applyCCDecl insideLet (S.FunBind _ ms) = do
   nms <- applyCCMatches insideLet ms
   return (S.FunBind S.NoSrcSpan nms)
 applyCCDecl _ v = return v
 
 applyCCMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => Bool -> [S.Match a] -> Sem r [S.Match a]
+               => Bool
+               -> [S.Match a]
+               -> Sem r [S.Match a]
 applyCCMatches insideLet = mapM applyCCMatch
  where
    -- TODO maybe only apply if needed -> isIncomplete?
    applyCCMatch :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-                => S.Match a -> Sem r (S.Match a)
+                => S.Match a
+                -> Sem r (S.Match a)
    applyCCMatch (S.Match _ n ps rhs _)        = do
      e <- expFromUnguardedRhs rhs
      x <- completeCase insideLet e
