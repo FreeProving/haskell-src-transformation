@@ -68,8 +68,7 @@ useAlgoDecl v = return v
 useAlgoMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                => [S.Match a]
                -> Sem r (S.Match a)
-useAlgoMatches [m]
-  | not (hasCons m) = return m
+useAlgoMatches [m] | not (hasCons m) = return m
 useAlgoMatches ms  = useAlgo ms
 
 -- | Tests whether the given match of a function declaration contains

@@ -187,9 +187,8 @@ applyGEDecl decl@(S.OtherDecl _ _)    = return decl
 --   TODO only apply to the parts with guards (not on matches if in case)
 --        not false by semantics
 applyGEMatches :: Member Fresh r => [S.Match a] -> Sem r [S.Match a]
-applyGEMatches ms
-  | any hasGuards ms = return <$> applyGE ms
-  | otherwise = return ms
+applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
+                  | otherwise = return ms
 
 -- | Applies guard elimination to the rules of a function declaration.
 applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)

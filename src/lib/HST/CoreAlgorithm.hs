@@ -195,10 +195,9 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
   createAltForMissingCon pat e conEntry = do
     nvars <- replicateM (conEntryArity conEntry)
       (freshVarPat genericFreshPrefix)
-    let p
-          | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan (head nvars)
-            (conEntryName conEntry) (nvars !! 1)
-          | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
+    let p    | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan (head nvars)
+               (conEntryName conEntry) (nvars !! 1)
+             | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
         p'   = S.patToExp p
         pat' = S.patToExp pat
         e'   = substitute (tSubst pat' p') e
