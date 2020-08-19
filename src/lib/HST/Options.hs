@@ -14,10 +14,10 @@ module HST.Options
   , parseFrontend
   ) where
 
-import           Data.List ( intercalate )
-import           Data.Map.Strict ( Map )
-import qualified Data.Map.Strict as Map
-import           Polysemy ( Member, Sem )
+import           Data.List             ( intercalate )
+import           Data.Map.Strict       ( Map )
+import qualified Data.Map.Strict       as Map
+import           Polysemy              ( Member, Sem )
 import           System.Console.GetOpt
   ( ArgDescr(NoArg, ReqArg), ArgOrder(Permute), OptDescr(Option), getOpt )
 
@@ -133,7 +133,7 @@ parseArgs args
       $ "Failed to parse command line arguments.\n"
       ++ "Use '--help' for usage information."
  where
-   optSetters :: [Options -> Options]
-   nonOpts :: [String]
-   errors :: [String]
-   (optSetters, nonOpts, errors) = getOpt Permute optionDescriptors args
+  optSetters :: [Options -> Options]
+  nonOpts :: [String]
+  errors :: [String]
+  (optSetters, nonOpts, errors) = getOpt Permute optionDescriptors args

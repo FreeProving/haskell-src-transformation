@@ -9,18 +9,19 @@
 --   @Eq@ and @Show@ for every component of the GHC-instantiated HST syntax.
 module HST.Frontend.GHC.Config where
 
-import qualified BasicTypes as GHC
-import           Data.Data ( Data )
-import           Data.List ( intercalate )
-import qualified DynFlags as GHC
-import qualified GHC.Hs as GHC
-import qualified GHC.Hs.Dump as GHC
+import qualified BasicTypes                                          as GHC
+import           Data.Data                                           ( Data )
+import           Data.List
+  ( intercalate )
+import qualified DynFlags                                            as GHC
+import qualified GHC.Hs                                              as GHC
+import qualified GHC.Hs.Dump                                         as GHC
 import qualified Language.Haskell.GhclibParserEx.GHC.Settings.Config as GHC
-import qualified Module as GHC
-import qualified Outputable as GHC
-import qualified SrcLoc as GHC
+import qualified Module                                              as GHC
+import qualified Outputable                                          as GHC
+import qualified SrcLoc                                              as GHC
 
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax                                 as S
 
 -------------------------------------------------------------------------------
 -- Type Family Instances                                                     --

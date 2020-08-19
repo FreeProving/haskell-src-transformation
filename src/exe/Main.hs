@@ -2,30 +2,30 @@
 --   @haskell-src-transformations@ package.
 module Main ( main ) where
 
-import           Control.Exception ( SomeException, displayException )
-import           Data.List.Extra ( splitOn )
-import           Polysemy ( Members, Sem )
-import           Polysemy.Embed ( Embed, embed )
-import           Polysemy.Final ( embedToFinal, runFinal )
-import           System.Console.GetOpt ( usageInfo )
-import           System.Directory ( createDirectoryIfMissing )
-import           System.Environment ( getProgName )
+import           Control.Exception       ( SomeException, displayException )
+import           Data.List.Extra         ( splitOn )
+import           Polysemy                ( Members, Sem )
+import           Polysemy.Embed          ( Embed, embed )
+import           Polysemy.Final          ( embedToFinal, runFinal )
+import           System.Console.GetOpt   ( usageInfo )
+import           System.Directory        ( createDirectoryIfMissing )
+import           System.Environment      ( getProgName )
 import           System.FilePath
   ( (<.>), (</>), joinPath, takeBaseName, takeDirectory )
-import           System.IO ( stderr )
+import           System.IO               ( stderr )
 
-import           HST.Application ( processModule )
-import           HST.Effect.Cancel ( Cancel, cancelToExit )
-import           HST.Effect.Env ( runEnv )
-import           HST.Effect.Fresh ( runFresh )
-import           HST.Effect.GetOpt ( GetOpt, getOpt, runWithArgsIO )
+import           HST.Application         ( processModule )
+import           HST.Effect.Cancel       ( Cancel, cancelToExit )
+import           HST.Effect.Env          ( runEnv )
+import           HST.Effect.Fresh        ( runFresh )
+import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
   , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
   ( parseModule, prettyPrintModule, runWithFrontend, transformModule
   , unTransformModule )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
@@ -65,8 +65,8 @@ main = runFinal
   . runWithArgsIO
   $ application
  where
-   exceptionToMessage :: SomeException -> Message
-   exceptionToMessage e = Message Internal (displayException e)
+  exceptionToMessage :: SomeException -> Message
+  exceptionToMessage e = Message Internal (displayException e)
 
 -- | The main computation of the command line interface.
 --
@@ -122,24 +122,22 @@ processInput :: Members '[Cancel, GetOpt, Report] r
              -> FilePath -- ^ The name of the input file.
              -> String   -- ^ The contents of the input file.
              -> Sem r (String, Maybe String)
-processInput frontend inputFilename input = runWithFrontend frontend
-  $ do
-    inputModule <- parseModule inputFilename input
-    intermediateModule <- transformModule inputModule
-    outputModule <- runEnv . runFresh
-      $ do
-        intermediateModule' <- processModule intermediateModule
-        unTransformModule intermediateModule'
-    output <- prettyPrintModule outputModule
-    return (output, getModuleName intermediateModule)
+processInput frontend inputFilename input = runWithFrontend frontend $ do
+  inputModule <- parseModule inputFilename input
+  intermediateModule <- transformModule inputModule
+  outputModule <- runEnv . runFresh $ do
+    intermediateModule' <- processModule intermediateModule
+    unTransformModule intermediateModule'
+  output <- prettyPrintModule outputModule
+  return (output, getModuleName intermediateModule)
  where
-   -- | Gets the name of the given module.
-   getModuleName :: S.Module a -> Maybe String
-   getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
+  -- | Gets the name of the given module.
+  getModuleName :: S.Module a -> Maybe String
+  getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
 
-   -- | Unwraps the given 'S.ModuleName'.
-   getModuleName' :: S.ModuleName a -> String
-   getModuleName' (S.ModuleName _ name) = name
+  -- | Unwraps the given 'S.ModuleName'.
+  getModuleName' :: S.ModuleName a -> String
+  getModuleName' (S.ModuleName _ name) = name
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
@@ -156,7 +154,7 @@ makeOutputFileName
 
 makeOutputFileName inputFile modName = outputFileName <.> "hs"
  where
-   -- | The output file name without file extension.
-   outputFileName :: FilePath
-   outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
-     modName
+  -- | The output file name without file extension.
+  outputFileName :: FilePath
+  outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
+    modName

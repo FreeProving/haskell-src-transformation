@@ -4,28 +4,28 @@
 --   "HST.Frontend.Syntax" module.
 module HST.Frontend.GHC.From where
 
-import qualified Bag as GHC
-import qualified BasicTypes as GHC
-import qualified ConLike as GHC
-import           Data.Map ( Map )
-import qualified Data.Map as Map
-import           Data.Maybe ( catMaybes, isJust )
-import qualified DataCon as GHC
-import qualified GHC.Hs as GHC
-import qualified Module as GHC
-import qualified Name as GHC
-import           Polysemy ( Member, Sem )
-import qualified RdrName as GHC
-import qualified SrcLoc as GHC
-import qualified Type as GHC
-import qualified TysWiredIn as GHC
+import qualified Bag                               as GHC
+import qualified BasicTypes                        as GHC
+import qualified ConLike                           as GHC
+import           Data.Map                          ( Map )
+import qualified Data.Map                          as Map
+import           Data.Maybe                        ( catMaybes, isJust )
+import qualified DataCon                           as GHC
+import qualified GHC.Hs                            as GHC
+import qualified Module                            as GHC
+import qualified Name                              as GHC
+import           Polysemy                          ( Member, Sem )
+import qualified RdrName                           as GHC
+import qualified SrcLoc                            as GHC
+import qualified Type                              as GHC
+import qualified TysWiredIn                        as GHC
 
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
 
@@ -243,10 +243,9 @@ transformMatch (GHC.L s match@GHC.Match {}) = do
     _ -> return $ (S.Ident S.NoSrcSpan "", GHC.Prefix)
   pats <- mapM transformPat (GHC.m_pats match)
   (rhs, mBinds) <- transformGRHSs (GHC.m_grhss match)
-  return
-    $ case fixity of
-      GHC.Prefix -> S.Match s' name' pats rhs mBinds
-      GHC.Infix  -> S.InfixMatch s' (head pats) name' (tail pats) rhs mBinds
+  return $ case fixity of
+    GHC.Prefix -> S.Match s' name' pats rhs mBinds
+    GHC.Infix  -> S.InfixMatch s' (head pats) name' (tail pats) rhs mBinds
 transformMatch (GHC.L _ (GHC.XMatch x))     = GHC.noExtCon x
 
 -- | Transforms GHC guarded right-hand sides into an HST right-hand side and
@@ -314,10 +313,9 @@ transformExpr :: Member Report r => GHC.LHsExpr GHC.GhcPs -> Sem r (S.Exp GHC)
 transformExpr (GHC.L s (GHC.HsVar _ name)) = do
   let s' = transformSrcSpan s
   name' <- transformRdrName name
-  return
-    $ case name' of
-      (qName, False) -> S.Var s' qName
-      (qName, True)  -> S.Con s' qName
+  return $ case name' of
+    (qName, False) -> S.Var s' qName
+    (qName, True)  -> S.Con s' qName
 transformExpr (GHC.L s (GHC.HsUnboundVar _ _))
   = let s' = transformSrcSpan s
     in return $ S.Var s' (S.Special s' (S.ExprHole s'))
@@ -365,13 +363,12 @@ transformExpr (GHC.L s (GHC.HsCase _ e mg)) = do
   alts <- mapM matchToAlt mg'
   return $ S.Case (transformSrcSpan s) e' alts
  where
-   matchToAlt :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
-   matchToAlt (S.Match s' _ [pat] rhs mBinds)
-     = return $ S.Alt s' pat rhs mBinds
-   matchToAlt (S.Match _ _ _ _ _)
-     = notSupported "Case alternatives without exactly one pattern"
-   matchToAlt (S.InfixMatch _ _ _ _ _ _)
-     = notSupported "Infix matches in case alternatives"
+  matchToAlt :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
+  matchToAlt (S.Match s' _ [pat] rhs mBinds) = return $ S.Alt s' pat rhs mBinds
+  matchToAlt (S.Match _ _ _ _ _)
+    = notSupported "Case alternatives without exactly one pattern"
+  matchToAlt (S.InfixMatch _ _ _ _ _ _)
+    = notSupported "Infix matches in case alternatives"
 transformExpr (GHC.L s (GHC.ExplicitTuple _ tArgs boxity)) = S.Tuple
   (transformSrcSpan s) (transformBoxity boxity)
   <$> mapM transformTupleArg tArgs

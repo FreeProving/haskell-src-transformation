@@ -9,17 +9,17 @@
 --   expressions.
 module HST.Frontend.GHC.To where
 
-import qualified Bag as GHC
-import qualified BasicTypes as GHC
-import qualified DataCon as GHC
-import qualified GHC.Hs as GHC
-import qualified Module as GHC
-import qualified Name as GHC
-import           Polysemy ( Member, Sem )
-import qualified RdrName as GHC
-import qualified SrcLoc as GHC
-import qualified TcEvidence as GHC
-import qualified TysWiredIn as GHC
+import qualified Bag                     as GHC
+import qualified BasicTypes              as GHC
+import qualified DataCon                 as GHC
+import qualified GHC.Hs                  as GHC
+import qualified Module                  as GHC
+import qualified Name                    as GHC
+import           Polysemy                ( Member, Sem )
+import qualified RdrName                 as GHC
+import qualified SrcLoc                  as GHC
+import qualified TcEvidence              as GHC
+import qualified TysWiredIn              as GHC
 
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Internal), reportFatal )
@@ -29,7 +29,7 @@ import           HST.Frontend.GHC.Config
                    originalModuleImports, originalModuleDeprecMessage,
                    originalModuleHaddockModHeader)
   , TypeWrapper(SigType) )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax     as S
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -75,12 +75,12 @@ transformDecl (S.FunBind s matches) = do
                 , GHC.fun_tick    = []
                 })
  where
-   getMatchesName :: Member Report r => [S.Match GHC] -> Sem r (S.Name GHC)
-   getMatchesName (S.Match _ name _ _ _ : _) = return name
-   getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = return name
-   getMatchesName [] = reportFatal
-     $ Message Internal
-     "Encountered empty match group in function binding during retransformation!"
+  getMatchesName :: Member Report r => [S.Match GHC] -> Sem r (S.Name GHC)
+  getMatchesName (S.Match _ name _ _ _ : _) = return name
+  getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = return name
+  getMatchesName [] = reportFatal
+    $ Message Internal
+    "Encountered empty match group in function binding during retransformation!"
 transformDecl (S.OtherDecl _ (Decl oDecl)) = return oDecl
 
 -------------------------------------------------------------------------------
@@ -99,22 +99,22 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
     (GHC.HsValBinds GHC.NoExtField
      (GHC.ValBinds GHC.NoExtField (GHC.listToBag funBinds) sigs))
  where
-   splitBDecls
-     :: Member Report r
-     => [GHC.LHsDecl GHC.GhcPs]
-     -> Sem r ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
-   splitBDecls [] = return $ ([], [])
-   splitBDecls (decl : decls') = do
-     (funBinds', sigs') <- splitBDecls decls'
-     case decl of
-       GHC.L s' (GHC.ValD _ fb@GHC.FunBind {}) ->
-         return (GHC.L s' fb : funBinds', sigs')
-       GHC.L s' (GHC.SigD _ sig) -> return (funBinds', GHC.L s' sig : sigs')
-       _ -> reportFatal
-         $ Message Internal
-         $ "Encountered unexpected declaration in binding group during "
-         ++ "retransformation. Only function and signature declarations are "
-         ++ "allowed!"
+  splitBDecls
+    :: Member Report r
+    => [GHC.LHsDecl GHC.GhcPs]
+    -> Sem r ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
+  splitBDecls [] = return $ ([], [])
+  splitBDecls (decl : decls') = do
+    (funBinds', sigs') <- splitBDecls decls'
+    case decl of
+      GHC.L s' (GHC.ValD _ fb@GHC.FunBind {}) ->
+        return (GHC.L s' fb : funBinds', sigs')
+      GHC.L s' (GHC.SigD _ sig) -> return (funBinds', GHC.L s' sig : sigs')
+      _ -> reportFatal
+        $ Message Internal
+        $ "Encountered unexpected declaration in binding group during "
+        ++ "retransformation. Only function and signature declarations are "
+        ++ "allowed!"
 
 -- | Type for the contexts where a match or match group can occur in the GHC
 --   AST data structure.
@@ -255,10 +255,10 @@ transformExp (S.Tuple s boxed es) = GHC.L (transformSrcSpan s)
   <$> (GHC.ExplicitTuple GHC.NoExtField <$> mapM transformExpTuple es
        <*> return (transformBoxed boxed))
  where
-   transformExpTuple
-     :: Member Report r => S.Exp GHC -> Sem r (GHC.LHsTupArg GHC.GhcPs)
-   transformExpTuple e' = GHC.L (transformSrcSpan (S.getSrcSpan e'))
-     <$> (GHC.Present GHC.NoExtField <$> transformExp e')
+  transformExpTuple
+    :: Member Report r => S.Exp GHC -> Sem r (GHC.LHsTupArg GHC.GhcPs)
+  transformExpTuple e' = GHC.L (transformSrcSpan (S.getSrcSpan e'))
+    <$> (GHC.Present GHC.NoExtField <$> transformExp e')
 transformExp (S.List s es) = GHC.L (transformSrcSpan s)
   <$> (GHC.ExplicitList GHC.NoExtField Nothing <$> mapM transformExp es)
 -- TODO Is Just GHC.noSyntaxExpr instead of Nothing possible as well?
@@ -277,9 +277,9 @@ transformAlts :: Member Report r
 -- of the entire case construct is inserted instead
 transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
  where
-   altToMatch :: S.Alt GHC -> S.Match GHC
-   altToMatch (S.Alt s' pat rhs mBinds) = S.Match s' (S.Ident S.NoSrcSpan "")
-     [pat] rhs mBinds
+  altToMatch :: S.Alt GHC -> S.Match GHC
+  altToMatch (S.Alt s' pat rhs mBinds) = S.Match s' (S.Ident S.NoSrcSpan "")
+    [pat] rhs mBinds
 
 -------------------------------------------------------------------------------
 -- Patterns                                                                  --

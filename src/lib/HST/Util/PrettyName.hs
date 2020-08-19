@@ -44,9 +44,9 @@ instance PrettyName (S.SpecialCon a) where
   prettyName (S.TupleCon _ boxed n)
     = "(" ++ prettyBoxed ++ replicate n ',' ++ prettyBoxed ++ ")"
    where
-     prettyBoxed = case boxed of
-       S.Boxed   -> ""
-       S.Unboxed -> "#"
+    prettyBoxed = case boxed of
+      S.Boxed   -> ""
+      S.Unboxed -> "#"
   prettyName (S.NilCon _) = "[]"
   prettyName (S.ConsCon _) = "(:)"
   prettyName (S.ExprHole _) = "_"

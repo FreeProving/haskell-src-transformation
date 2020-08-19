@@ -4,25 +4,26 @@ module HST.Application ( processModule ) where
 
 -- TODO too many variables generated
 -- TODO only tuples supported
-import           Control.Monad ( replicateM )
-import           Control.Monad.Extra ( ifM )
-import           Polysemy ( Member, Members, Sem )
+import           Control.Monad                ( replicateM )
+import           Control.Monad.Extra          ( ifM )
+import           Polysemy                     ( Member, Members, Sem )
 
-import           HST.CoreAlgorithm ( Eqs, defaultErrorExp, match )
-import           HST.Effect.Env ( Env, modifyEnv )
-import           HST.Effect.Fresh ( Fresh, freshVarPat, genericFreshPrefix )
-import           HST.Effect.GetOpt ( GetOpt, getOpt )
-import           HST.Effect.Report ( Report )
+import           HST.CoreAlgorithm            ( Eqs, defaultErrorExp, match )
+import           HST.Effect.Env               ( Env, modifyEnv )
+import           HST.Effect.Fresh
+  ( Fresh, freshVarPat, genericFreshPrefix )
+import           HST.Effect.GetOpt            ( GetOpt, getOpt )
+import           HST.Effect.Report            ( Report )
 import           HST.Environment
   ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
-import           HST.Environment.Prelude ( insertPreludeEntries )
-import           HST.Feature.CaseCompletion ( applyCCModule )
+import           HST.Environment.Prelude      ( insertPreludeEntries )
+import           HST.Feature.CaseCompletion   ( applyCCModule )
 import           HST.Feature.GuardElimination ( applyGEModule, getMatchName )
-import           HST.Feature.Optimization ( optimize )
-import qualified HST.Frontend.Syntax as S
-import           HST.Options ( optOptimizeCase )
-import           HST.Util.Predicates ( isConPat )
-import           HST.Util.Selectors ( expFromUnguardedRhs )
+import           HST.Feature.Optimization     ( optimize )
+import qualified HST.Frontend.Syntax          as S
+import           HST.Options                  ( optOptimizeCase )
+import           HST.Util.Predicates          ( isConPat )
+import           HST.Util.Selectors           ( expFromUnguardedRhs )
 
 -------------------------------------------------------------------------------
 -- Application of Core Algorithm                                             --
@@ -91,16 +92,16 @@ useAlgo ms = do
   return
     $ S.Match S.NoSrcSpan name nVars (S.UnGuardedRhs S.NoSrcSpan nExp') Nothing
  where
-   -- | Converts a rule of a function declaration to an equation.
-   --
-   --   There must be no guards on the right-hand side.
-   matchToEquation :: Member Report r => S.Match a -> Sem r (Eqs a)
-   matchToEquation (S.Match _ _ pats rhs _)          = do
-     expr <- expFromUnguardedRhs rhs
-     return (pats, expr)
-   matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
-     expr <- expFromUnguardedRhs rhs
-     return (pat : pats, expr)
+  -- | Converts a rule of a function declaration to an equation.
+  --
+  --   There must be no guards on the right-hand side.
+  matchToEquation :: Member Report r => S.Match a -> Sem r (Eqs a)
+  matchToEquation (S.Match _ _ pats rhs _)          = do
+    expr <- expFromUnguardedRhs rhs
+    return (pats, expr)
+  matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
+    expr <- expFromUnguardedRhs rhs
+    return (pat : pats, expr)
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --

@@ -9,23 +9,25 @@ module HST.Frontend.Parser
   , getParsedModuleGHC
   ) where
 
-import qualified Bag as GHC
-import           Control.Monad ( unless )
-import           Data.List ( intercalate )
-import qualified ErrUtils as GHC
-import qualified GHC.Hs as GHC
-import qualified Language.Haskell.Exts as HSE
+import qualified Bag                                        as GHC
+import           Control.Monad                              ( unless )
+import           Data.List                                  ( intercalate )
+import qualified ErrUtils                                   as GHC
+import qualified GHC.Hs                                     as GHC
+import qualified Language.Haskell.Exts                      as HSE
 import qualified Language.Haskell.GhclibParserEx.GHC.Parser as GHC
-import qualified Lexer as GHC
-import qualified Outputable as GHC
-import           Polysemy ( Member, Members, Sem )
-import qualified SrcLoc as GHC
+import qualified Lexer                                      as GHC
+import qualified Outputable                                 as GHC
+import           Polysemy
+  ( Member, Members, Sem )
+import qualified SrcLoc                                     as GHC
 
-import           HST.Effect.Cancel ( Cancel, cancel )
+import           HST.Effect.Cancel                          ( Cancel, cancel )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error, Warning), report, reportFatal )
-import           HST.Frontend.GHC.Config ( GHC, defaultDynFlags )
-import           HST.Frontend.HSE.Config ( HSE )
+import           HST.Frontend.GHC.Config
+  ( GHC, defaultDynFlags )
+import           HST.Frontend.HSE.Config                    ( HSE )
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   can be parsed.
@@ -61,9 +63,9 @@ instance Parsable HSE where
         ++ show (HSE.srcColumn srcLoc)
         ++ "."
    where
-     -- | Configuration of the @haskell-src-exts@ parser.
-     parseMode :: HSE.ParseMode
-     parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
+    -- | Configuration of the @haskell-src-exts@ parser.
+    parseMode :: HSE.ParseMode
+    parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
 -- | Parses a Haskell module with the parser of @ghc-lib-parser@.
 instance Parsable GHC where
@@ -80,25 +82,25 @@ instance Parsable GHC where
         reportParsingMessages state
         cancel
    where
-     -- | Reports all errors and warnings that were reported during parsing.
-     --
-     --   Cancels the computation if there is a parsing error. There can be
-     --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
-     --   language extensions are needed such that the parsed AST represents
-     --   a valid module).
-     reportParsingMessages
-       :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
-     reportParsingMessages state = do
-       let (warnings, errors) = GHC.getMessages state defaultDynFlags
-       GHC.mapBagM_ (reportErrMsg Warning) warnings
-       GHC.mapBagM_ (reportErrMsg Error) errors
-       unless (GHC.isEmptyBag errors) cancel
+    -- | Reports all errors and warnings that were reported during parsing.
+    --
+    --   Cancels the computation if there is a parsing error. There can be
+    --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
+    --   language extensions are needed such that the parsed AST represents
+    --   a valid module).
+    reportParsingMessages
+      :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
+    reportParsingMessages state = do
+      let (warnings, errors) = GHC.getMessages state defaultDynFlags
+      GHC.mapBagM_ (reportErrMsg Warning) warnings
+      GHC.mapBagM_ (reportErrMsg Error) errors
+      unless (GHC.isEmptyBag errors) cancel
 
-     -- | Reports an error message or warning from @ghc-lib-parser@.
-     reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
-     reportErrMsg severity msg = report
-       $ Message severity
-       $ intercalate "\n • "
-       $ map (GHC.showSDoc defaultDynFlags)
-       $ GHC.errDocImportant
-       $ GHC.errMsgDoc msg
+    -- | Reports an error message or warning from @ghc-lib-parser@.
+    reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
+    reportErrMsg severity msg = report
+      $ Message severity
+      $ intercalate "\n • "
+      $ map (GHC.showSDoc defaultDynFlags)
+      $ GHC.errDocImportant
+      $ GHC.errMsgDoc msg

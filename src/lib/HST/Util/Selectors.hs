@@ -10,9 +10,9 @@ module HST.Util.Selectors
   , getPatVarName
   ) where
 
-import           Polysemy ( Member, Members, Sem, run )
+import           Polysemy            ( Member, Members, Sem, run )
 
-import           HST.Effect.Fresh ( Fresh, freshIdent, genericFreshPrefix )
+import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
 import           HST.Effect.Report
   ( Message(..), Report, Severity(Error, Internal), evalReport, reportFatal )
 import qualified HST.Frontend.Syntax as S
@@ -71,8 +71,8 @@ getMaybePatConName = run . evalReport . getPatConName
 getPatVarName :: Members '[Fresh, Report] r => S.Pat a -> Sem r String
 getPatVarName (S.PVar _ pname) = return (getNameStr pname)
  where
-   getNameStr (S.Ident _ str)  = str
-   getNameStr (S.Symbol _ str) = str
+  getNameStr (S.Ident _ str)  = str
+  getNameStr (S.Symbol _ str) = str
 getPatVarName (S.PWildCard _) = freshIdent genericFreshPrefix
 -- Look into parentheses recursively.
 getPatVarName (S.PParen _ pat) = getPatVarName pat

@@ -34,15 +34,16 @@ module HST.Effect.Report
   ) where
 
 import           Control.Exception ( Exception )
-import           Control.Monad ( (>=>), when )
+import           Control.Monad     ( (>=>), when )
 import           Polysemy
   ( Member, Members, Sem, intercept, interpret, makeSem, raise, raiseUnder2 )
-import           Polysemy.Embed ( Embed, embed )
-import           Polysemy.Error ( Error, fromExceptionSem, runError )
-import           Polysemy.Fail ( Fail, runFail )
-import           Polysemy.Final ( Final )
-import           Polysemy.Output ( Output, ignoreOutput, output, runOutputList )
-import           System.IO ( Handle, hPutStrLn )
+import           Polysemy.Embed    ( Embed, embed )
+import           Polysemy.Error    ( Error, fromExceptionSem, runError )
+import           Polysemy.Fail     ( Fail, runFail )
+import           Polysemy.Final    ( Final )
+import           Polysemy.Output
+  ( Output, ignoreOutput, output, runOutputList )
+import           System.IO         ( Handle, hPutStrLn )
 
 import           HST.Effect.Cancel ( Cancel, cancel, runCancel )
 
@@ -113,9 +114,9 @@ reportToHandleOrCancel h = interpret \case
   Report msg      -> embed (hPutMessage msg)
   ReportFatal msg -> embed (hPutMessage msg) >> cancel
  where
-   -- | Prints the given message to the file handle given to the effect handler.
-   hPutMessage :: Message -> IO ()
-   hPutMessage = hPutStrLn h . showPrettyMessage
+  -- | Prints the given message to the file handle given to the effect handler.
+  hPutMessage :: Message -> IO ()
+  hPutMessage = hPutStrLn h . showPrettyMessage
 
 -- | Intercepts all non-fatal messages reported by the given computation and
 --   forwards them only if they satisfy the given predicate.

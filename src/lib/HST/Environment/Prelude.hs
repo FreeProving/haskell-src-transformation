@@ -2,9 +2,9 @@
 --   data constructors.
 module HST.Environment.Prelude ( insertPreludeEntries ) where
 
-import           Polysemy ( Member, Sem )
+import           Polysemy            ( Member, Sem )
 
-import           HST.Effect.Env ( Env, modifyEnv )
+import           HST.Effect.Env      ( Env, modifyEnv )
 import           HST.Environment
   ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
 import qualified HST.Frontend.Syntax as S

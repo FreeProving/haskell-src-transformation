@@ -2,8 +2,8 @@
 --   been converted back from the intermediate representation.
 module HST.Frontend.PrettyPrinter ( PrettyPrintable(prettyPrintModule) ) where
 
-import qualified Language.Haskell.Exts as HSE
-import qualified Outputable as GHC
+import qualified Language.Haskell.Exts   as HSE
+import qualified Outputable              as GHC
 
 import           HST.Frontend.GHC.Config ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config ( HSE )

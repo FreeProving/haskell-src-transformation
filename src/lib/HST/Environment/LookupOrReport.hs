@@ -6,9 +6,9 @@ module HST.Environment.LookupOrReport
   , lookupDataEntryOrReport
   ) where
 
-import           Polysemy ( Members, Sem )
+import           Polysemy            ( Members, Sem )
 
-import           HST.Effect.Env ( Env, inEnv )
+import           HST.Effect.Env      ( Env, inEnv )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Environment

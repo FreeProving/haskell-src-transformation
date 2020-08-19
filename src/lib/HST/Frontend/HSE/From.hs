@@ -4,14 +4,14 @@
 --   "HST.Frontend.Syntax" module.
 module HST.Frontend.HSE.From where
 
-import qualified Language.Haskell.Exts as HSE
-import           Polysemy ( Member, Sem )
+import qualified Language.Haskell.Exts             as HSE
+import           Polysemy                          ( Member, Sem )
 
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(OriginalModuleHead) )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
 

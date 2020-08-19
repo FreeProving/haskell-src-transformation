@@ -11,8 +11,7 @@ mapC f xs = case xs of
 -- case completion for right side of let-expression
 fromJustL :: Maybe a -> a
 fromJustL ma = let x = case ma of
-                     Just a -> a
-               in x
+                     Just a -> a in x
 
 -- Support for anonymus functions
 anonHead :: [a] -> a

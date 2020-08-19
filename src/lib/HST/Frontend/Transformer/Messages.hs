@@ -2,7 +2,7 @@
 --   transformation of ASTs.
 module HST.Frontend.Transformer.Messages where
 
-import           Polysemy ( Member, Sem )
+import           Polysemy          ( Member, Sem )
 
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error, Info), report, reportFatal )

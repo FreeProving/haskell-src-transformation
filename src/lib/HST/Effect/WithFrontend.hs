@@ -25,21 +25,22 @@ module HST.Effect.WithFrontend
   , runWithAllFrontends
   ) where
 
-import qualified Data.Map as Map
-import           Polysemy ( Members, Sem, interpret, makeSem )
+import qualified Data.Map                   as Map
+import           Polysemy                   ( Members, Sem, interpret, makeSem )
 
-import           HST.Effect.Cancel ( Cancel )
-import           HST.Effect.Report ( Report )
-import           HST.Frontend.GHC.Config ( GHC )
-import           HST.Frontend.HSE.Config ( HSE )
-import           HST.Frontend.Parser ( Parsable, ParsedModule )
+import           HST.Effect.Cancel          ( Cancel )
+import           HST.Effect.Report          ( Report )
+import           HST.Frontend.GHC.Config    ( GHC )
+import           HST.Frontend.HSE.Config    ( HSE )
+import           HST.Frontend.Parser        ( Parsable, ParsedModule )
 import qualified HST.Frontend.Parser
 import           HST.Frontend.PrettyPrinter ( PrettyPrintable )
 import qualified HST.Frontend.PrettyPrinter
-import qualified HST.Frontend.Syntax as S
-import           HST.Frontend.Transformer ( Transformable )
+import qualified HST.Frontend.Syntax        as S
+import           HST.Frontend.Transformer   ( Transformable )
 import qualified HST.Frontend.Transformer
-import           HST.Options ( Frontend(GHClib, HSE), frontendMap )
+import           HST.Options
+  ( Frontend(GHClib, HSE), frontendMap )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --

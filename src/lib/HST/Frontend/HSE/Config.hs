@@ -11,7 +11,7 @@ module HST.Frontend.HSE.Config where
 
 import qualified Language.Haskell.Exts as HSE
 
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax   as S
 
 -------------------------------------------------------------------------------
 -- Type Family Instances                                                     --

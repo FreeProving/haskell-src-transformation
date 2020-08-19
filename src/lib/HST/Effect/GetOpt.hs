@@ -18,13 +18,14 @@ module HST.Effect.GetOpt
   , runWithArgsIO
   ) where
 
-import           Polysemy ( Member, Members, Sem, makeSem, reinterpret )
-import           Polysemy.Embed ( Embed, embed )
-import           Polysemy.Reader ( asks, runReader )
+import           Polysemy
+  ( Member, Members, Sem, makeSem, reinterpret )
+import           Polysemy.Embed     ( Embed, embed )
+import           Polysemy.Reader    ( asks, runReader )
 import           System.Environment ( getArgs )
 
-import           HST.Effect.Report ( Report )
-import           HST.Options ( Options(..), parseArgs )
+import           HST.Effect.Report  ( Report )
+import           HST.Options        ( Options(..), parseArgs )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
@@ -41,9 +42,8 @@ makeSem ''GetOpt
 -- | Interprets a computation that needs command line options by providing
 --   the given command line options.
 runWithOptions :: Options -> Sem (GetOpt ': r) a -> Sem r a
-runWithOptions opts = runReader opts
-  . reinterpret \case
-    GetOpt selector -> asks selector
+runWithOptions opts = runReader opts . reinterpret \case
+  GetOpt selector -> asks selector
 
 -- | Interprets a computation that needs command line options by parsing the
 --   given list of command line arguments and providing them to the computation.

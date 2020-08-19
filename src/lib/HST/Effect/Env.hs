@@ -17,8 +17,8 @@ module HST.Effect.Env
   , runEnv
   ) where
 
-import           Polysemy ( Member, Sem, makeSem, reinterpret )
-import           Polysemy.State ( State, evalState, get, put )
+import           Polysemy        ( Member, Sem, makeSem, reinterpret )
+import           Polysemy.State  ( State, evalState, get, put )
 
 import           HST.Environment ( Environment, emptyEnv )
 
@@ -58,8 +58,8 @@ runEnv = runWithEnv emptyEnv
 runWithEnv :: Environment a -> Sem (Env a ': r) b -> Sem r b
 runWithEnv initialEnv = evalState initialEnv . envToState
  where
-   -- | Reinterprets 'Env' in terms of 'State'.
-   envToState :: Sem (Env a ': r) b -> Sem (State (Environment a) ': r) b
-   envToState = reinterpret \case
-     GetEnv      -> get
-     PutEnv env' -> put env'
+  -- | Reinterprets 'Env' in terms of 'State'.
+  envToState :: Sem (Env a ': r) b -> Sem (State (Environment a) ': r) b
+  envToState = reinterpret \case
+    GetEnv      -> get
+    PutEnv env' -> put env'

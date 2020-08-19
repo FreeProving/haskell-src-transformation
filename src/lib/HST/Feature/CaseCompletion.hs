@@ -2,16 +2,16 @@
 --   expressions and entire modules.
 module HST.Feature.CaseCompletion ( applyCCModule ) where
 
-import           Control.Monad ( replicateM )
-import           Polysemy ( Member, Members, Sem )
+import           Control.Monad       ( replicateM )
+import           Polysemy            ( Member, Members, Sem )
 
-import           HST.CoreAlgorithm ( Eqs, defaultErrorExp, match )
-import           HST.Effect.Env ( Env )
-import           HST.Effect.Fresh ( Fresh, freshVarPat, genericFreshPrefix )
-import           HST.Effect.GetOpt ( GetOpt )
-import           HST.Effect.Report ( Report )
+import           HST.CoreAlgorithm   ( Eqs, defaultErrorExp, match )
+import           HST.Effect.Env      ( Env )
+import           HST.Effect.Fresh    ( Fresh, freshVarPat, genericFreshPrefix )
+import           HST.Effect.GetOpt   ( GetOpt )
+import           HST.Effect.Report   ( Report )
 import qualified HST.Frontend.Syntax as S
-import           HST.Util.Selectors ( expFromUnguardedRhs )
+import           HST.Util.Selectors  ( expFromUnguardedRhs )
 
 -- | Takes a given expression and applies the algorithm on it resulting in
 --   completed cases
@@ -117,16 +117,16 @@ applyCCMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                -> Sem r [S.Match a]
 applyCCMatches insideLet = mapM applyCCMatch
  where
-   -- TODO maybe only apply if needed -> isIncomplete?
-   applyCCMatch :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-                => S.Match a
-                -> Sem r (S.Match a)
-   applyCCMatch (S.Match _ n ps rhs _)        = do
-     e <- expFromUnguardedRhs rhs
-     x <- completeCase insideLet e
-     return $ S.Match S.NoSrcSpan n ps (S.UnGuardedRhs S.NoSrcSpan x) Nothing
-   applyCCMatch (S.InfixMatch _ p n ps rhs _) = do
-     e <- expFromUnguardedRhs rhs
-     x <- completeCase insideLet e
-     return
-       $ S.InfixMatch S.NoSrcSpan p n ps (S.UnGuardedRhs S.NoSrcSpan x) Nothing
+  -- TODO maybe only apply if needed -> isIncomplete?
+  applyCCMatch :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
+               => S.Match a
+               -> Sem r (S.Match a)
+  applyCCMatch (S.Match _ n ps rhs _)        = do
+    e <- expFromUnguardedRhs rhs
+    x <- completeCase insideLet e
+    return $ S.Match S.NoSrcSpan n ps (S.UnGuardedRhs S.NoSrcSpan x) Nothing
+  applyCCMatch (S.InfixMatch _ p n ps rhs _) = do
+    e <- expFromUnguardedRhs rhs
+    x <- completeCase insideLet e
+    return
+      $ S.InfixMatch S.NoSrcSpan p n ps (S.UnGuardedRhs S.NoSrcSpan x) Nothing

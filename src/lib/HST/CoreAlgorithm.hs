@@ -8,14 +8,15 @@ module HST.CoreAlgorithm
   , compareCons
   ) where
 
-import           Control.Monad ( replicateM )
-import           Data.Function ( on )
-import           Data.List ( (\\), groupBy, partition )
-import           Polysemy ( Member, Members, Sem )
+import           Control.Monad                  ( replicateM )
+import           Data.Function                  ( on )
+import           Data.List                      ( (\\), groupBy, partition )
+import           Polysemy                       ( Member, Members, Sem )
 
-import           HST.Effect.Env ( Env )
-import           HST.Effect.Fresh ( Fresh, freshVarPat, genericFreshPrefix )
-import           HST.Effect.GetOpt ( GetOpt, getOpt )
+import           HST.Effect.Env                 ( Env )
+import           HST.Effect.Fresh
+  ( Fresh, freshVarPat, genericFreshPrefix )
+import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error, Internal), failToReport
   , reportFatal )
@@ -24,10 +25,11 @@ import           HST.Environment
   , conEntryType, dataEntryCons )
 import           HST.Environment.LookupOrReport
   ( lookupConEntryOrReport, lookupDataEntryOrReport )
-import           HST.Environment.Renaming ( rename, subst, substitute, tSubst )
-import qualified HST.Frontend.Syntax as S
-import           HST.Options ( optTrivialCase )
-import           HST.Util.Predicates ( isConPat, isVarPat )
+import           HST.Environment.Renaming
+  ( rename, subst, substitute, tSubst )
+import qualified HST.Frontend.Syntax            as S
+import           HST.Options                    ( optTrivialCase )
+import           HST.Util.Predicates            ( isConPat, isVarPat )
 import           HST.Util.Selectors
   ( getAltConName, getMaybePatConName, getPatVarName )
 
@@ -139,18 +141,16 @@ computeAlts
 computeAlts x xs eqs er = do
   alts <- mapM (computeAlt x xs er) (groupByCons eqs)
   missingCons <- identifyMissingCons alts
-  if null missingCons
-    then return alts
-    else do
-      b <- getOpt optTrivialCase
-      if b
-        then 
-          -- TODO is 'defaultErrorExp' correct? Why not 'er'?
-          return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
-        else do
-          z <- createAltsForMissingCons x missingCons er
-          -- TODO currently not sorted (reversed)
-          return $ alts ++ z
+  if null missingCons then return alts else do
+    b <- getOpt optTrivialCase
+    if b
+      then 
+        -- TODO is 'defaultErrorExp' correct? Why not 'er'?
+        return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
+      else do
+        z <- createAltsForMissingCons x missingCons er
+        -- TODO currently not sorted (reversed)
+        return $ alts ++ z
 
 -------------------------------------------------------------------------------
 -- Case Completion                                                           --
@@ -186,22 +186,23 @@ createAltsForMissingCons
   -> Sem r [S.Alt a]
 createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
  where
-   createAltForMissingCon :: (Member Fresh r, S.EqAST a)
-                          => S.Pat a
-                          -> S.Exp a
-                          -> ConEntry a
-                          -> Sem r (S.Alt a)
-   createAltForMissingCon pat e conEntry = do
-     nvars <- replicateM (conEntryArity conEntry)
-       (freshVarPat genericFreshPrefix)
-     let p
-           | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan (head nvars)
-             (conEntryName conEntry) (nvars !! 1)
-           | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
-         p'   = S.patToExp p
-         pat' = S.patToExp pat
-         e'   = substitute (tSubst pat' p') e
-     return (S.alt p e')
+  createAltForMissingCon
+    :: (Member Fresh r, S.EqAST a)
+    => S.Pat a
+    -> S.Exp a
+    -> ConEntry a
+    -> Sem r (S.Alt a)
+  createAltForMissingCon pat e conEntry = do
+    nvars <- replicateM (conEntryArity conEntry)
+      (freshVarPat genericFreshPrefix)
+    let p
+          | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan (head nvars)
+            (conEntryName conEntry) (nvars !! 1)
+          | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
+        p'   = S.patToExp p
+        pat' = S.patToExp pat
+        e'   = substitute (tSubst pat' p') e
+    return (S.alt p e')
 
 -------------------------------------------------------------------------------
 -- Grouping                                                                  --
@@ -215,7 +216,7 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
 groupByFirstPatType :: [Eqs a] -> [[Eqs a]]
 groupByFirstPatType = groupBy ordPats
  where
-   ordPats (ps, _) (qs, _) = isVarPat (head ps) && isVarPat (head qs)
+  ordPats (ps, _) (qs, _) = isVarPat (head ps) && isVarPat (head qs)
 
 -- | Groups the given equations based on the constructor matched by their
 --   first pattern.
@@ -246,10 +247,10 @@ groupByCons = groupBy2 startWithSameCons
 groupBy2 :: (a -> a -> Bool) -> [a] -> [[a]]
 groupBy2 = groupBy2' []
  where
-   groupBy2' :: [[a]] -> (a -> a -> Bool) -> [a] -> [[a]]
-   groupBy2' acc _ []          = reverse acc -- TODO makes acc redundant.. refactor
-   groupBy2' acc comp (x : xs) = let (ys, zs) = partition (comp x) xs
-                                 in groupBy2' ((x : ys) : acc) comp zs
+  groupBy2' :: [[a]] -> (a -> a -> Bool) -> [a] -> [[a]]
+  groupBy2' acc _ []          = reverse acc -- TODO makes acc redundant.. refactor
+  groupBy2' acc comp (x : xs) = let (ys, zs) = partition (comp x) xs
+                                in groupBy2' ((x : ys) : acc) comp zs
 
 -- | Tests whether the pattern lists of the given equations start with the same
 --   constructor.
@@ -290,11 +291,11 @@ computeAlt pat pats er prps@(p : _) = do
   let res' = substitute sub res
   return (S.alt capp res')
  where
-   f :: Members '[Fresh, Report] r => Eqs a -> Sem r (Eqs a)
-   f ([], r)     = return ([], r) -- potentially unused
-   f (v : vs, r) = do
-     (_, _, oldpats) <- decomposeConPat v
-     return (oldpats ++ vs, r)
+  f :: Members '[Fresh, Report] r => Eqs a -> Sem r (Eqs a)
+  f ([], r)     = return ([], r) -- potentially unused
+  f (v : vs, r) = do
+    (_, _, oldpats) <- decomposeConPat v
+    return (oldpats ++ vs, r)
 computeAlt _ _ _ []
   = reportFatal $ Message Internal $ "Expected at least one pattern in group."
 
@@ -310,11 +311,10 @@ decomposeConPat :: Members '[Fresh, Report] r
 decomposeConPat (S.PApp _ qname ps) = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
-decomposeConPat (S.PInfixApp _ p1 qname p2) = failToReport
-  $ do
-    nvars@[nv1, nv2] <- replicateM 2 (freshVarPat genericFreshPrefix)
-    let ps = [p1, p2]
-    return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
+decomposeConPat (S.PInfixApp _ p1 qname p2) = failToReport $ do
+  nvars@[nv1, nv2] <- replicateM 2 (freshVarPat genericFreshPrefix)
+  let ps = [p1, p2]
+  return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
 -- Decompose patterns with special syntax.
 decomposeConPat (S.PList _ ps)
   | null ps = return (S.PList S.NoSrcSpan [], [], [])

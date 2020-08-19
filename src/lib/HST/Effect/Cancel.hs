@@ -19,10 +19,11 @@ module HST.Effect.Cancel
   ) where
 
 import           Data.Either.Extra ( eitherToMaybe )
-import           Polysemy ( Member, Sem, interpret, makeSem, reinterpret )
-import           Polysemy.Embed ( Embed, embed )
-import           Polysemy.Error ( runError, throw )
-import           System.Exit ( exitFailure )
+import           Polysemy
+  ( Member, Sem, interpret, makeSem, reinterpret )
+import           Polysemy.Embed    ( Embed, embed )
+import           Polysemy.Error    ( runError, throw )
+import           System.Exit       ( exitFailure )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
@@ -39,10 +40,8 @@ makeSem ''Cancel
 -- | Interprets a cancelable computation by wrapping its return value in
 --   @Just@ and returning @Nothing@ if the computation is canceled.
 runCancel :: Sem (Cancel ': r) a -> Sem r (Maybe a)
-runCancel = fmap eitherToMaybe
-  . runError
-  . reinterpret \case
-    Cancel -> throw ()
+runCancel = fmap eitherToMaybe . runError . reinterpret \case
+  Cancel -> throw ()
 
 -- | Interprets a cancelable computation in the @IO@ monad by exiting from
 --   the entire application with a non-zero status code (using 'exitFailure')

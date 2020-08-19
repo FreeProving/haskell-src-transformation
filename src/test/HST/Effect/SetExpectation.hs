@@ -19,10 +19,10 @@ module HST.Effect.SetExpectation
   , reportToSetExpectation
   ) where
 
-import           Polysemy ( Member, Sem, interpret, makeSem )
-import           Polysemy.Embed ( Embed, embed )
-import qualified Test.HUnit.Base as HUnit
-import           Test.Hspec ( Expectation )
+import           Polysemy          ( Member, Sem, interpret, makeSem )
+import           Polysemy.Embed    ( Embed, embed )
+import qualified Test.HUnit.Base   as HUnit
+import           Test.Hspec        ( Expectation )
 
 import           HST.Effect.Report ( Report, runReport, showPrettyMessage )
 

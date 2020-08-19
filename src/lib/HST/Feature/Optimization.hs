@@ -2,16 +2,16 @@
 --   unnecessary nested case expressions.
 module HST.Feature.Optimization ( optimize ) where
 
-import           Control.Monad.Extra ( findM )
-import           Polysemy ( Member, Members, Sem )
+import           Control.Monad.Extra      ( findM )
+import           Polysemy                 ( Member, Members, Sem )
 
-import           HST.Effect.Fresh ( Fresh )
+import           HST.Effect.Fresh         ( Fresh )
 import           HST.Effect.PatternStack
   ( PatternStack, peekPattern, popPattern, pushPattern, runPatternStack )
 import           HST.Effect.Report
   ( Message(..), Report, Severity(Error), reportFatal )
 import           HST.Environment.Renaming ( rename, subst )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax      as S
 import           HST.Util.Selectors
   ( expFromUnguardedRhs, getAltConName, getPatConName, getPatVarName )
 
@@ -158,11 +158,11 @@ addAndOpt v alts = do
   alts' <- mapM bindAndOpt alts
   return $ S.Case S.NoSrcSpan (S.Var S.NoSrcSpan v) alts'
  where
-   bindAndOpt a@(S.Alt _ p _ _) = do
-     pushPattern v p
-     alt' <- optimizeAlt a
-     popPattern v
-     return alt'
+  bindAndOpt a@(S.Alt _ p _ _) = do
+    pushPattern v p
+    alt' <- optimizeAlt a
+    popPattern v
+    return alt'
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
 optimizeAlt

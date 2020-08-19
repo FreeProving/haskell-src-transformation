@@ -1,10 +1,10 @@
 -- | This module contains methods for eliminating guards in modules.
 module HST.Feature.GuardElimination ( applyGEModule, getMatchName ) where
 
-import           Control.Monad ( replicateM )
-import           Polysemy ( Member, Sem )
+import           Control.Monad       ( replicateM )
+import           Polysemy            ( Member, Sem )
 
-import           HST.CoreAlgorithm ( defaultErrorExp )
+import           HST.CoreAlgorithm   ( defaultErrorExp )
 import           HST.Effect.Fresh
   ( Fresh, freshName, freshVarPat, genericFreshPrefix )
 import qualified HST.Frontend.Syntax as S
@@ -70,9 +70,9 @@ generateNestedCases
   -> S.Exp a
 generateNestedCases successExpr failExpr = foldr generateNestedCase successExpr
  where
-   {- generateNestedCase :: (S.Exp a, S.Pat a) -> S.Exp a -> S.Exp a -}
-   generateNestedCase (v, p) nestedExpr = S.Case S.NoSrcSpan v
-     $ [S.alt p nestedExpr, S.alt (S.PWildCard S.NoSrcSpan) failExpr]
+  {- generateNestedCase :: (S.Exp a, S.Pat a) -> S.Exp a -> S.Exp a -}
+  generateNestedCase (v, p) nestedExpr = S.Case S.NoSrcSpan v
+    $ [S.alt p nestedExpr, S.alt (S.PWildCard S.NoSrcSpan) failExpr]
 
 -------------------------------------------------------------------------------
 -- @if@ Expressions                                                          --

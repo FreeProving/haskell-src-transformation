@@ -20,10 +20,10 @@ module HST.Effect.Fresh
   , genericFreshPrefix
   ) where
 
-import           Data.Map.Strict ( Map )
-import qualified Data.Map.Strict as Map
-import           Polysemy ( Member, Sem, makeSem, reinterpret )
-import           Polysemy.State ( State, evalState, gets, modify )
+import           Data.Map.Strict     ( Map )
+import qualified Data.Map.Strict     as Map
+import           Polysemy            ( Member, Sem, makeSem, reinterpret )
+import           Polysemy.State      ( State, evalState, gets, modify )
 
 import qualified HST.Frontend.Syntax as S
 
@@ -60,13 +60,13 @@ freshVarPat prefix = S.PVar S.NoSrcSpan <$> freshName prefix
 runFresh :: Sem (Fresh ': r) a -> Sem r a
 runFresh = evalState Map.empty . freshToState
  where
-   -- | Reinterprets 'Fresh' in terms of 'State'.
-   freshToState :: Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
-   freshToState = reinterpret \case
-     FreshIdent prefix -> do
-       nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
-       modify $ Map.insert prefix (nextId + 1)
-       return (prefix ++ show nextId)
+  -- | Reinterprets 'Fresh' in terms of 'State'.
+  freshToState :: Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
+  freshToState = reinterpret \case
+    FreshIdent prefix -> do
+      nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
+      modify $ Map.insert prefix (nextId + 1)
+      return (prefix ++ show nextId)
 
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --

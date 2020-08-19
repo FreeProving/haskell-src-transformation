@@ -1,23 +1,23 @@
 module HST.CoreAlgorithmTests ( testCoreAlgorithm ) where
 
-import qualified Language.Haskell.Exts as HSE
-import           Polysemy ( Member, Sem, runM )
-import           Polysemy.Embed ( Embed, embed )
-import           Test.HUnit.Base ( assertFailure )
-import           Test.Hspec ( Expectation, Spec, context, describe, it )
+import qualified Language.Haskell.Exts   as HSE
+import           Polysemy                ( Member, Sem, runM )
+import           Polysemy.Embed          ( Embed, embed )
+import           Test.HUnit.Base         ( assertFailure )
+import           Test.Hspec
+  ( Expectation, Spec, context, describe, it )
 
-import           HST.CoreAlgorithm ( compareCons )
+import           HST.CoreAlgorithm       ( compareCons )
 import           HST.Effect.Report
 import           HST.Frontend.HSE.Config ( HSE )
-import qualified HST.Frontend.HSE.From as FromHSE
-import qualified HST.Frontend.HSE.To as ToHSE
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.HSE.From   as FromHSE
+import qualified HST.Frontend.HSE.To     as ToHSE
+import qualified HST.Frontend.Syntax     as S
 
 -- | Tests for the "HST.CoreAlgorithm" module.
 testCoreAlgorithm :: Spec
-testCoreAlgorithm = describe "HST.CoreAlgorithm"
-  $ do
-    testCompareCons
+testCoreAlgorithm = describe "HST.CoreAlgorithm" $ do
+  testCompareCons
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
@@ -67,55 +67,46 @@ shouldNotMatchCons pat1 pat2
 
 -- | Test group for 'compareCons' tests.
 testCompareCons :: Spec
-testCompareCons = context "matching constructors of patterns"
-  $ do
-    it "should match constructors in list notation and infix list constructor"
-      $ do
-        pat1 <- parseTestPat "[x]"
-        pat2 <- parseTestPat "x : []"
-        pat1 `shouldMatchCons` pat2
-    it "should match constructors in list notation and prefix list constructor"
-      $ do
-        pat1 <- parseTestPat "[x]"
-        pat2 <- parseTestPat "(:) x []"
-        pat1 `shouldMatchCons` pat2
-    it "should match constructors infix and prefix list constructor"
-      $ do
-        pat1 <- parseTestPat "x : []"
-        pat2 <- parseTestPat "(:) x []"
-        pat1 `shouldMatchCons` pat2
-    it "should match constructors of non-empty lists with different lengths"
-      $ do
-        pat1 <- parseTestPat "[x]"
-        pat2 <- parseTestPat "[x, y]"
-        pat1 `shouldMatchCons` pat2
-    it "should match constructors of two empty lists"
-      $ do
-        pat1 <- parseTestPat "[]"
-        pat2 <- parseTestPat "[]"
-        pat1 `shouldMatchCons` pat2
-    it "should match constructors of tuple notation and pair constructor"
-      $ do
-        pat1 <- parseTestPat "(x, y)"
-        pat2 <- parseTestPat "(,) x y"
-        pat1 `shouldMatchCons` pat2
-    it "should match constructors of tuple notation and triple constructor"
-      $ do
-        pat1 <- parseTestPat "(x, y, z)"
-        pat2 <- parseTestPat "(,,) x y z"
-        pat1 `shouldMatchCons` pat2
-    it "should not match constructors on empty and non-empty lists"
-      $ do
-        pat1 <- parseTestPat "[]"
-        pat2 <- parseTestPat "[x]"
-        pat1 `shouldNotMatchCons` pat2
-    it "should not match constructors on tuples of different lengths"
-      $ do
-        pat1 <- parseTestPat "(x, y)"
-        pat2 <- parseTestPat "(x, y, z)"
-        pat1 `shouldNotMatchCons` pat2
-    it "should not match constructors with different names"
-      $ do
-        pat1 <- parseTestPat "C"
-        pat2 <- parseTestPat "D"
-        pat1 `shouldNotMatchCons` pat2
+testCompareCons = context "matching constructors of patterns" $ do
+  it "should match constructors in list notation and infix list constructor"
+    $ do
+      pat1 <- parseTestPat "[x]"
+      pat2 <- parseTestPat "x : []"
+      pat1 `shouldMatchCons` pat2
+  it "should match constructors in list notation and prefix list constructor"
+    $ do
+      pat1 <- parseTestPat "[x]"
+      pat2 <- parseTestPat "(:) x []"
+      pat1 `shouldMatchCons` pat2
+  it "should match constructors infix and prefix list constructor" $ do
+    pat1 <- parseTestPat "x : []"
+    pat2 <- parseTestPat "(:) x []"
+    pat1 `shouldMatchCons` pat2
+  it "should match constructors of non-empty lists with different lengths" $ do
+    pat1 <- parseTestPat "[x]"
+    pat2 <- parseTestPat "[x, y]"
+    pat1 `shouldMatchCons` pat2
+  it "should match constructors of two empty lists" $ do
+    pat1 <- parseTestPat "[]"
+    pat2 <- parseTestPat "[]"
+    pat1 `shouldMatchCons` pat2
+  it "should match constructors of tuple notation and pair constructor" $ do
+    pat1 <- parseTestPat "(x, y)"
+    pat2 <- parseTestPat "(,) x y"
+    pat1 `shouldMatchCons` pat2
+  it "should match constructors of tuple notation and triple constructor" $ do
+    pat1 <- parseTestPat "(x, y, z)"
+    pat2 <- parseTestPat "(,,) x y z"
+    pat1 `shouldMatchCons` pat2
+  it "should not match constructors on empty and non-empty lists" $ do
+    pat1 <- parseTestPat "[]"
+    pat2 <- parseTestPat "[x]"
+    pat1 `shouldNotMatchCons` pat2
+  it "should not match constructors on tuples of different lengths" $ do
+    pat1 <- parseTestPat "(x, y)"
+    pat2 <- parseTestPat "(x, y, z)"
+    pat1 `shouldNotMatchCons` pat2
+  it "should not match constructors with different names" $ do
+    pat1 <- parseTestPat "C"
+    pat2 <- parseTestPat "D"
+    pat1 `shouldNotMatchCons` pat2
