@@ -29,41 +29,41 @@ optimize' (S.InfixApp _ e1 qop e2) = do
   e1' <- optimize' e1
   e2' <- optimize' e2
   return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-optimize' (S.NegApp _ e) = do
+optimize' (S.NegApp _ e)           = do
   e' <- optimize' e
   return $ S.NegApp S.NoSrcSpan e'
-optimize' (S.App _ e1 e2) = do
+optimize' (S.App _ e1 e2)          = do
   e1' <- optimize' e1
   e2' <- optimize' e2
   return $ S.App S.NoSrcSpan e1' e2'
-optimize' (S.Lambda _ ps e) = do
+optimize' (S.Lambda _ ps e)        = do
   e' <- optimize' e
   return $ S.Lambda S.NoSrcSpan ps e'
-optimize' (S.Let _ b e) = do
+optimize' (S.Let _ b e)            = do
   e' <- optimize' e
   return $ S.Let S.NoSrcSpan b e'
-optimize' (S.If _ e1 e2 e3) = do
+optimize' (S.If _ e1 e2 e3)        = do
   e1' <- optimize' e1
   e2' <- optimize' e2
   e3' <- optimize' e3
   return $ S.If S.NoSrcSpan e1' e2' e3'
-optimize' (S.Case _ e alts) = optimizeCase e alts
-optimize' (S.Tuple _ bxd es) = do
+optimize' (S.Case _ e alts)        = optimizeCase e alts
+optimize' (S.Tuple _ bxd es)       = do
   es' <- mapM optimize' es
   return $ S.Tuple S.NoSrcSpan bxd es'
-optimize' (S.List _ es) = do
+optimize' (S.List _ es)            = do
   es' <- mapM optimize' es
   return $ S.List S.NoSrcSpan es'
-optimize' (S.Paren _ e) = do
+optimize' (S.Paren _ e)            = do
   e' <- optimize' e
   return $ S.Paren S.NoSrcSpan e'
-optimize' (S.ExpTypeSig _ e t) = do
+optimize' (S.ExpTypeSig _ e t)     = do
   e' <- optimize' e
   return $ S.ExpTypeSig S.NoSrcSpan e' t
 -- Variables, constructors and literals don't contain expressions to optimize'.
-optimize' e@(S.Var _ _) = return e
-optimize' e@(S.Con _ _) = return e
-optimize' e@(S.Lit _ _) = return e
+optimize' e@(S.Var _ _)            = return e
+optimize' e@(S.Con _ _)            = return e
+optimize' e@(S.Lit _ _)            = return e
 
 -- | Tests whether the given scrutinee of a @case@ expression is a variable
 --   that has already been matched by a surrounding @case@ expression.
@@ -80,7 +80,7 @@ optimizeCase (S.Var _ varName) alts = do
   case mpat of
     Just pat -> renameAndOpt pat alts
     Nothing  -> addAndOpt varName alts
-optimizeCase e alts = do
+optimizeCase e alts                 = do
   e' <- optimize' e
   alts' <- mapM optimizeAlt alts
   return $ S.Case S.NoSrcSpan e' alts'
@@ -98,7 +98,8 @@ renameAndOpt
 renameAndOpt pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
-    Nothing -> reportFatal $ Message Error $ "Found no possible alternative."
+    Nothing                   ->
+      reportFatal $ Message Error $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
       pats <- selectPats pat
@@ -138,7 +139,7 @@ renameAll :: Members '[Fresh, Report] r
 
 -- TODO refactor higher order foldr
 -- TODO generate one Subst and apply only once
-renameAll [] e = return e
+renameAll [] e               = return e
 renameAll ((from, to) : r) e = do
   f <- getPatVarName from
   t <- getPatVarName to

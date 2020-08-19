@@ -47,11 +47,11 @@ transformModule (S.Module s omh _ decls) = do
   decls' <- mapM transformDecl decls
   return
     $ GHC.L (transformSrcSpan s) GHC.HsModule
-    { GHC.hsmodName = originalModuleName omh
-    , GHC.hsmodExports = originalModuleExports omh
-    , GHC.hsmodImports = originalModuleImports omh
-    , GHC.hsmodDecls = decls'
-    , GHC.hsmodDeprecMessage = originalModuleDeprecMessage omh
+    { GHC.hsmodName             = originalModuleName omh
+    , GHC.hsmodExports          = originalModuleExports omh
+    , GHC.hsmodImports          = originalModuleImports omh
+    , GHC.hsmodDecls            = decls'
+    , GHC.hsmodDeprecMessage    = originalModuleDeprecMessage omh
     , GHC.hsmodHaddockModHeader = originalModuleHaddockModHeader omh
     }
 
@@ -103,7 +103,7 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
     :: Member Report r
     => [GHC.LHsDecl GHC.GhcPs]
     -> Sem r ([GHC.LHsBindLR GHC.GhcPs GHC.GhcPs], [GHC.LSig GHC.GhcPs])
-  splitBDecls [] = return $ ([], [])
+  splitBDecls []              = return $ ([], [])
   splitBDecls (decl : decls') = do
     (funBinds', sigs') <- splitBDecls decls'
     case decl of
@@ -286,23 +286,23 @@ transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
 -------------------------------------------------------------------------------
 -- | Transforms an HST pattern into a GHC located pattern.
 transformPat :: Member Report r => S.Pat GHC -> Sem r (GHC.LPat GHC.GhcPs)
-transformPat (S.PVar s name) = return
+transformPat (S.PVar s name)                 = return
   $ GHC.L (transformSrcSpan s)
   (GHC.VarPat GHC.NoExtField (transformName GHC.varName name))
 transformPat (S.PInfixApp s pat1 qName pat2) = GHC.L (transformSrcSpan s)
   <$> (GHC.ConPatIn <$> transformQName GHC.dataName qName
        <*> (GHC.InfixCon <$> transformPat pat1 <*> transformPat pat2))
-transformPat (S.PApp s qName pats) = GHC.L (transformSrcSpan s)
+transformPat (S.PApp s qName pats)           = GHC.L (transformSrcSpan s)
   <$> (GHC.ConPatIn <$> transformQName GHC.dataName qName
        <*> (GHC.PrefixCon <$> mapM transformPat pats))
-transformPat (S.PTuple s boxed pats) = GHC.L (transformSrcSpan s)
+transformPat (S.PTuple s boxed pats)         = GHC.L (transformSrcSpan s)
   <$> (GHC.TuplePat GHC.NoExtField <$> mapM transformPat pats
        <*> return (transformBoxed boxed))
-transformPat (S.PParen s pat) = GHC.L (transformSrcSpan s)
+transformPat (S.PParen s pat)                = GHC.L (transformSrcSpan s)
   <$> (GHC.ParPat GHC.NoExtField <$> transformPat pat)
-transformPat (S.PList s pats) = GHC.L (transformSrcSpan s)
+transformPat (S.PList s pats)                = GHC.L (transformSrcSpan s)
   <$> (GHC.ListPat GHC.NoExtField <$> mapM transformPat pats)
-transformPat (S.PWildCard s) = return
+transformPat (S.PWildCard s)                 = return
   $ GHC.L (transformSrcSpan s) (GHC.WildPat GHC.NoExtField)
 
 -------------------------------------------------------------------------------
@@ -350,14 +350,17 @@ transformQOp (S.QConOp s qName) = GHC.L (transformSrcSpan s)
 --   Expression holes appear at expression level in the GHC AST and are
 --   transformed in 'transformExp' instead.
 transformSpecialCon :: Member Report r => S.SpecialCon GHC -> Sem r GHC.Name
-transformSpecialCon (S.UnitCon _) = return $ GHC.dataConName GHC.unitDataCon
+transformSpecialCon (S.UnitCon _)
+  = return $ GHC.dataConName GHC.unitDataCon
 transformSpecialCon (S.UnboxedSingleCon _)
   = return $ GHC.dataConName GHC.unboxedUnitDataCon
 transformSpecialCon (S.TupleCon _ boxed arity) = return
   $ GHC.dataConName (GHC.tupleDataCon (transformBoxed boxed) arity)
-transformSpecialCon (S.NilCon _) = return $ GHC.dataConName GHC.nilDataCon
-transformSpecialCon (S.ConsCon _) = return $ GHC.dataConName GHC.consDataCon
-transformSpecialCon (S.ExprHole _) = reportFatal
+transformSpecialCon (S.NilCon _)
+  = return $ GHC.dataConName GHC.nilDataCon
+transformSpecialCon (S.ConsCon _)
+  = return $ GHC.dataConName GHC.consDataCon
+transformSpecialCon (S.ExprHole _)             = reportFatal
   $ Message Internal
   $ "Encountered expression hole at name level in retransformation. "
   ++ "Expression holes should be transformed at expression level with "

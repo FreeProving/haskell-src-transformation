@@ -58,7 +58,7 @@ useAlgoDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
 useAlgoDecl (S.FunBind _ ms) = do
   m' <- useAlgoMatches ms
   return (S.FunBind S.NoSrcSpan [m'])
-useAlgoDecl v = return v
+useAlgoDecl v                = return v
 
 -- | Applies the core algorithm on a function declaration with the given
 --   matches.

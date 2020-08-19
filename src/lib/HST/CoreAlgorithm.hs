@@ -65,8 +65,8 @@ match :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
       -> [Eqs a]   -- ^ The equations of the function declaration.
       -> S.Exp a   -- ^ The error expression for pattern-matching failures.
       -> Sem r (S.Exp a)
-match [] (([], e) : _) _ = return e  -- Rule 3a: All patterns matched.
-match [] [] er = return er -- Rule 3b: Pattern-matching failure.
+match [] (([], e) : _) _   = return e  -- Rule 3a: All patterns matched.
+match [] [] er             = return er -- Rule 3b: Pattern-matching failure.
 match vars@(x : xs) eqs er
   |
     -- Rule 1: Pattern list of all equations starts with a variable pattern.
@@ -83,7 +83,7 @@ match vars@(x : xs) eqs er
     -- TODO This is probably causing the infinite loops when there are
     --      unsupported patterns.
     otherwise = createRekMatch vars er (groupByFirstPatType eqs)
-match [] _ _ = reportFatal
+match [] _ _               = reportFatal
   $ Message Error
   $ "Equations have different number of arguments."
 
@@ -307,7 +307,7 @@ computeAlt _ _ _ []
 decomposeConPat :: Members '[Fresh, Report] r
                 => S.Pat a
                 -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
-decomposeConPat (S.PApp _ qname ps) = do
+decomposeConPat (S.PApp _ qname ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
 decomposeConPat (S.PInfixApp _ p1 qname p2) = failToReport $ do
@@ -321,14 +321,16 @@ decomposeConPat (S.PList _ ps)
     let (n : nv) = ps
         listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
     decomposeConPat (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
-decomposeConPat (S.PTuple _ bxd ps) = do
+decomposeConPat (S.PTuple _ bxd ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PTuple S.NoSrcSpan bxd nvars, nvars, ps)
 -- Decompose patterns with parentheses recursively.
-decomposeConPat (S.PParen _ p) = decomposeConPat p
+decomposeConPat (S.PParen _ p)              = decomposeConPat p
 -- Variable and wildcard patterns don't contain child patterns.
-decomposeConPat (S.PWildCard _) = return (S.PWildCard S.NoSrcSpan, [], [])
-decomposeConPat (S.PVar _ name) = return (S.PVar S.NoSrcSpan name, [], [])
+decomposeConPat (S.PWildCard _)
+  = return (S.PWildCard S.NoSrcSpan, [], [])
+decomposeConPat (S.PVar _ name)
+  = return (S.PVar S.NoSrcSpan name, [], [])
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --

@@ -35,23 +35,24 @@ class TermSubst c where
 
 -- | 'TermSubst' instance for expressions.
 instance TermSubst S.Exp where
-  substitute s (S.Var l qname) = s (S.Var l qname)
-  substitute _ (S.Con l qname) = S.Con l qname
-  substitute _ (S.Lit l literal) = S.Lit l literal
+  substitute s (S.Var l qname)          = s (S.Var l qname)
+  substitute _ (S.Con l qname)          = S.Con l qname
+  substitute _ (S.Lit l literal)        = S.Lit l literal
   substitute s (S.InfixApp l e1 qop e2) = S.InfixApp l (substitute s e1) qop
     (substitute s e2)
-  substitute s (S.NegApp l e) = S.NegApp l (substitute s e)
-  substitute s (S.App l e1 e2) = S.App l (substitute s e1) (substitute s e2)
-  substitute s (S.Lambda l ps e) = S.Lambda l ps (substitute s e)
-  substitute s (S.Let l b e) = S.Let l b $ substitute s e
-  substitute s (S.If l e1 e2 e3) = S.If l (substitute s e1) (substitute s e2)
-    (substitute s e3)
-  substitute s (S.Case l e as) = S.Case l (substitute s e)
+  substitute s (S.NegApp l e)           = S.NegApp l (substitute s e)
+  substitute s (S.App l e1 e2)          = S.App l (substitute s e1)
+    (substitute s e2)
+  substitute s (S.Lambda l ps e)        = S.Lambda l ps (substitute s e)
+  substitute s (S.Let l b e)            = S.Let l b $ substitute s e
+  substitute s (S.If l e1 e2 e3)        = S.If l (substitute s e1)
+    (substitute s e2) (substitute s e3)
+  substitute s (S.Case l e as)          = S.Case l (substitute s e)
     (map (substitute s) as)
-  substitute s (S.Tuple l bxd es) = S.Tuple l bxd (map (substitute s) es)
-  substitute s (S.List l es) = S.List l (map (substitute s) es)
-  substitute s (S.Paren l e) = S.Paren l (substitute s e)
-  substitute s (S.ExpTypeSig l e t) = S.ExpTypeSig l (substitute s e) t
+  substitute s (S.Tuple l bxd es)       = S.Tuple l bxd (map (substitute s) es)
+  substitute s (S.List l es)            = S.List l (map (substitute s) es)
+  substitute s (S.Paren l e)            = S.Paren l (substitute s e)
+  substitute s (S.ExpTypeSig l e t)     = S.ExpTypeSig l (substitute s e) t
 
 -- | 'TermSubst' instance for @case@ expression alternatives.
 --
@@ -79,21 +80,23 @@ class Rename c where
 
 -- | 'Rename' instance for expressions.
 instance Rename (S.Exp a) where
-  rename s (S.Var l qname) = S.Var l (rename s qname)
-  rename _ (S.Con l qname) = S.Con l qname
-  rename _ (S.Lit l literal) = S.Lit l literal
+  rename s (S.Var l qname)          = S.Var l (rename s qname)
+  rename _ (S.Con l qname)          = S.Con l qname
+  rename _ (S.Lit l literal)        = S.Lit l literal
   rename s (S.InfixApp l e1 qop e2) = S.InfixApp l (rename s e1) qop
     (rename s e2)
-  rename s (S.NegApp l e) = S.NegApp l (rename s e)
-  rename s (S.App l e1 e2) = S.App l (rename s e1) (rename s e2)
-  rename s (S.Lambda l ps e) = S.Lambda l (map (rename s) ps) (rename s e)
-  rename s (S.Let l b e) = S.Let l b $ rename s e
-  rename s (S.If l e1 e2 e3) = S.If l (rename s e1) (rename s e2) (rename s e3)
-  rename s (S.Case l e as) = S.Case l (rename s e) (map (rename s) as)
-  rename s (S.Tuple l bxd es) = S.Tuple l bxd (map (rename s) es)
-  rename s (S.List l es) = S.List l (map (rename s) es)
-  rename s (S.Paren l e) = S.Paren l (rename s e)
-  rename s (S.ExpTypeSig l e t) = S.ExpTypeSig l (rename s e) t
+  rename s (S.NegApp l e)           = S.NegApp l (rename s e)
+  rename s (S.App l e1 e2)          = S.App l (rename s e1) (rename s e2)
+  rename s (S.Lambda l ps e)        = S.Lambda l (map (rename s) ps)
+    (rename s e)
+  rename s (S.Let l b e)            = S.Let l b $ rename s e
+  rename s (S.If l e1 e2 e3)        = S.If l (rename s e1) (rename s e2)
+    (rename s e3)
+  rename s (S.Case l e as)          = S.Case l (rename s e) (map (rename s) as)
+  rename s (S.Tuple l bxd es)       = S.Tuple l bxd (map (rename s) es)
+  rename s (S.List l es)            = S.List l (map (rename s) es)
+  rename s (S.Paren l e)            = S.Paren l (rename s e)
+  rename s (S.ExpTypeSig l e t)     = S.ExpTypeSig l (rename s e) t
 
 -- | 'Rename' instance for optionally qualified variable names.
 instance Rename (S.QName a) where
@@ -116,14 +119,15 @@ instance Rename (S.Alt s) where
 
 -- | 'Rename' instance for patterns.
 instance Rename (S.Pat a) where
-  rename s (S.PVar l name) = S.PVar l (rename s name)
+  rename s (S.PVar l name)             = S.PVar l (rename s name)
   rename s (S.PInfixApp l p1 qname p2) = S.PInfixApp l (rename s p1)
     (rename s qname) (rename s p2)
-  rename s (S.PApp l qname ps) = S.PApp l (rename s qname) (map (rename s) ps)
-  rename s (S.PTuple l boxed ps) = S.PTuple l boxed (map (rename s) ps)
-  rename s (S.PList l ps) = S.PList l (map (rename s) ps)
-  rename s (S.PParen l p) = S.PParen l (rename s p)
-  rename _ (S.PWildCard l) = S.PWildCard l
+  rename s (S.PApp l qname ps)         = S.PApp l (rename s qname)
+    (map (rename s) ps)
+  rename s (S.PTuple l boxed ps)       = S.PTuple l boxed (map (rename s) ps)
+  rename s (S.PList l ps)              = S.PList l (map (rename s) ps)
+  rename s (S.PParen l p)              = S.PParen l (rename s p)
+  rename _ (S.PWildCard l)             = S.PWildCard l
 
 -- | 'Rename' instance for right-hand sides.
 --

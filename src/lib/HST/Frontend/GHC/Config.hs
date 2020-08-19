@@ -73,10 +73,10 @@ instance Show TypeWrapper where
 
 -- | Wrapper for the fields of modules that are not supported.
 data OriginalModuleHead = OriginalModuleHead
-  { originalModuleName :: Maybe (GHC.Located GHC.ModuleName)
-  , originalModuleExports :: Maybe (GHC.Located [GHC.LIE GHC.GhcPs])
-  , originalModuleImports :: [GHC.LImportDecl GHC.GhcPs]
-  , originalModuleDeprecMessage :: Maybe (GHC.Located GHC.WarningTxt)
+  { originalModuleName             :: Maybe (GHC.Located GHC.ModuleName)
+  , originalModuleExports          :: Maybe (GHC.Located [GHC.LIE GHC.GhcPs])
+  , originalModuleImports          :: [GHC.LImportDecl GHC.GhcPs]
+  , originalModuleDeprecMessage    :: Maybe (GHC.Located GHC.WarningTxt)
   , originalModuleHaddockModHeader :: Maybe GHC.LHsDocString
   }
 

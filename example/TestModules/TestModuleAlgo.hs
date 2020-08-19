@@ -31,8 +31,8 @@ mapP f (x : xs) = f x : mapP f xs
 
 -- non-uniform function with sugared Haskell types
 zip :: [a] -> [b] -> [(a, b)]
-zip [] _ = []
-zip _ [] = []
+zip [] _              = []
+zip _ []              = []
 zip (x : xs) (y : ys) = (x, y) : zip xs ys
 
 -- self defined infix constructors

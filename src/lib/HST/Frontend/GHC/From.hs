@@ -151,7 +151,7 @@ transformDataDefn :: Member Report r
 transformDataDefn GHC.HsDataDefn { GHC.dd_cons = cons } = do
   conDecls <- mapM transformConDecl cons
   return $ if all isJust conDecls then Just (catMaybes conDecls) else Nothing
-transformDataDefn (GHC.XHsDataDefn x) = GHC.noExtCon x
+transformDataDefn (GHC.XHsDataDefn x)                   = GHC.noExtCon x
 
 -- | Transforms a GHC located constructor declaration into an HST constructor
 --   declaration.
@@ -240,7 +240,7 @@ transformMatch (GHC.L s match@GHC.Match {}) = do
     ctxt@GHC.FunRhs {} -> do
       name <- transformRdrNameUnqual (GHC.mc_fun ctxt)
       return (name, GHC.mc_fixity ctxt)
-    _ -> return $ (S.Ident S.NoSrcSpan "", GHC.Prefix)
+    _                  -> return $ (S.Ident S.NoSrcSpan "", GHC.Prefix)
   pats <- mapM transformPat (GHC.m_pats match)
   (rhs, mBinds) <- transformGRHSs (GHC.m_grhss match)
   return $ case fixity of
@@ -330,7 +330,8 @@ transformExpr (GHC.L s (GHC.OpApp _ e1 op e2)) = do
   op'' <- case op' of
     (S.Var s' name) -> return $ S.QVarOp s' name
     (S.Con s' name) -> return $ S.QConOp s' name
-    _ -> notSupported "Infix operators that aren't variables or constructors"
+    _               ->
+      notSupported "Infix operators that aren't variables or constructors"
   return $ S.InfixApp (transformSrcSpan s) e1' op'' e2'
 transformExpr (GHC.L s (GHC.HsApp _ e1 e2))
   = S.App (transformSrcSpan s) <$> transformExpr e1 <*> transformExpr e2
@@ -438,9 +439,9 @@ transformTupleArg (GHC.L _ (GHC.XTupArg x))   = GHC.noExtCon x
 -------------------------------------------------------------------------------
 -- | Transforms a GHC located pattern into an HST pattern.
 transformPat :: Member Report r => GHC.LPat GHC.GhcPs -> Sem r (S.Pat GHC)
-transformPat (GHC.L s (GHC.VarPat _ name)) = S.PVar (transformSrcSpan s)
-  <$> transformRdrNameUnqual name
-transformPat (GHC.L s (GHC.ConPatIn name cpds)) = do
+transformPat (GHC.L s (GHC.VarPat _ name))
+  = S.PVar (transformSrcSpan s) <$> transformRdrNameUnqual name
+transformPat (GHC.L s (GHC.ConPatIn name cpds))     = do
   let s' = transformSrcSpan s
   (name', isCon) <- transformRdrName name
   case (cpds, isCon) of
@@ -455,29 +456,37 @@ transformPat (GHC.L s (GHC.ConPatIn name cpds)) = do
 transformPat (GHC.L s (GHC.TuplePat _ pats boxity)) = S.PTuple
   (transformSrcSpan s) (transformBoxity boxity)
   <$> mapM transformPat pats
-transformPat (GHC.L s (GHC.ParPat _ pat)) = S.PParen (transformSrcSpan s)
-  <$> transformPat pat
-transformPat (GHC.L s (GHC.ListPat _ pats)) = S.PList (transformSrcSpan s)
-  <$> mapM transformPat pats
-transformPat (GHC.L s (GHC.WildPat _)) = return
+transformPat (GHC.L s (GHC.ParPat _ pat))
+  = S.PParen (transformSrcSpan s) <$> transformPat pat
+transformPat (GHC.L s (GHC.ListPat _ pats))
+  = S.PList (transformSrcSpan s) <$> mapM transformPat pats
+transformPat (GHC.L s (GHC.WildPat _))              = return
   $ S.PWildCard (transformSrcSpan s)
 -- All other patterns are not supported.
-transformPat (GHC.L _ (GHC.LazyPat _ _)) = notSupported "Lazy patterns"
-transformPat (GHC.L _ (GHC.AsPat _ _ _)) = notSupported "as-patterns"
-transformPat (GHC.L _ (GHC.BangPat _ _)) = notSupported "Bang patterns"
+transformPat (GHC.L _ (GHC.LazyPat _ _))
+  = notSupported "Lazy patterns"
+transformPat (GHC.L _ (GHC.AsPat _ _ _))            = notSupported "as-patterns"
+transformPat (GHC.L _ (GHC.BangPat _ _))
+  = notSupported "Bang patterns"
 transformPat (GHC.L _ (GHC.SumPat _ _ _ _))
   = notSupported "Anonymous sum patterns"
 transformPat (GHC.L _ GHC.ConPatOut {})
   = notSupported "Constructor patterns out"
-transformPat (GHC.L _ (GHC.ViewPat _ _ _)) = notSupported "View patterns"
-transformPat (GHC.L _ (GHC.SplicePat _ _)) = notSupported "Template Haskell"
-transformPat (GHC.L _ (GHC.LitPat _ _)) = notSupported "Literal patterns"
-transformPat (GHC.L _ (GHC.NPat _ _ _ _)) = notSupported "Natural patterns"
-transformPat (GHC.L _ (GHC.NPlusKPat _ _ _ _ _ _)) = notSupported "n+k patterns"
+transformPat (GHC.L _ (GHC.ViewPat _ _ _))
+  = notSupported "View patterns"
+transformPat (GHC.L _ (GHC.SplicePat _ _))
+  = notSupported "Template Haskell"
+transformPat (GHC.L _ (GHC.LitPat _ _))
+  = notSupported "Literal patterns"
+transformPat (GHC.L _ (GHC.NPat _ _ _ _))
+  = notSupported "Natural patterns"
+transformPat (GHC.L _ (GHC.NPlusKPat _ _ _ _ _ _))
+  = notSupported "n+k patterns"
 transformPat (GHC.L _ (GHC.SigPat _ _ _))
   = notSupported "Patterns with type signature"
-transformPat (GHC.L _ (GHC.CoPat _ _ _ _)) = notSupported "Coercion patterns"
-transformPat (GHC.L _ (GHC.XPat x)) = GHC.noExtCon x
+transformPat (GHC.L _ (GHC.CoPat _ _ _ _))
+  = notSupported "Coercion patterns"
+transformPat (GHC.L _ (GHC.XPat x))                 = GHC.noExtCon x
 
 -------------------------------------------------------------------------------
 -- Names                                                                     --

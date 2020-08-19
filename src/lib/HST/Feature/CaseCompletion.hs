@@ -32,44 +32,44 @@ completeCase insideLet (S.Case _ expr as) = do
     else do
       let a = S.alt v res
       return $ S.Case S.NoSrcSpan expr [a]
-completeCase il (S.InfixApp _ e1 qop e2) = do
+completeCase il (S.InfixApp _ e1 qop e2)  = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
   return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-completeCase il (S.NegApp _ e) = do
+completeCase il (S.NegApp _ e)            = do
   e' <- completeCase il e
   return $ S.NegApp S.NoSrcSpan e'
-completeCase il (S.App _ e1 e2) = do
+completeCase il (S.App _ e1 e2)           = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
   return $ S.App S.NoSrcSpan e1' e2'
-completeCase il (S.Lambda _ ps e) = completeLambda ps e il
-completeCase il (S.Let _ binds e) = do
+completeCase il (S.Lambda _ ps e)         = completeLambda ps e il
+completeCase il (S.Let _ binds e)         = do
   e' <- completeCase il e -- undefined -- TODO
   binds' <- completeBindRhs binds
   return $ S.Let S.NoSrcSpan binds' e'
-completeCase il (S.If _ e1 e2 e3) = do
+completeCase il (S.If _ e1 e2 e3)         = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
   e3' <- completeCase il e3
   return $ S.If S.NoSrcSpan e1' e2' e3'
-completeCase il (S.Tuple _ boxed es) = do
+completeCase il (S.Tuple _ boxed es)      = do
   es' <- mapM (completeCase il) es  -- complete case für List Expression
   return $ S.Tuple S.NoSrcSpan boxed es'
-completeCase il (S.List _ es) = do
+completeCase il (S.List _ es)             = do
   es' <- mapM (completeCase il) es
   return $ S.List S.NoSrcSpan es'
-completeCase il (S.Paren _ e) = do
+completeCase il (S.Paren _ e)             = do
   e' <- completeCase il e
   return $ S.Paren S.NoSrcSpan e'
-completeCase il (S.ExpTypeSig _ e t) = do
+completeCase il (S.ExpTypeSig _ e t)      = do
   e' <- completeCase il e
   return $ S.ExpTypeSig S.NoSrcSpan e' t
 -- Variables, Constructors and literals contain no expressions to complete
 -- pattern matching in.
-completeCase _ e@(S.Var _ _) = return e
-completeCase _ e@(S.Con _ _) = return e
-completeCase _ e@(S.Lit _ _) = return e
+completeCase _ e@(S.Var _ _)              = return e
+completeCase _ e@(S.Con _ _)              = return e
+completeCase _ e@(S.Lit _ _)              = return e
 
 completeBindRhs :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                 => S.Binds a

@@ -26,8 +26,10 @@ transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
   <$> mapM transformModuleHead moduleHead
   <*> mapM transformDecl decls
-transformModule (HSE.XmlPage _ _ _ _ _ _ _) = notSupported "XML Modules"
-transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _) = notSupported "XML Modules"
+transformModule (HSE.XmlPage _ _ _ _ _ _ _)
+  = notSupported "XML Modules"
+transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _)
+  = notSupported "XML Modules"
 
 -- | Extracts the name of a module from a module head.
 transformModuleHead :: Member Report r
@@ -227,7 +229,8 @@ transformGuardedRhs :: Member Report r
                     -> Sem r (S.GuardedRhs HSE)
 transformGuardedRhs (HSE.GuardedRhs s [HSE.Qualifier _ ge] e)
   = S.GuardedRhs (transformSrcSpan s) <$> transformExp ge <*> transformExp e
-transformGuardedRhs (HSE.GuardedRhs _ _ _) = notSupported "Pattern guards"
+transformGuardedRhs (HSE.GuardedRhs _ _ _)
+  = notSupported "Pattern guards"
 
 -------------------------------------------------------------------------------
 -- Expressions                                                               --
@@ -239,81 +242,93 @@ transformBoxed HSE.Unboxed = return S.Unboxed
 
 -- | Transforms an HSE expression into an HST expression.
 transformExp :: Member Report r => HSE.Exp HSE.SrcSpanInfo -> Sem r (S.Exp HSE)
-transformExp (HSE.Var s qName) = S.Var (transformSrcSpan s)
+transformExp (HSE.Var s qName)                = S.Var (transformSrcSpan s)
   <$> transformQName qName
-transformExp (HSE.Con s qName) = S.Con (transformSrcSpan s)
+transformExp (HSE.Con s qName)                = S.Con (transformSrcSpan s)
   <$> transformQName qName
-transformExp (HSE.Lit s lit) = return (S.Lit (transformSrcSpan s) lit)
-transformExp (HSE.InfixApp s e1 qOp e2) = S.InfixApp (transformSrcSpan s)
+transformExp (HSE.Lit s lit)                  = return
+  (S.Lit (transformSrcSpan s) lit)
+transformExp (HSE.InfixApp s e1 qOp e2)       = S.InfixApp (transformSrcSpan s)
   <$> transformExp e1
   <*> transformQOp qOp
   <*> transformExp e2
-transformExp (HSE.App s e1 e2) = S.App (transformSrcSpan s) <$> transformExp e1
-  <*> transformExp e2
-transformExp (HSE.NegApp s e) = S.NegApp (transformSrcSpan s)
+transformExp (HSE.App s e1 e2)
+  = S.App (transformSrcSpan s) <$> transformExp e1 <*> transformExp e2
+transformExp (HSE.NegApp s e)                 = S.NegApp (transformSrcSpan s)
   <$> transformExp e
 transformExp (HSE.Lambda s pats e)
   = S.Lambda (transformSrcSpan s) <$> mapM transformPat pats <*> transformExp e
 transformExp (HSE.Let s binds e)
   = S.Let (transformSrcSpan s) <$> transformBinds binds <*> transformExp e
-transformExp (HSE.If s e1 e2 e3) = S.If (transformSrcSpan s)
+transformExp (HSE.If s e1 e2 e3)              = S.If (transformSrcSpan s)
   <$> transformExp e1
   <*> transformExp e2
   <*> transformExp e3
 transformExp (HSE.Case s e alts)
   = S.Case (transformSrcSpan s) <$> transformExp e <*> mapM transformAlt alts
-transformExp (HSE.Tuple s bxd es) = S.Tuple (transformSrcSpan s)
+transformExp (HSE.Tuple s bxd es)             = S.Tuple (transformSrcSpan s)
   <$> transformBoxed bxd
   <*> mapM transformExp es
-transformExp (HSE.List s es) = S.List (transformSrcSpan s)
+transformExp (HSE.List s es)                  = S.List (transformSrcSpan s)
   <$> mapM transformExp es
-transformExp (HSE.Paren s e) = S.Paren (transformSrcSpan s) <$> transformExp e
+transformExp (HSE.Paren s e)                  = S.Paren (transformSrcSpan s)
+  <$> transformExp e
 transformExp (HSE.ExpTypeSig s e typ)
   = S.ExpTypeSig (transformSrcSpan s) <$> transformExp e <*> return typ
 -- All other expressions are not supported.
-transformExp (HSE.OverloadedLabel _ _) = notSupported "Overloaded labels"
-transformExp (HSE.IPVar _ _) = notSupported "Implicit-parameters"
-transformExp (HSE.MultiIf _ _) = notSupported "Multi-Way if-expressions"
-transformExp (HSE.Do _ _) = notSupported "do-expressions"
-transformExp (HSE.MDo _ _) = notSupported "mdo-expressions"
-transformExp (HSE.UnboxedSum _ _ _ _) = notSupported "Unboxed sums"
-transformExp (HSE.TupleSection _ _ _) = notSupported "Tuple sections"
-transformExp (HSE.ParArray _ _) = notSupported "Parallel arrays"
-transformExp (HSE.LeftSection _ _ _) = notSupported "Sections"
-transformExp (HSE.RightSection _ _ _) = notSupported "Sections"
-transformExp (HSE.RecConstr _ _ _) = notSupported "Records"
-transformExp (HSE.RecUpdate _ _ _) = notSupported "Records"
-transformExp (HSE.EnumFrom _ _) = notSupported "Enumerations"
-transformExp (HSE.EnumFromTo _ _ _) = notSupported "Enumerations"
-transformExp (HSE.EnumFromThen _ _ _) = notSupported "Enumerations"
-transformExp (HSE.EnumFromThenTo _ _ _ _) = notSupported "Enumerations"
-transformExp (HSE.ParArrayFromTo _ _ _) = notSupported "Parallel arrays"
+transformExp (HSE.OverloadedLabel _ _)        = notSupported "Overloaded labels"
+transformExp (HSE.IPVar _ _)
+  = notSupported "Implicit-parameters"
+transformExp (HSE.MultiIf _ _)
+  = notSupported "Multi-Way if-expressions"
+transformExp (HSE.Do _ _)                     = notSupported "do-expressions"
+transformExp (HSE.MDo _ _)                    = notSupported "mdo-expressions"
+transformExp (HSE.UnboxedSum _ _ _ _)         = notSupported "Unboxed sums"
+transformExp (HSE.TupleSection _ _ _)         = notSupported "Tuple sections"
+transformExp (HSE.ParArray _ _)               = notSupported "Parallel arrays"
+transformExp (HSE.LeftSection _ _ _)          = notSupported "Sections"
+transformExp (HSE.RightSection _ _ _)         = notSupported "Sections"
+transformExp (HSE.RecConstr _ _ _)            = notSupported "Records"
+transformExp (HSE.RecUpdate _ _ _)            = notSupported "Records"
+transformExp (HSE.EnumFrom _ _)               = notSupported "Enumerations"
+transformExp (HSE.EnumFromTo _ _ _)           = notSupported "Enumerations"
+transformExp (HSE.EnumFromThen _ _ _)         = notSupported "Enumerations"
+transformExp (HSE.EnumFromThenTo _ _ _ _)     = notSupported "Enumerations"
+transformExp (HSE.ParArrayFromTo _ _ _)       = notSupported "Parallel arrays"
 transformExp (HSE.ParArrayFromThenTo _ _ _ _) = notSupported "Parallel arrays"
-transformExp (HSE.ListComp _ _ _) = notSupported "List comprehensions"
-transformExp (HSE.ParComp _ _ _) = notSupported "List comprehensions"
-transformExp (HSE.ParArrayComp _ _ _) = notSupported "Parallel arrays"
-transformExp (HSE.VarQuote _ _) = notSupported "Template Haskell expressions"
-transformExp (HSE.TypQuote _ _) = notSupported "Template Haskell expressions"
-transformExp (HSE.BracketExp _ _) = notSupported "Template Haskell expressions"
-transformExp (HSE.SpliceExp _ _) = notSupported "Template Haskell expressions"
+transformExp (HSE.ListComp _ _ _)
+  = notSupported "List comprehensions"
+transformExp (HSE.ParComp _ _ _)
+  = notSupported "List comprehensions"
+transformExp (HSE.ParArrayComp _ _ _)         = notSupported "Parallel arrays"
+transformExp (HSE.VarQuote _ _)
+  = notSupported "Template Haskell expressions"
+transformExp (HSE.TypQuote _ _)
+  = notSupported "Template Haskell expressions"
+transformExp (HSE.BracketExp _ _)
+  = notSupported "Template Haskell expressions"
+transformExp (HSE.SpliceExp _ _)
+  = notSupported "Template Haskell expressions"
 transformExp (HSE.QuasiQuote _ _ _)
   = notSupported "Template Haskell expressions"
-transformExp (HSE.TypeApp _ _) = notSupported "Visible type applications"
-transformExp (HSE.XTag _ _ _ _ _) = notSupported "XML expressions"
-transformExp (HSE.XETag _ _ _ _) = notSupported "XML expressions"
-transformExp (HSE.XPcdata _ _) = notSupported "XML expressions"
-transformExp (HSE.XExpTag _ _) = notSupported "XML expressions"
-transformExp (HSE.XChildTag _ _) = notSupported "XML expressions"
-transformExp (HSE.CorePragma _ _ _) = notSupported "CORE pragmas"
-transformExp (HSE.SCCPragma _ _ _) = notSupported "SCC pragmas"
-transformExp (HSE.GenPragma _ _ _ _ _) = notSupported "GENERATED pragmas"
-transformExp (HSE.Proc _ _ _) = notSupported "Arrow expressions"
-transformExp (HSE.LeftArrApp _ _ _) = notSupported "Arrow expressions"
-transformExp (HSE.RightArrApp _ _ _) = notSupported "Arrow expressions"
-transformExp (HSE.LeftArrHighApp _ _ _) = notSupported "Arrow expressions"
-transformExp (HSE.RightArrHighApp _ _ _) = notSupported "Arrow expressions"
-transformExp (HSE.ArrOp _ _) = notSupported "Arrow expressions"
-transformExp (HSE.LCase _ _) = notSupported "Lambda case expressions"
+transformExp (HSE.TypeApp _ _)
+  = notSupported "Visible type applications"
+transformExp (HSE.XTag _ _ _ _ _)             = notSupported "XML expressions"
+transformExp (HSE.XETag _ _ _ _)              = notSupported "XML expressions"
+transformExp (HSE.XPcdata _ _)                = notSupported "XML expressions"
+transformExp (HSE.XExpTag _ _)                = notSupported "XML expressions"
+transformExp (HSE.XChildTag _ _)              = notSupported "XML expressions"
+transformExp (HSE.CorePragma _ _ _)           = notSupported "CORE pragmas"
+transformExp (HSE.SCCPragma _ _ _)            = notSupported "SCC pragmas"
+transformExp (HSE.GenPragma _ _ _ _ _)        = notSupported "GENERATED pragmas"
+transformExp (HSE.Proc _ _ _)                 = notSupported "Arrow expressions"
+transformExp (HSE.LeftArrApp _ _ _)           = notSupported "Arrow expressions"
+transformExp (HSE.RightArrApp _ _ _)          = notSupported "Arrow expressions"
+transformExp (HSE.LeftArrHighApp _ _ _)       = notSupported "Arrow expressions"
+transformExp (HSE.RightArrHighApp _ _ _)      = notSupported "Arrow expressions"
+transformExp (HSE.ArrOp _ _)                  = notSupported "Arrow expressions"
+transformExp (HSE.LCase _ _)
+  = notSupported "Lambda case expressions"
 
 -- | Transforms an HSE case alternative into an HST case alternative.
 transformAlt :: Member Report r => HSE.Alt HSE.SrcSpanInfo -> Sem r (S.Alt HSE)
@@ -327,42 +342,44 @@ transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
 -------------------------------------------------------------------------------
 -- | Transforms an HSE pattern into an HST pattern.
 transformPat :: Member Report r => HSE.Pat HSE.SrcSpanInfo -> Sem r (S.Pat HSE)
-transformPat (HSE.PVar s name) = S.PVar (transformSrcSpan s)
+transformPat (HSE.PVar s name)                 = S.PVar (transformSrcSpan s)
   <$> transformName name
 transformPat (HSE.PInfixApp s pat1 qName pat2)
   = S.PInfixApp (transformSrcSpan s) <$> transformPat pat1
   <*> transformQName qName
   <*> transformPat pat2
-transformPat (HSE.PApp s qName pats) = S.PApp (transformSrcSpan s)
+transformPat (HSE.PApp s qName pats)           = S.PApp (transformSrcSpan s)
   <$> transformQName qName
   <*> mapM transformPat pats
-transformPat (HSE.PTuple s bxd pats) = S.PTuple (transformSrcSpan s)
+transformPat (HSE.PTuple s bxd pats)           = S.PTuple (transformSrcSpan s)
   <$> transformBoxed bxd
   <*> mapM transformPat pats
-transformPat (HSE.PParen s pat) = S.PParen (transformSrcSpan s)
+transformPat (HSE.PParen s pat)                = S.PParen (transformSrcSpan s)
   <$> transformPat pat
-transformPat (HSE.PList s pats) = S.PList (transformSrcSpan s)
+transformPat (HSE.PList s pats)                = S.PList (transformSrcSpan s)
   <$> mapM transformPat pats
-transformPat (HSE.PWildCard s) = return (S.PWildCard (transformSrcSpan s))
+transformPat (HSE.PWildCard s)                 = return
+  (S.PWildCard (transformSrcSpan s))
 -- All other patterns are not supported.
-transformPat (HSE.PLit _ _ _) = notSupported "Literal patterns"
-transformPat (HSE.PNPlusK _ _ _) = notSupported "n+k patterns"
-transformPat (HSE.PUnboxedSum _ _ _ _) = notSupported "Unboxed sums"
-transformPat (HSE.PRec _ _ _) = notSupported "Records"
-transformPat (HSE.PAsPat _ _ _) = notSupported "as-patterns"
-transformPat (HSE.PIrrPat _ _) = notSupported "Irrefutable patterns"
+transformPat (HSE.PLit _ _ _)                  = notSupported "Literal patterns"
+transformPat (HSE.PNPlusK _ _ _)               = notSupported "n+k patterns"
+transformPat (HSE.PUnboxedSum _ _ _ _)         = notSupported "Unboxed sums"
+transformPat (HSE.PRec _ _ _)                  = notSupported "Records"
+transformPat (HSE.PAsPat _ _ _)                = notSupported "as-patterns"
+transformPat (HSE.PIrrPat _ _)
+  = notSupported "Irrefutable patterns"
 transformPat (HSE.PatTypeSig _ _ _)
   = notSupported "Patterns with type signatures"
-transformPat (HSE.PViewPat _ _ _) = notSupported "View patterns"
-transformPat (HSE.PRPat _ _) = notSupported "Regular patterns"
-transformPat (HSE.PXTag _ _ _ _ _) = notSupported "XML patterns"
-transformPat (HSE.PXETag _ _ _ _) = notSupported "XML patterns"
-transformPat (HSE.PXPcdata _ _) = notSupported "XML patterns"
-transformPat (HSE.PXPatTag _ _) = notSupported "XML patterns"
-transformPat (HSE.PXRPats _ _) = notSupported "XML patterns"
-transformPat (HSE.PSplice _ _) = notSupported "Template Haskell"
-transformPat (HSE.PQuasiQuote _ _ _) = notSupported "Template Haskell"
-transformPat (HSE.PBangPat _ _) = notSupported "Bang patterns"
+transformPat (HSE.PViewPat _ _ _)              = notSupported "View patterns"
+transformPat (HSE.PRPat _ _)                   = notSupported "Regular patterns"
+transformPat (HSE.PXTag _ _ _ _ _)             = notSupported "XML patterns"
+transformPat (HSE.PXETag _ _ _ _)              = notSupported "XML patterns"
+transformPat (HSE.PXPcdata _ _)                = notSupported "XML patterns"
+transformPat (HSE.PXPatTag _ _)                = notSupported "XML patterns"
+transformPat (HSE.PXRPats _ _)                 = notSupported "XML patterns"
+transformPat (HSE.PSplice _ _)                 = notSupported "Template Haskell"
+transformPat (HSE.PQuasiQuote _ _ _)           = notSupported "Template Haskell"
+transformPat (HSE.PBangPat _ _)                = notSupported "Bang patterns"
 
 -------------------------------------------------------------------------------
 -- Names                                                                     --
@@ -400,14 +417,18 @@ transformQOp (HSE.QConOp s qName) = S.QConOp (transformSrcSpan s)
 transformSpecialCon :: Member Report r
                     => HSE.SpecialCon HSE.SrcSpanInfo
                     -> Sem r (S.SpecialCon HSE)
-transformSpecialCon (HSE.UnitCon s) = return $ S.UnitCon (transformSrcSpan s)
+transformSpecialCon (HSE.UnitCon s)          = return
+  $ S.UnitCon (transformSrcSpan s)
 transformSpecialCon (HSE.UnboxedSingleCon s) = return
   $ S.UnboxedSingleCon (transformSrcSpan s)
 transformSpecialCon (HSE.TupleCon s bxd n)
   = S.TupleCon (transformSrcSpan s) <$> transformBoxed bxd <*> return n
-transformSpecialCon (HSE.ListCon s) = return $ S.NilCon (transformSrcSpan s)
-transformSpecialCon (HSE.Cons s) = return $ S.ConsCon (transformSrcSpan s)
-transformSpecialCon (HSE.ExprHole s) = return $ S.ExprHole (transformSrcSpan s)
+transformSpecialCon (HSE.ListCon s)          = return
+  $ S.NilCon (transformSrcSpan s)
+transformSpecialCon (HSE.Cons s)             = return
+  $ S.ConsCon (transformSrcSpan s)
+transformSpecialCon (HSE.ExprHole s)         = return
+  $ S.ExprHole (transformSrcSpan s)
 transformSpecialCon (HSE.FunCon _)
   = reportFatal $ Message Error $ "Expected data constructor but got (->)."
 

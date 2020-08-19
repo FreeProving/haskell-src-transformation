@@ -288,15 +288,16 @@ instance HasSrcSpan Pat where
 
 -- | Converts a pattern to an expression.
 patToExp :: Pat a -> Exp a
-patToExp (PVar srcSpan name) = Var srcSpan (unQual name)
+patToExp (PVar srcSpan name)            = Var srcSpan (unQual name)
 patToExp (PInfixApp srcSpan p1 name p2) = InfixApp srcSpan (patToExp p1)
   (qConOp name) (patToExp p2)
-patToExp (PApp srcSpan name ps) = foldl (App srcSpan) (con name)
+patToExp (PApp srcSpan name ps)         = foldl (App srcSpan) (con name)
   (map patToExp ps)
-patToExp (PTuple srcSpan boxed ps) = Tuple srcSpan boxed (map patToExp ps)
-patToExp (PParen srcSpan p) = Paren srcSpan (patToExp p)
-patToExp (PList srcSpan ps) = List srcSpan (map patToExp ps)
-patToExp (PWildCard srcSpan) = Var srcSpan (Special srcSpan (ExprHole srcSpan))
+patToExp (PTuple srcSpan boxed ps)      = Tuple srcSpan boxed (map patToExp ps)
+patToExp (PParen srcSpan p)             = Paren srcSpan (patToExp p)
+patToExp (PList srcSpan ps)             = List srcSpan (map patToExp ps)
+patToExp (PWildCard srcSpan)            = Var srcSpan
+  (Special srcSpan (ExprHole srcSpan))
 
 -------------------------------------------------------------------------------
 -- Names                                                                     --

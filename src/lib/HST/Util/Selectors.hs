@@ -40,21 +40,21 @@ getAltConName (S.Alt _ p _ _) = getPatConName p
 --
 --   Reports a fatal error if the given pattern is not a constructor pattern.
 getPatConName :: Member Report r => S.Pat a -> Sem r (S.QName a)
-getPatConName (S.PApp _ conName _) = return conName
+getPatConName (S.PApp _ conName _)        = return conName
 getPatConName (S.PInfixApp _ _ conName _) = return conName
 -- Constructor patterns with special syntax.
 getPatConName (S.PList _ pats)
   | null pats = return $ S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
   | otherwise = return $ S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
-getPatConName (S.PTuple _ boxed pats) = return
+getPatConName (S.PTuple _ boxed pats)     = return
   $ S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan boxed (length pats))
 -- Look into parentheses recursively.
-getPatConName (S.PParen _ pat) = getPatConName pat
+getPatConName (S.PParen _ pat)            = getPatConName pat
 -- All other patterns are not constructor patterns.
-getPatConName (S.PVar _ _) = reportFatal
+getPatConName (S.PVar _ _)                = reportFatal
   $ Message Error
   $ "Expected constructor pattern, got variable pattern."
-getPatConName (S.PWildCard _) = reportFatal
+getPatConName (S.PWildCard _)             = reportFatal
   $ Message Error
   $ "Expected constructor pattern, got wildcard pattern."
 

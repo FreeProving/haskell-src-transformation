@@ -86,29 +86,32 @@ transformBoxed S.Unboxed = HSE.Unboxed
 
 -- | Transforms an HST expression into an HSE expression.
 transformExp :: S.Exp HSE -> HSE.Exp HSE.SrcSpanInfo
-transformExp (S.Var s qName) = HSE.Var (transformSrcSpan s)
+transformExp (S.Var s qName)          = HSE.Var (transformSrcSpan s)
   (transformQName qName)
-transformExp (S.Con s qName) = HSE.Con (transformSrcSpan s)
+transformExp (S.Con s qName)          = HSE.Con (transformSrcSpan s)
   (transformQName qName)
-transformExp (S.Lit s lit) = HSE.Lit (transformSrcSpan s) lit
+transformExp (S.Lit s lit)            = HSE.Lit (transformSrcSpan s) lit
 transformExp (S.InfixApp s e1 qOp e2) = HSE.InfixApp (transformSrcSpan s)
   (transformExp e1) (transformQOp qOp) (transformExp e2)
-transformExp (S.App s e1 e2) = HSE.App (transformSrcSpan s) (transformExp e1)
-  (transformExp e2)
-transformExp (S.NegApp s e) = HSE.NegApp (transformSrcSpan s) (transformExp e)
-transformExp (S.Lambda s pats e) = HSE.Lambda (transformSrcSpan s)
+transformExp (S.App s e1 e2)          = HSE.App (transformSrcSpan s)
+  (transformExp e1) (transformExp e2)
+transformExp (S.NegApp s e)           = HSE.NegApp (transformSrcSpan s)
+  (transformExp e)
+transformExp (S.Lambda s pats e)      = HSE.Lambda (transformSrcSpan s)
   (map transformPat pats) (transformExp e)
-transformExp (S.Let s binds e) = HSE.Let (transformSrcSpan s)
+transformExp (S.Let s binds e)        = HSE.Let (transformSrcSpan s)
   (transformBinds binds) (transformExp e)
-transformExp (S.If s e1 e2 e3) = HSE.If (transformSrcSpan s) (transformExp e1)
-  (transformExp e2) (transformExp e3)
-transformExp (S.Case s e alts) = HSE.Case (transformSrcSpan s) (transformExp e)
-  (map transformAlt alts)
-transformExp (S.Tuple s bxd es) = HSE.Tuple (transformSrcSpan s)
+transformExp (S.If s e1 e2 e3)        = HSE.If (transformSrcSpan s)
+  (transformExp e1) (transformExp e2) (transformExp e3)
+transformExp (S.Case s e alts)        = HSE.Case (transformSrcSpan s)
+  (transformExp e) (map transformAlt alts)
+transformExp (S.Tuple s bxd es)       = HSE.Tuple (transformSrcSpan s)
   (transformBoxed bxd) (map transformExp es)
-transformExp (S.List s es) = HSE.List (transformSrcSpan s) (map transformExp es)
-transformExp (S.Paren s e) = HSE.Paren (transformSrcSpan s) (transformExp e)
-transformExp (S.ExpTypeSig s e typ) = HSE.ExpTypeSig (transformSrcSpan s)
+transformExp (S.List s es)            = HSE.List (transformSrcSpan s)
+  (map transformExp es)
+transformExp (S.Paren s e)            = HSE.Paren (transformSrcSpan s)
+  (transformExp e)
+transformExp (S.ExpTypeSig s e typ)   = HSE.ExpTypeSig (transformSrcSpan s)
   (transformExp e) typ
 
 -- | Transforms an HST case alternative into an HSE case alternative.
@@ -121,20 +124,21 @@ transformAlt (S.Alt s pat rhs mBinds) = HSE.Alt (transformSrcSpan s)
 -------------------------------------------------------------------------------
 -- | Transforms an HST pattern into an HSE pattern.
 transformPat :: S.Pat HSE -> HSE.Pat HSE.SrcSpanInfo
-transformPat (S.PVar s name) = HSE.PVar (transformSrcSpan s)
+transformPat (S.PVar s name)                 = HSE.PVar (transformSrcSpan s)
   (transformName name)
 transformPat (S.PInfixApp s pat1 qName pat2) = HSE.PInfixApp
   (transformSrcSpan s) (transformPat pat1) (transformQName qName)
   (transformPat pat2)
-transformPat (S.PApp s qName pats) = HSE.PApp (transformSrcSpan s)
+transformPat (S.PApp s qName pats)           = HSE.PApp (transformSrcSpan s)
   (transformQName qName) (map transformPat pats)
-transformPat (S.PTuple s bxd pats) = HSE.PTuple (transformSrcSpan s)
+transformPat (S.PTuple s bxd pats)           = HSE.PTuple (transformSrcSpan s)
   (transformBoxed bxd) (map transformPat pats)
-transformPat (S.PParen s pat) = HSE.PParen (transformSrcSpan s)
+transformPat (S.PParen s pat)                = HSE.PParen (transformSrcSpan s)
   (transformPat pat)
-transformPat (S.PList s pats) = HSE.PList (transformSrcSpan s)
+transformPat (S.PList s pats)                = HSE.PList (transformSrcSpan s)
   (map transformPat pats)
-transformPat (S.PWildCard s) = HSE.PWildCard (transformSrcSpan s)
+transformPat (S.PWildCard s)                 = HSE.PWildCard
+  (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
 -- Names                                                                     --

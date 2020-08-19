@@ -41,7 +41,8 @@ generateLet
 generateLet vs err gExps = do
   varNames <- replicateM (length gExps + 1) (freshName genericFreshPrefix)
   let startVarExpr : nextVarExprs = map S.var varNames
-      ifExprs = zipWith (rhsToIf . gExpRhs) gExps nextVarExprs
+      ifExprs                     = zipWith (rhsToIf . gExpRhs) gExps
+        nextVarExprs
   ifExprs' <- mapM applyGEExp ifExprs
   let exprPats  = map (zip vs . gExpPats) gExps
       caseExprs = zipWith3 generateNestedCases ifExprs' nextVarExprs exprPats
@@ -110,48 +111,48 @@ guardedRhsToIf (S.GuardedRhs _ e1 e2) = S.If S.NoSrcSpan e1 e2
 -------------------------------------------------------------------------------
 -- | Applies guard elimination on @case@ expressions in the given expression.
 applyGEExp :: Member Fresh r => S.Exp a -> Sem r (S.Exp a)
-applyGEExp (S.InfixApp _ e1 qop e2) = do
+applyGEExp (S.InfixApp _ e1 qop e2)       = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
   return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-applyGEExp (S.NegApp _ expr) = do
+applyGEExp (S.NegApp _ expr)              = do
   expr' <- applyGEExp expr
   return $ S.NegApp S.NoSrcSpan expr'
-applyGEExp (S.App _ e1 e2) = do
+applyGEExp (S.App _ e1 e2)                = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
   return $ S.App S.NoSrcSpan e1' e2'
-applyGEExp (S.Lambda _ ps e1) = do
+applyGEExp (S.Lambda _ ps e1)             = do
   e' <- applyGEExp e1
   return $ S.Lambda S.NoSrcSpan ps e'
-applyGEExp (S.Let _ bs e1) = do
+applyGEExp (S.Let _ bs e1)                = do
   e' <- applyGEExp e1
   return $ S.Let S.NoSrcSpan bs e'
-applyGEExp (S.If _ e1 e2 e3) = do
+applyGEExp (S.If _ e1 e2 e3)              = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
   e3' <- applyGEExp e3
   return $ S.If S.NoSrcSpan e1' e2' e3'
-applyGEExp (S.Case _ e1 alts) = do
+applyGEExp (S.Case _ e1 alts)             = do
   e' <- applyGEExp e1
   alts' <- applyGEAlts alts
   return $ S.Case S.NoSrcSpan e' alts'
-applyGEExp (S.Tuple _ boxed es) = do
+applyGEExp (S.Tuple _ boxed es)           = do
   es' <- mapM applyGEExp es
   return $ S.Tuple S.NoSrcSpan boxed es'
-applyGEExp (S.List _ es) = do
+applyGEExp (S.List _ es)                  = do
   es' <- mapM applyGEExp es
   return $ S.List S.NoSrcSpan es'
-applyGEExp (S.Paren _ expr) = do
+applyGEExp (S.Paren _ expr)               = do
   expr' <- applyGEExp expr
   return $ S.Paren S.NoSrcSpan expr'
 applyGEExp (S.ExpTypeSig _ expr typeExpr) = do
   expr' <- applyGEExp expr
   return $ S.ExpTypeSig S.NoSrcSpan expr' typeExpr
 -- Variables, constructors and literals remain unchanged.
-applyGEExp e@(S.Var _ _) = return e
-applyGEExp e@(S.Con _ _) = return e
-applyGEExp e@(S.Lit _ _) = return e
+applyGEExp e@(S.Var _ _)                  = return e
+applyGEExp e@(S.Con _ _)                  = return e
+applyGEExp e@(S.Lit _ _)                  = return e
 
 -- | Applies guard elimination on @case@ expression alternatives.
 applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
@@ -227,20 +228,20 @@ hasGuardsRhs (S.UnGuardedRhs _ e) = hasGuardsExp e
 --   right-hand sides.
 hasGuardsExp :: S.Exp a -> Bool
 hasGuardsExp (S.InfixApp _ e1 _ e2) = hasGuardsExp e1 || hasGuardsExp e2
-hasGuardsExp (S.NegApp _ e') = hasGuardsExp e'
-hasGuardsExp (S.App _ e1 e2) = hasGuardsExp e1 || hasGuardsExp e2
-hasGuardsExp (S.Lambda _ _ e') = hasGuardsExp e'
-hasGuardsExp (S.Let _ _ e') = hasGuardsExp e'
-hasGuardsExp (S.If _ e1 e2 e3) = any hasGuardsExp [e1, e2, e3]
-hasGuardsExp (S.Case _ e' alts) = hasGuardsExp e' || any hasGuardsAlt alts
-hasGuardsExp (S.Tuple _ _ es) = any hasGuardsExp es
-hasGuardsExp (S.List _ es) = any hasGuardsExp es
-hasGuardsExp (S.Paren _ e') = hasGuardsExp e'
-hasGuardsExp (S.ExpTypeSig _ e' _) = hasGuardsExp e'
+hasGuardsExp (S.NegApp _ e')        = hasGuardsExp e'
+hasGuardsExp (S.App _ e1 e2)        = hasGuardsExp e1 || hasGuardsExp e2
+hasGuardsExp (S.Lambda _ _ e')      = hasGuardsExp e'
+hasGuardsExp (S.Let _ _ e')         = hasGuardsExp e'
+hasGuardsExp (S.If _ e1 e2 e3)      = any hasGuardsExp [e1, e2, e3]
+hasGuardsExp (S.Case _ e' alts)     = hasGuardsExp e' || any hasGuardsAlt alts
+hasGuardsExp (S.Tuple _ _ es)       = any hasGuardsExp es
+hasGuardsExp (S.List _ es)          = any hasGuardsExp es
+hasGuardsExp (S.Paren _ e')         = hasGuardsExp e'
+hasGuardsExp (S.ExpTypeSig _ e' _)  = hasGuardsExp e'
 -- Variables, constructors and literals contain no guards.
-hasGuardsExp (S.Var _ _) = False
-hasGuardsExp (S.Con _ _) = False
-hasGuardsExp (S.Lit _ _) = False
+hasGuardsExp (S.Var _ _)            = False
+hasGuardsExp (S.Con _ _)            = False
+hasGuardsExp (S.Lit _ _)            = False
 
 -- | Tests whether the right-hand side of the given alternative of a @case@
 --   expression has a guard or a subexpression with guards.
