@@ -124,7 +124,6 @@ makeRhs x xs eqs er = do
   alts <- computeAlts x xs eqs er
   return (S.Case S.NoSrcSpan (S.patToExp x) alts)
 
--- TODO remove redundand types
 -- | Generates @case@ expression alternatives for the given equations.
 --
 --   If there are missing constructors and trivial case completion is enabled,
