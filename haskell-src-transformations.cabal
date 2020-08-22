@@ -86,7 +86,7 @@ library
                     , HST.Effect.Env
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
-                    , HST.Effect.InputSrc
+                    , HST.Effect.InputFile
                     , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Effect.WithFrontend
