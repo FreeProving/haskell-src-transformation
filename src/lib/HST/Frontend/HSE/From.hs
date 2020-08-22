@@ -10,7 +10,7 @@ import           Polysemy                          ( Member, Sem )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.HSE.Config
-  ( HSE, OriginalModuleHead(OriginalModuleHead), SrcWrapper(SrcWrapper))
+  ( HSE, OriginalModuleHead(OriginalModuleHead), SrcWrapper(SrcWrapper) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )

@@ -448,12 +448,13 @@ instance Ord (SrcSpan a) where
 --   This type is not used for storing source span information, but to provide
 --   an interface for displaying source code excerpts which instantiations of
 --   the 'SrcSpanType' type family can be transformed into.
-data SimpleSrcSpan = SimpleSrcSpan { startLine   :: Int
-                                   , startColumn :: Int
-                                   , endLine     :: Int
-                                   , endColumn   :: Int
-                                   }
-  deriving (Eq, Show)
+data SimpleSrcSpan = SimpleSrcSpan
+  { startLine   :: Int
+  , startColumn :: Int
+  , endLine     :: Int
+  , endColumn   :: Int
+  }
+ deriving ( Eq, Show )
 
 -- | Type class for source spans that can be transformed to 'SimpleSrcSpan'.
 --

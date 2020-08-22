@@ -15,8 +15,8 @@ module HST.Effect.InputFile
   , runInputFile
   ) where
 
-import           Polysemy        ( Sem, makeSem, reinterpret )
-import           Polysemy.State  ( State, evalState, get, put )
+import           Polysemy       ( Sem, makeSem, reinterpret )
+import           Polysemy.State ( State, evalState, get, put )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
@@ -44,7 +44,8 @@ runWithInputFile :: (FilePath, [String]) -> Sem (InputFile ': r) a -> Sem r a
 runWithInputFile initialFileData = evalState initialFileData . inputFileToState
  where
   -- | Reinterprets 'InputFile' in terms of 'State'.
-  inputFileToState :: Sem (InputFile ': r) a -> Sem (State (FilePath, [String]) ': r) a
+  inputFileToState
+    :: Sem (InputFile ': r) a -> Sem (State (FilePath, [String]) ': r) a
   inputFileToState = reinterpret \case
     SetFile path content -> put (path, lines content)
     GetFile              -> get

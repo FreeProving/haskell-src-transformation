@@ -55,15 +55,16 @@ data OriginalModuleHead = OriginalModuleHead
 
 -- | Wrapper for the source span type used by @haskell-src-exts@.
 newtype SrcWrapper = SrcWrapper HSE.SrcSpanInfo
-  deriving ( Eq, Show )
+ deriving ( Eq, Show )
 
 instance S.ToSimpleSrcSpan SrcWrapper where
-  toSimpleSrcSpan (SrcWrapper srcSpanInfo) =
-    let srcSpan = HSE.srcInfoSpan srcSpanInfo
-    in if HSE.isNullSpan srcSpan
-         then Nothing
-         else Just S.SimpleSrcSpan { S.startLine   = HSE.srcSpanStartLine   srcSpan
-                                   , S.startColumn = HSE.srcSpanStartColumn srcSpan
-                                   , S.endLine     = HSE.srcSpanEndLine     srcSpan
-                                   , S.endColumn   = HSE.srcSpanEndColumn   srcSpan
-                                   }
+  toSimpleSrcSpan (SrcWrapper srcSpanInfo)
+    = let srcSpan = HSE.srcInfoSpan srcSpanInfo
+      in if HSE.isNullSpan srcSpan
+           then Nothing
+           else Just S.SimpleSrcSpan
+             { S.startLine   = HSE.srcSpanStartLine srcSpan
+             , S.startColumn = HSE.srcSpanStartColumn srcSpan
+             , S.endLine     = HSE.srcSpanEndLine srcSpan
+             , S.endColumn   = HSE.srcSpanEndColumn srcSpan
+             }

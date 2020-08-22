@@ -24,7 +24,8 @@ import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
-  , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType), SrcWrapper(SrcWrapper) )
+  , OriginalModuleHead(OriginalModuleHead), SrcWrapper(SrcWrapper)
+  , TypeWrapper(SigType) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )

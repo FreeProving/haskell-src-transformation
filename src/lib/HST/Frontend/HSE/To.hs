@@ -13,7 +13,8 @@ import qualified Language.Haskell.Exts   as HSE
 
 import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(originalModuleHead, originalModulePragmas,
-                   originalModuleImports), SrcWrapper(SrcWrapper) )
+                   originalModuleImports)
+  , SrcWrapper(SrcWrapper) )
 import qualified HST.Frontend.Syntax     as S
 
 -------------------------------------------------------------------------------
@@ -186,4 +187,4 @@ transformSpecialCon (S.ExprHole s)         = HSE.ExprHole (transformSrcSpan s)
 -- | Unwraps the HST type for source spans into an HSE source span.
 transformSrcSpan :: S.SrcSpan HSE -> HSE.SrcSpanInfo
 transformSrcSpan (S.SrcSpan (SrcWrapper srcSpan)) = srcSpan
-transformSrcSpan S.NoSrcSpan                      = HSE.noSrcSpan
+transformSrcSpan S.NoSrcSpan = HSE.noSrcSpan

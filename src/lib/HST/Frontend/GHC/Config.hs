@@ -127,16 +127,16 @@ instance Show DeclWrapper where
 
 -- | Wrapper for the source span type used by @ghc-lib-parser@.
 newtype SrcWrapper = SrcWrapper GHC.SrcSpan
-  deriving (Eq, Show)
+ deriving ( Eq, Show )
 
 instance S.ToSimpleSrcSpan SrcWrapper where
-  toSimpleSrcSpan (SrcWrapper (GHC.RealSrcSpan realSrcSpan)) =
-    Just S.SimpleSrcSpan { S.startLine   = GHC.srcSpanStartLine realSrcSpan
-                         , S.startColumn = GHC.srcSpanStartCol  realSrcSpan
-                         , S.endLine     = GHC.srcSpanEndLine   realSrcSpan
-                         , S.endColumn   = GHC.srcSpanEndCol    realSrcSpan
-                         }
-  toSimpleSrcSpan (SrcWrapper (GHC.UnhelpfulSpan _)) = Nothing
+  toSimpleSrcSpan (SrcWrapper (GHC.RealSrcSpan realSrcSpan)) = Just
+    S.SimpleSrcSpan { S.startLine   = GHC.srcSpanStartLine realSrcSpan
+                    , S.startColumn = GHC.srcSpanStartCol realSrcSpan
+                    , S.endLine     = GHC.srcSpanEndLine realSrcSpan
+                    , S.endColumn   = GHC.srcSpanEndCol realSrcSpan
+                    }
+  toSimpleSrcSpan (SrcWrapper (GHC.UnhelpfulSpan _))         = Nothing
 
 -------------------------------------------------------------------------------
 -- Printing Functions for the @ghc-lib-parser@ AST                           --
