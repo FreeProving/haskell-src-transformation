@@ -28,7 +28,7 @@ import           HST.Frontend.GHC.Config
   , OriginalModuleHead(originalModuleName, originalModuleExports,
                    originalModuleImports, originalModuleDeprecMessage,
                    originalModuleHaddockModHeader)
-  , TypeWrapper(SigType) )
+  , TypeWrapper(SigType), SrcWrapper(SrcWrapper) )
 import qualified HST.Frontend.Syntax     as S
 
 -------------------------------------------------------------------------------
@@ -371,5 +371,5 @@ transformSpecialCon (S.ExprHole _)             = reportFatal
 -------------------------------------------------------------------------------
 -- | Unwraps the HST type for source spans into an GHC source span.
 transformSrcSpan :: S.SrcSpan GHC -> GHC.SrcSpan
-transformSrcSpan (S.SrcSpan s) = s
-transformSrcSpan S.NoSrcSpan   = GHC.noSrcSpan
+transformSrcSpan (S.SrcSpan (SrcWrapper srcSpan)) = srcSpan
+transformSrcSpan S.NoSrcSpan                      = GHC.noSrcSpan

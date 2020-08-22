@@ -24,7 +24,7 @@ import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
-  , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
+  , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType), SrcWrapper(SrcWrapper) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
@@ -568,4 +568,4 @@ specialDataConMap = Map.fromList
 -------------------------------------------------------------------------------
 -- | Wraps a GHC source span into the HST type for source spans.
 transformSrcSpan :: GHC.SrcSpan -> S.SrcSpan GHC
-transformSrcSpan = S.SrcSpan
+transformSrcSpan = S.SrcSpan . SrcWrapper
