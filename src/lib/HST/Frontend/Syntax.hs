@@ -55,9 +55,6 @@ class ( Show (SrcSpanType a)
       , Show (OriginalDecl a)
       ) => ShowAST a
 
--- | Wrapper class for the 'ToSimpleSrcSpan' instance of ASTs.
-class (ToSimpleSrcSpan (SrcSpanType a)) => SimpleLoc a
-
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
 -------------------------------------------------------------------------------
@@ -429,8 +426,20 @@ class HasSrcSpan node where
   getSrcSpan :: node a -> SrcSpan a
 
 -- | A wrapper for source span information with the option to not specify a
---   source span.
-data SrcSpan a = SrcSpan (SrcSpanType a) | NoSrcSpan
+--   source span. Contains the file path and the line and column of the start
+--   and end of the spanned source code in addition to the original source
+--   span.
+--
+--   Only the original source span is used when transforming a source span
+--   back, all other data is used for displaying input code excerpts.
+data SrcSpan a = SrcSpan { srcSpanFilePath    :: FilePath
+                         , srcSpanStartLine   :: Int
+                         , srcSpanStartColumn :: Int
+                         , srcSpanEndLine     :: Int
+                         , srcSpanEndColumn   :: Int
+                         , originalSrcSpan    :: SrcSpanType a
+                         }
+               | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 
@@ -441,29 +450,3 @@ instance Eq (SrcSpan a) where
 -- | Custom order for 'SrcSpan' which treats all source spans as equal.
 instance Ord (SrcSpan a) where
   _ `compare` _ = EQ
-
--- | A source span consisting of the line and column of the start and end of
---   the spanned source code.
---
---   This type is not used for storing source span information, but to provide
---   an interface for displaying source code excerpts which instantiations of
---   the 'SrcSpanType' type family can be transformed into.
-data SimpleSrcSpan = SimpleSrcSpan
-  { startLine   :: Int
-  , startColumn :: Int
-  , endLine     :: Int
-  , endColumn   :: Int
-  }
- deriving ( Eq, Show )
-
--- | Type class for source spans that can be transformed to 'SimpleSrcSpan'.
---
---   The resulting SimpleSrcSpan is wrapped in the @Maybe@ type due to the
---   possibility of missing source spans.
-class ToSimpleSrcSpan a where
-  toSimpleSrcSpan :: a -> Maybe SimpleSrcSpan
-
--- | Transforms a 'SrcSpan' into a 'SimpleSrcSpan'.
-instance SimpleLoc a => ToSimpleSrcSpan (SrcSpan a) where
-  toSimpleSrcSpan (SrcSpan s) = toSimpleSrcSpan s
-  toSimpleSrcSpan NoSrcSpan   = Nothing
