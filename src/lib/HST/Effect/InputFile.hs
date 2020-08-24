@@ -50,4 +50,4 @@ runWithInputFile initialFileMap = evalState initialFileMap . inputFileToState
     :: Sem (InputFile ': r) a -> Sem (State (Map FilePath [String]) ': r) a
   inputFileToState = reinterpret \case
     AddInputFile path content -> get >>= put . Map.insert path (lines content)
-    GetInputFile path         -> get >>= return . Map.lookup path
+    GetInputFile path         -> Map.lookup path <$> get
