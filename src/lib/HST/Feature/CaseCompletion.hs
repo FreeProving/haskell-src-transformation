@@ -19,7 +19,7 @@ completeCase :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
              => Bool
              -> S.Exp a
              -> Sem r (S.Exp a)
-completeCase insideLet (S.Case _ expr as) = do
+completeCase insideLet (S.Case s expr as) = do
   v <- freshVarPat genericFreshPrefix
   eqs <- mapM getEqFromAlt as
   eqs' <- mapM (\(p, ex) -> completeCase insideLet ex >>= \e -> return (p, e))
@@ -28,10 +28,10 @@ completeCase insideLet (S.Case _ expr as) = do
   if not insideLet
     then do
       let (S.Case _ _ resAs) = res
-      return $ S.Case S.NoSrcSpan expr resAs  -- test to deconstruct the first case
+      return $ S.Case s expr resAs  -- test to deconstruct the first case
     else do
       let a = S.alt v res
-      return $ S.Case S.NoSrcSpan expr [a]
+      return $ S.Case s expr [a]
 completeCase il (S.InfixApp s e1 qop e2)  = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
@@ -43,7 +43,7 @@ completeCase il (S.App s e1 e2)           = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
   return $ S.App s e1' e2'
-completeCase il (S.Lambda _ ps e)         = completeLambda ps e il
+completeCase il (S.Lambda s ps e)         = completeLambda s ps e il
 completeCase il (S.Let s binds e)         = do
   e' <- completeCase il e -- undefined -- TODO
   binds' <- completeBindRhs binds
@@ -84,16 +84,17 @@ getEqFromAlt (S.Alt _ pat rhs _) = do
   return ([pat], expr)
 
 completeLambda :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => [S.Pat a]
+               => S.SrcSpan a
+               -> [S.Pat a]
                -> S.Exp a
                -> Bool
                -> Sem r (S.Exp a)
-completeLambda ps e insideLet = do
+completeLambda s ps e insideLet = do
   xs <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   e' <- completeCase insideLet e
   let eq = (ps, e')
   res <- match xs [eq] defaultErrorExp
-  return $ S.Lambda S.NoSrcSpan xs res
+  return $ S.Lambda s xs res
 
 applyCCModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
               => S.Module a
@@ -106,9 +107,9 @@ applyCCDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
             => Bool
             -> S.Decl a
             -> Sem r (S.Decl a)
-applyCCDecl insideLet (S.FunBind _ ms) = do
+applyCCDecl insideLet (S.FunBind s ms) = do
   nms <- applyCCMatches insideLet ms
-  return (S.FunBind S.NoSrcSpan nms)
+  return (S.FunBind s nms)
 applyCCDecl _ v = return v
 
 applyCCMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
@@ -121,12 +122,12 @@ applyCCMatches insideLet = mapM applyCCMatch
   applyCCMatch :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                => S.Match a
                -> Sem r (S.Match a)
-  applyCCMatch (S.Match _ n ps rhs _)        = do
+  applyCCMatch (S.Match s n ps rhs _)        = do
     e <- expFromUnguardedRhs rhs
     x <- completeCase insideLet e
-    return $ S.Match S.NoSrcSpan n ps (S.UnGuardedRhs S.NoSrcSpan x) Nothing
-  applyCCMatch (S.InfixMatch _ p n ps rhs _) = do
+    return $ S.Match s n ps (S.UnGuardedRhs (S.getSrcSpan rhs) x) Nothing
+  applyCCMatch (S.InfixMatch s p n ps rhs _) = do
     e <- expFromUnguardedRhs rhs
     x <- completeCase insideLet e
     return
-      $ S.InfixMatch S.NoSrcSpan p n ps (S.UnGuardedRhs S.NoSrcSpan x) Nothing
+      $ S.InfixMatch s p n ps (S.UnGuardedRhs (S.getSrcSpan rhs) x) Nothing

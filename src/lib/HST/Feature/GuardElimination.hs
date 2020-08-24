@@ -204,7 +204,7 @@ applyGE ms = do
   varPats <- replicateM arity (freshVarPat genericFreshPrefix)
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
-    $ S.Match mspan name varPats (S.UnGuardedRhs S.NoSrcSpan expr') Nothing
+    $ S.Match lhsSpan name varPats (S.UnGuardedRhs S.NoSrcSpan expr') Nothing
 
 -- | Gets the name of the function that is defined by the given rule.
 getMatchName :: S.Match a -> S.Name a

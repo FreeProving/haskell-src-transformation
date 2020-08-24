@@ -143,7 +143,7 @@ computeAlts x xs eqs er = do
   if null missingCons then return alts else do
     b <- getOpt optTrivialCase
     if b
-      then 
+      then
         -- TODO is 'defaultErrorExp' correct? Why not 'er'?
         return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
       else do
@@ -194,9 +194,9 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
   createAltForMissingCon pat e conEntry = do
     nvars <- replicateM (conEntryArity conEntry)
       (freshVarPat genericFreshPrefix)
-    let p    | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan (head nvars)
+    let p    | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan pat) (head nvars)
                (conEntryName conEntry) (nvars !! 1)
-             | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
+             | otherwise = S.PApp (S.getSrcSpan pat) (conEntryName conEntry) nvars
         p'   = S.patToExp p
         pat' = S.patToExp pat
         e'   = substitute (tSubst pat' p') e
@@ -306,30 +306,31 @@ computeAlt _ _ _ []
 decomposeConPat :: Members '[Fresh, Report] r
                 => S.Pat a
                 -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
-decomposeConPat (S.PApp _ qname ps)         = do
+decomposeConPat (S.PApp s qname ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
-  return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
-decomposeConPat (S.PInfixApp _ p1 qname p2) = failToReport $ do
+  return (S.PApp s qname nvars, nvars, ps)
+decomposeConPat (S.PInfixApp s p1 qname p2) = failToReport $ do
   nvars@[nv1, nv2] <- replicateM 2 (freshVarPat genericFreshPrefix)
   let ps = [p1, p2]
-  return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
+  return (S.PInfixApp s nv1 qname nv2, nvars, ps)
 -- Decompose patterns with special syntax.
-decomposeConPat (S.PList _ ps)
-  | null ps = return (S.PList S.NoSrcSpan [], [], [])
+decomposeConPat (S.PList s ps)
+  | null ps = return (S.PList s [], [], [])
   | otherwise = do
     let (n : nv) = ps
+        nspan    = S.getSrcSpan n
         listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
-    decomposeConPat (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
-decomposeConPat (S.PTuple _ bxd ps)         = do
+    decomposeConPat (S.PInfixApp nspan n listCon (S.PList S.NoSrcSpan nv))
+decomposeConPat (S.PTuple s bxd ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
-  return (S.PTuple S.NoSrcSpan bxd nvars, nvars, ps)
+  return (S.PTuple s bxd nvars, nvars, ps)
 -- Decompose patterns with parentheses recursively.
 decomposeConPat (S.PParen _ p)              = decomposeConPat p
 -- Variable and wildcard patterns don't contain child patterns.
-decomposeConPat (S.PWildCard _)
-  = return (S.PWildCard S.NoSrcSpan, [], [])
-decomposeConPat (S.PVar _ name)
-  = return (S.PVar S.NoSrcSpan name, [], [])
+decomposeConPat (S.PWildCard s)
+  = return (S.PWildCard s, [], [])
+decomposeConPat (S.PVar s name)
+  = return (S.PVar s name, [], [])
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
