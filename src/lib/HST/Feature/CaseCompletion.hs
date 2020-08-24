@@ -46,39 +46,39 @@ completeCase insideLet (S.Case _ expr as) = do
     else do
       let a = S.alt v res
       return $ S.Case S.NoSrcSpan expr [a]
-completeCase il (S.InfixApp _ e1 qop e2) = do
+completeCase il (S.InfixApp s e1 qop e2) = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
-  return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-completeCase il (S.NegApp _ e) = do
+  return $ S.InfixApp s e1' qop e2'
+completeCase il (S.NegApp s e) = do
   e' <- completeCase il e
-  return $ S.NegApp S.NoSrcSpan e'
-completeCase il (S.App _ e1 e2) = do
+  return $ S.NegApp s e'
+completeCase il (S.App s e1 e2) = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
-  return $ S.App S.NoSrcSpan e1' e2'
+  return $ S.App s e1' e2'
 completeCase il (S.Lambda _ ps    e) = completeLambda ps e il
-completeCase il (S.Let    _ binds e) = do
+completeCase il (S.Let    s binds e) = do
   e'     <- completeCase il e -- undefined -- TODO
   binds' <- completeBindRhs binds
-  return $ S.Let S.NoSrcSpan binds' e'
-completeCase il (S.If _ e1 e2 e3) = do
+  return $ S.Let s binds' e'
+completeCase il (S.If s e1 e2 e3) = do
   e1' <- completeCase il e1
   e2' <- completeCase il e2
   e3' <- completeCase il e3
-  return $ S.If S.NoSrcSpan e1' e2' e3'
-completeCase il (S.Tuple _ boxed es) = do
+  return $ S.If s e1' e2' e3'
+completeCase il (S.Tuple s boxed es) = do
   es' <- mapM (completeCase il) es  -- complete case für List Expression
-  return $ S.Tuple S.NoSrcSpan boxed es'
-completeCase il (S.List _ es) = do
+  return $ S.Tuple s boxed es'
+completeCase il (S.List s es) = do
   es' <- mapM (completeCase il) es
-  return $ S.List S.NoSrcSpan es'
-completeCase il (S.Paren _ e) = do
+  return $ S.List s es'
+completeCase il (S.Paren s e) = do
   e' <- completeCase il e
-  return $ S.Paren S.NoSrcSpan e'
-completeCase il (S.ExpTypeSig _ e t) = do
+  return $ S.Paren s e'
+completeCase il (S.ExpTypeSig s e t) = do
   e' <- completeCase il e
-  return $ S.ExpTypeSig S.NoSrcSpan e' t
+  return $ S.ExpTypeSig s e' t
 
 -- Variables, Constructors and literals contain no expressions to complete
 -- pattern matching in.
@@ -90,9 +90,9 @@ completeBindRhs
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Binds a
   -> Sem r (S.Binds a)
-completeBindRhs (S.BDecls _ decls) = do
+completeBindRhs (S.BDecls s decls) = do
   decls' <- mapM (applyCCDecl True) decls
-  return $ S.BDecls S.NoSrcSpan decls'
+  return $ S.BDecls s decls'
 
 getEqFromAlt :: Member Report r => S.Alt a -> Sem r (Eqs a)
 getEqFromAlt (S.Alt _ pat rhs _) = do

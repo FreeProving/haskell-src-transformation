@@ -81,9 +81,9 @@ useAlgoDecl
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.Decl a
   -> Sem r (S.Decl a)
-useAlgoDecl (S.FunBind _ ms) = do
+useAlgoDecl (S.FunBind s ms) = do
   m' <- useAlgoMatches ms
-  return (S.FunBind S.NoSrcSpan [m'])
+  return (S.FunBind s [m'])
 useAlgoDecl v = return v
 
 -- | Applies the core algorithm on a function declaration with the given
@@ -113,13 +113,14 @@ useAlgo ms = do
   eqs <- mapM matchToEquation ms
   let name  = getMatchName (head ms)
       arity = length (fst (head eqs))
+      rhsSpan = S.getSrcSpan (snd (head eqs))
   nVars <- replicateM arity (freshVarPat genericFreshPrefix)
   nExp  <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return $ S.Match S.NoSrcSpan
                    name
                    nVars
-                   (S.UnGuardedRhs S.NoSrcSpan nExp')
+                   (S.UnGuardedRhs rhsSpan nExp')
                    Nothing
  where
   -- | Converts a rule of a function declaration to an equation.

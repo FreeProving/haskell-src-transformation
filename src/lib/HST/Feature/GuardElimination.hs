@@ -21,16 +21,19 @@ import qualified HST.Frontend.Syntax           as S
 
 -- | A pair of patterns to match and a right-hand side to use when all
 --   patterns match.
-data GExp a = GExp { gExpPats :: [S.Pat a], gExpRhs :: S.Rhs a }
+data GExp a = GExp { gExpSrcSpan :: S.SrcSpan a
+                   , gExpPats    :: [S.Pat a]
+                   , gExpRhs :: S.Rhs a
+                   }
 
 -- | Converts a rule of a function declaration to a 'GExp'.
 matchToGExp :: S.Match a -> GExp a
-matchToGExp (S.Match _ _ pats rhs _         ) = GExp pats rhs
-matchToGExp (S.InfixMatch _ pat _ pats rhs _) = GExp (pat : pats) rhs
+matchToGExp (S.Match s _ pats rhs _         ) = GExp s pats rhs
+matchToGExp (S.InfixMatch s pat _ pats rhs _) = GExp s (pat : pats) rhs
 
 -- | Converts an alternative of a @case@ expression to a 'GExp'.
 altToGExp :: S.Alt a -> GExp a
-altToGExp (S.Alt _ pat rhs _) = GExp [pat] rhs
+altToGExp (S.Alt s pat rhs _) = GExp s [pat] rhs
 
 -------------------------------------------------------------------------------
 -- @let@ Expressions                                                         --
@@ -119,7 +122,7 @@ rhsToIf (S.GuardedRhss  _ grhs) next = foldr guardedRhsToIf next grhs
 --   expression and the expression on the right-hand side is used as
 --   the @then@ branch. The second argument is the @else@ branch.
 guardedRhsToIf :: S.GuardedRhs a -> S.Exp a -> S.Exp a
-guardedRhsToIf (S.GuardedRhs _ e1 e2) = S.If S.NoSrcSpan e1 e2
+guardedRhsToIf (S.GuardedRhs s e1 e2) = S.If s e1 e2
 
 -------------------------------------------------------------------------------
 -- Guard Elimination                                                         --
@@ -127,44 +130,44 @@ guardedRhsToIf (S.GuardedRhs _ e1 e2) = S.If S.NoSrcSpan e1 e2
 
 -- | Applies guard elimination on @case@ expressions in the given expression.
 applyGEExp :: Member Fresh r => S.Exp a -> Sem r (S.Exp a)
-applyGEExp (S.InfixApp _ e1 qop e2) = do
+applyGEExp (S.InfixApp s e1 qop e2) = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
-  return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-applyGEExp (S.NegApp _ expr) = do
+  return $ S.InfixApp s e1' qop e2'
+applyGEExp (S.NegApp s expr) = do
   expr' <- applyGEExp expr
-  return $ S.NegApp S.NoSrcSpan expr'
-applyGEExp (S.App _ e1 e2) = do
+  return $ S.NegApp s expr'
+applyGEExp (S.App s e1 e2) = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
-  return $ S.App S.NoSrcSpan e1' e2'
-applyGEExp (S.Lambda _ ps e1) = do
+  return $ S.App s e1' e2'
+applyGEExp (S.Lambda s ps e1) = do
   e' <- applyGEExp e1
-  return $ S.Lambda S.NoSrcSpan ps e'
-applyGEExp (S.Let _ bs e1) = do
+  return $ S.Lambda s ps e'
+applyGEExp (S.Let s bs e1) = do
   e' <- applyGEExp e1
-  return $ S.Let S.NoSrcSpan bs e'
-applyGEExp (S.If _ e1 e2 e3) = do
+  return $ S.Let s bs e'
+applyGEExp (S.If s e1 e2 e3) = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
   e3' <- applyGEExp e3
-  return $ S.If S.NoSrcSpan e1' e2' e3'
-applyGEExp (S.Case _ e1 alts) = do
+  return $ S.If s e1' e2' e3'
+applyGEExp (S.Case s e1 alts) = do
   e'    <- applyGEExp e1
   alts' <- applyGEAlts alts
-  return $ S.Case S.NoSrcSpan e' alts'
-applyGEExp (S.Tuple _ boxed es) = do
+  return $ S.Case s e' alts'
+applyGEExp (S.Tuple s boxed es) = do
   es' <- mapM applyGEExp es
-  return $ S.Tuple S.NoSrcSpan boxed es'
-applyGEExp (S.List _ es) = do
+  return $ S.Tuple s boxed es'
+applyGEExp (S.List s es) = do
   es' <- mapM applyGEExp es
-  return $ S.List S.NoSrcSpan es'
-applyGEExp (S.Paren _ expr) = do
+  return $ S.List s es'
+applyGEExp (S.Paren s expr) = do
   expr' <- applyGEExp expr
-  return $ S.Paren S.NoSrcSpan expr'
-applyGEExp (S.ExpTypeSig _ expr typeExpr) = do
+  return $ S.Paren s expr'
+applyGEExp (S.ExpTypeSig s expr typeExpr) = do
   expr' <- applyGEExp expr
-  return $ S.ExpTypeSig S.NoSrcSpan expr' typeExpr
+  return $ S.ExpTypeSig s expr' typeExpr
 -- Variables, constructors and literals remain unchanged.
 applyGEExp e@(S.Var _ _) = return e
 applyGEExp e@(S.Con _ _) = return e
@@ -190,9 +193,9 @@ applyGEModule (S.Module s origModuleHead moduleName decls) = do
 --
 --   Non-function declarations are returned unchanged.
 applyGEDecl :: Member Fresh r => S.Decl a -> Sem r (S.Decl a)
-applyGEDecl (S.FunBind _ ms) = do
+applyGEDecl (S.FunBind s ms) = do
   ms' <- applyGEMatches ms
-  return (S.FunBind S.NoSrcSpan ms')
+  return (S.FunBind s ms')
 applyGEDecl decl@(S.DataDecl _ _ _ _) = return decl
 applyGEDecl decl@(S.OtherDecl _ _   ) = return decl
 
@@ -211,11 +214,12 @@ applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
 applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
 applyGE ms = do
   let name  = getMatchName (head ms)
+      lhsSpan = S.getSrcSpan (head ms)
       gexps = map matchToGExp ms
       arity = length (gExpPats (head gexps))
   varPats <- replicateM arity (freshVarPat genericFreshPrefix)
   expr'   <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
-  return $ S.Match S.NoSrcSpan
+  return $ S.Match mspan
                    name
                    varPats
                    (S.UnGuardedRhs S.NoSrcSpan expr')
