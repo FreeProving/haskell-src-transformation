@@ -1,9 +1,10 @@
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase, BlockArguments #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | This module defines an effect for computations that can read and write
 --   the pattern matching compiler's environment.
-
 module HST.Effect.Env
   ( -- * Effect
     Env
@@ -14,33 +15,21 @@ module HST.Effect.Env
   , modifyEnv
     -- * Interpretations
   , runEnv
-  )
-where
+  ) where
 
-import           Polysemy                       ( Member
-                                                , Sem
-                                                , makeSem
-                                                , reinterpret
-                                                )
-import           Polysemy.State                 ( State
-                                                , evalState
-                                                , get
-                                                , put
-                                                )
+import           Polysemy        ( Member, Sem, makeSem, reinterpret )
+import           Polysemy.State  ( State, evalState, get, put )
 
-import           HST.Environment                ( Environment
-                                                , emptyEnv
-                                                )
+import           HST.Environment ( Environment, emptyEnv )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
-
 -- | An effect capable of reading and writing the pattern matching compiler's
 --   environment.
 data Env a m b where
-  GetEnv ::Env a m (Environment a)
-  PutEnv ::Environment a -> Env a m ()
+  GetEnv :: Env a m (Environment a)
+  PutEnv :: Environment a -> Env a m ()
 
 makeSem ''Env
 
@@ -59,7 +48,6 @@ modifyEnv f = do
 -------------------------------------------------------------------------------
 -- Interpretations                                                           --
 -------------------------------------------------------------------------------
-
 -- | Handles a computation by providing an initially empty environment to
 --   read from and write to.
 runEnv :: Sem (Env a ': r) b -> Sem r b

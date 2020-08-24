@@ -1,43 +1,15 @@
 -- | This module contains tests for "HST.Effect.Cancel".
+module HST.Effect.CancelTests ( testCancelEffect ) where
 
-module HST.Effect.CancelTests
-  ( testCancelEffect
-  )
-where
+import           Data.IORef        ( modifyIORef, newIORef, readIORef )
+import           Polysemy          ( Member, Members, Sem, run, runM )
+import           Polysemy.Embed    ( Embed, embed )
+import           Polysemy.Writer   ( Writer, runWriter, tell )
+import           System.Exit       ( ExitCode )
+import           Test.Hspec        ( Expectation, Spec, context, describe, it
+                                   , shouldBe, shouldReturn, shouldThrow )
 
-import           Data.IORef                     ( newIORef
-                                                , readIORef
-                                                , modifyIORef
-                                                )
-import           Test.Hspec                     ( Expectation
-                                                , Spec
-                                                , context
-                                                , describe
-                                                , it
-                                                , shouldBe
-                                                , shouldReturn
-                                                , shouldThrow
-                                                )
-import           Polysemy                       ( Member
-                                                , Members
-                                                , Sem
-                                                , run
-                                                , runM
-                                                )
-import           Polysemy.Embed                 ( Embed
-                                                , embed
-                                                )
-import           Polysemy.Writer                ( Writer
-                                                , runWriter
-                                                , tell
-                                                )
-import           System.Exit                    ( ExitCode )
-
-import           HST.Effect.Cancel              ( Cancel
-                                                , cancel
-                                                , runCancel
-                                                , cancelToExit
-                                                )
+import           HST.Effect.Cancel ( Cancel, cancel, cancelToExit, runCancel )
 
 -- | Sets the expectation that the given 'IO' action terminates the program.
 shouldExit :: IO a -> Expectation
