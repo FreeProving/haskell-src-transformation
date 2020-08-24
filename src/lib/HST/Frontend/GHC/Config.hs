@@ -36,7 +36,7 @@ import qualified HST.Frontend.Syntax                                 as S
 --   and 'S.toSimpleSourceSpan' for source spans.
 data GHC
 
-type instance S.SrcSpanType GHC = SrcWrapper
+type instance S.SrcSpanType GHC = GHC.SrcSpan
 
 type instance S.Literal GHC = LitWrapper
 
@@ -49,8 +49,6 @@ type instance S.OriginalDecl GHC = DeclWrapper
 instance S.EqAST GHC
 
 instance S.ShowAST GHC
-
-instance S.SimpleLoc GHC
 
 -------------------------------------------------------------------------------
 -- Wrappers for @ghc-lib-parser@ Types                                       --
@@ -124,19 +122,6 @@ instance Eq DeclWrapper where
 
 instance Show DeclWrapper where
   show (Decl d) = defaultPrintShow d
-
--- | Wrapper for the source span type used by @ghc-lib-parser@.
-newtype SrcWrapper = SrcWrapper GHC.SrcSpan
- deriving ( Eq, Show )
-
-instance S.ToSimpleSrcSpan SrcWrapper where
-  toSimpleSrcSpan (SrcWrapper (GHC.RealSrcSpan realSrcSpan)) = Just
-    S.SimpleSrcSpan { S.startLine   = GHC.srcSpanStartLine realSrcSpan
-                    , S.startColumn = GHC.srcSpanStartCol realSrcSpan
-                    , S.endLine     = GHC.srcSpanEndLine realSrcSpan
-                    , S.endColumn   = GHC.srcSpanEndCol realSrcSpan
-                    }
-  toSimpleSrcSpan (SrcWrapper (GHC.UnhelpfulSpan _))         = Nothing
 
 -------------------------------------------------------------------------------
 -- Printing Functions for the @ghc-lib-parser@ AST                           --
