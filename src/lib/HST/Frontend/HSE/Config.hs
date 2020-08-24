@@ -26,7 +26,7 @@ import qualified HST.Frontend.Syntax   as S
 --   and 'S.toSimpleSourceSpan' for source spans.
 data HSE
 
-type instance S.SrcSpanType HSE = SrcWrapper
+type instance S.SrcSpanType HSE = HSE.SrcSpanInfo
 
 type instance S.Literal HSE = HSE.Literal HSE.SrcSpanInfo
 
@@ -40,8 +40,6 @@ instance S.EqAST HSE
 
 instance S.ShowAST HSE
 
-instance S.SimpleLoc HSE
-
 -------------------------------------------------------------------------------
 -- Wrappers for @haskell-src-exts@ Types                                     --
 -------------------------------------------------------------------------------
@@ -52,19 +50,4 @@ data OriginalModuleHead = OriginalModuleHead
   , originalModuleImports :: [HSE.ImportDecl HSE.SrcSpanInfo]
   }
  deriving ( Eq, Show )
-
--- | Wrapper for the source span type used by @haskell-src-exts@.
-newtype SrcWrapper = SrcWrapper HSE.SrcSpanInfo
- deriving ( Eq, Show )
-
-instance S.ToSimpleSrcSpan SrcWrapper where
-  toSimpleSrcSpan (SrcWrapper srcSpanInfo)
-    = let srcSpan = HSE.srcInfoSpan srcSpanInfo
-      in if HSE.isNullSpan srcSpan
-           then Nothing
-           else Just S.SimpleSrcSpan
-             { S.startLine   = HSE.srcSpanStartLine srcSpan
-             , S.startColumn = HSE.srcSpanStartColumn srcSpan
-             , S.endLine     = HSE.srcSpanEndLine srcSpan
-             , S.endColumn   = HSE.srcSpanEndColumn srcSpan
-             }
+ 

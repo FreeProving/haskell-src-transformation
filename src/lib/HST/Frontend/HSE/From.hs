@@ -10,7 +10,7 @@ import           Polysemy                          ( Member, Sem )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.HSE.Config
-  ( HSE, OriginalModuleHead(OriginalModuleHead), SrcWrapper(SrcWrapper) )
+  ( HSE, OriginalModuleHead(OriginalModuleHead) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
@@ -437,4 +437,14 @@ transformSpecialCon (HSE.FunCon _)
 -------------------------------------------------------------------------------
 -- | Wraps an HSE source span into the HST type for source spans.
 transformSrcSpan :: HSE.SrcSpanInfo -> S.SrcSpan HSE
-transformSrcSpan = S.SrcSpan . SrcWrapper
+transformSrcSpan srcSpanInfo
+  = let srcSpan = HSE.srcInfoSpan srcSpanInfo
+    in if HSE.isNullSpan srcSpan
+         then S.NoSrcSpan
+         else S.SrcSpan { S.srcSpanFilePath    = HSE.srcSpanFilename srcSpan
+                        , S.srcSpanStartLine   = HSE.srcSpanStartLine srcSpan
+                        , S.srcSpanStartColumn = HSE.srcSpanStartColumn srcSpan
+                        , S.srcSpanEndLine     = HSE.srcSpanEndLine srcSpan
+                        , S.srcSpanEndColumn   = HSE.srcSpanEndColumn srcSpan
+                        , S.originalSrcSpan    = srcSpanInfo
+                        }
