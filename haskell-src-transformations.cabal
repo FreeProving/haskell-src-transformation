@@ -58,7 +58,6 @@ common deps
   other-extensions:    BlockArguments
                      , FlexibleContexts
                      , LambdaCase
-                     , PackageImports
                      , RankNTypes
                      , ScopedTypeVariables
                      , StandaloneDeriving

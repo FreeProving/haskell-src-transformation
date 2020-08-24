@@ -1,70 +1,41 @@
 -- | This module contains the actual implementation of the pattern-matching
 --   compilation algorithm.
-
 module HST.CoreAlgorithm
   ( match
   , defaultErrorExp
   , Eqs
-  -- * Testing interface
+    -- * Testing interface
   , compareCons
-  )
-where
+  ) where
 
 import           Control.Monad                  ( replicateM )
-import           Data.List                      ( (\\)
-                                                , partition
-                                                , groupBy
-                                                )
 import           Data.Function                  ( on )
-import           Polysemy                       ( Member
-                                                , Members
-                                                , Sem
-                                                )
+import           Data.List                      ( (\\), groupBy, partition )
+import           Polysemy                       ( Member, Members, Sem )
 
 import           HST.Effect.Env                 ( Env )
-import           HST.Effect.Fresh               ( Fresh
-                                                , freshVarPat
-                                                , genericFreshPrefix
-                                                )
-import           HST.Effect.GetOpt              ( GetOpt
-                                                , getOpt
-                                                )
-import           HST.Effect.Report              ( Message(Message)
-                                                , Report
-                                                , Severity(Error, Internal)
-                                                , failToReport
-                                                , reportFatal
-                                                )
-import           HST.Environment                ( ConEntry
-                                                , DataEntry
-                                                , conEntryArity
-                                                , conEntryIsInfix
-                                                , conEntryName
-                                                , conEntryType
-                                                , dataEntryCons
-                                                )
-import           HST.Environment.LookupOrReport ( lookupConEntryOrReport
-                                                , lookupDataEntryOrReport
-                                                )
-import           HST.Environment.Renaming       ( subst
-                                                , tSubst
-                                                , rename
-                                                , substitute
-                                                )
-import qualified HST.Frontend.Syntax           as S
+import           HST.Effect.Fresh
+  ( Fresh, freshVarPat, genericFreshPrefix )
+import           HST.Effect.GetOpt              ( GetOpt, getOpt )
+import           HST.Effect.Report
+  ( Message(Message), Report, Severity(Error, Internal), failToReport
+  , reportFatal )
+import           HST.Environment
+  ( ConEntry, DataEntry, conEntryArity, conEntryIsInfix, conEntryName
+  , conEntryType, dataEntryCons )
+import           HST.Environment.LookupOrReport
+  ( lookupConEntryOrReport, lookupDataEntryOrReport )
+import           HST.Environment.Renaming
+  ( rename, subst, substitute, tSubst )
+import qualified HST.Frontend.Syntax            as S
 import           HST.Options                    ( optTrivialCase )
-import           HST.Util.Predicates            ( isConPat
-                                                , isVarPat
-                                                )
-import           HST.Util.Selectors             ( getAltConName
-                                                , getMaybePatConName
-                                                , getPatVarName
-                                                )
+import           HST.Util.Predicates            ( isConPat, isVarPat )
+import           HST.Util.Selectors
+  ( getAltConName, getMaybePatConName, getPatVarName )
 
 -------------------------------------------------------------------------------
 -- Equations                                                                 --
 -------------------------------------------------------------------------------
-
 -- | A type that represents a single equation of a function declaration.
 --
 --   An equation is characterized by the argument patterns and the right-hand
@@ -78,11 +49,10 @@ firstPat = head . fst
 -------------------------------------------------------------------------------
 -- Wadler's Algorithm                                                        --
 -------------------------------------------------------------------------------
-
 -- | The default error expression to insert for pattern matching failures.
 defaultErrorExp :: S.Exp a
-defaultErrorExp =
-  S.Var S.NoSrcSpan (S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan "undefined"))
+defaultErrorExp = S.Var S.NoSrcSpan
+  (S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan "undefined"))
 
 -- | Compiles the given equations of a function declaration to a single
 --   expression that performs explicit pattern matching using @case@
@@ -90,29 +60,32 @@ defaultErrorExp =
 --
 --   All equations must have the same number of patterns as the given list
 --   of fresh variable patterns.
-match
-  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-  => [S.Pat a] -- ^ Fresh variable patterns.
-  -> [Eqs a]   -- ^ The equations of the function declaration.
-  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
-  -> Sem r (S.Exp a)
-match [] (([], e) : _) _  = return e  -- Rule 3a: All patterns matched.
-match [] []            er = return er -- Rule 3b: Pattern-matching failure.
+match :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
+      => [S.Pat a] -- ^ Fresh variable patterns.
+      -> [Eqs a]   -- ^ The equations of the function declaration.
+      -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+      -> Sem r (S.Exp a)
+match [] (([], e) : _) _   = return e  -- Rule 3a: All patterns matched.
+match [] [] er             = return er -- Rule 3b: Pattern-matching failure.
 match vars@(x : xs) eqs er
-  | -- Rule 1: Pattern list of all equations starts with a variable pattern.
+  |
+    -- Rule 1: Pattern list of all equations starts with a variable pattern.
     allVarPats eqs = do
-    eqs' <- mapM (substVars x) eqs
-    match xs eqs' er
-  | -- Rule 2: Pattern lists of all equations starts with a constructor pattern.
+      eqs' <- mapM (substVars x) eqs
+      match xs eqs' er
+  |
+    -- Rule 2: Pattern lists of all equations starts with a constructor pattern.
     allConPats eqs = makeRhs x xs eqs er
-  | -- Rule 4: Pattern lists of some equations start with a variable pattern
+  |
+    -- Rule 4: Pattern lists of some equations start with a variable pattern
     -- and others start with a constructor pattern.
     --
     -- TODO This is probably causing the infinite loops when there are
     --      unsupported patterns.
     otherwise = createRekMatch vars er (groupByFirstPatType eqs)
-match [] _ _ =
-  reportFatal $ Message Error $ "Equations have different number of arguments."
+match [] _ _               = reportFatal
+  $ Message Error
+  $ "Equations have different number of arguments."
 
 -- | Substitutes all occurrences of the variable bound by the first pattern
 --   (must be a variable or wildcard pattern) of the given equation by the
@@ -124,10 +97,9 @@ substVars pv (p : ps, e) = do
   s2 <- getPatVarName pv
   let sub = subst s1 s2
   return (ps, rename sub e)
-substVars _ ([], _) =
-  reportFatal
-    $ Message Internal
-    $ "Expected equation with at least one pattern."
+substVars _ ([], _)      = reportFatal
+  $ Message Internal
+  $ "Expected equation with at least one pattern."
 
 -- | Applies 'match' to every group of equations where the error expression
 --   is the 'match' result of the next group.
@@ -137,23 +109,20 @@ createRekMatch
   -> S.Exp a   -- ^ The error expression for pattern-matching failures.
   -> [[Eqs a]] -- ^ Groups of equations (see 'groupByFirstPatType').
   -> Sem r (S.Exp a)
-createRekMatch vars er =
-  foldr (\eqs mrhs -> mrhs >>= match vars eqs) (return er)
+createRekMatch vars er = foldr (\eqs mrhs -> mrhs >>= match vars eqs)
+  (return er)
 
 -- | Creates a case expression that performs pattern matching on the variable
 --   bound by the given variable pattern.
-makeRhs
-  :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-  => S.Pat a   -- ^ The fresh variable pattern to match.
-  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
-  -> [Eqs a]   -- ^ The equations.
-  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
-  -> Sem r (S.Exp a)
+makeRhs :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
+        => S.Pat a   -- ^ The fresh variable pattern to match.
+        -> [S.Pat a] -- ^ The remaing fresh variable patterns.
+        -> [Eqs a]   -- ^ The equations.
+        -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+        -> Sem r (S.Exp a)
 makeRhs x xs eqs er = do
   alts <- computeAlts x xs eqs er
   return (S.Case S.NoSrcSpan (S.patToExp x) alts)
-
--- TODO remove redundand types
 
 -- | Generates @case@ expression alternatives for the given equations.
 --
@@ -169,36 +138,33 @@ computeAlts
   -> S.Exp a   -- ^ The error expression for pattern-matching failures.
   -> Sem r [S.Alt a]
 computeAlts x xs eqs er = do
-  alts        <- mapM (computeAlt x xs er) (groupByCons eqs)
+  alts <- mapM (computeAlt x xs er) (groupByCons eqs)
   missingCons <- identifyMissingCons alts
-  if null missingCons
-    then return alts
-    else do
-      b <- getOpt optTrivialCase
-      if b
-        then -- TODO is 'defaultErrorExp' correct? Why not 'er'?
-             return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
-        else do
-          z <- createAltsForMissingCons x missingCons er
-          -- TODO currently not sorted (reversed)
-          return $ alts ++ z
+  if null missingCons then return alts else do
+    b <- getOpt optTrivialCase
+    if b
+      then 
+        -- TODO is 'defaultErrorExp' correct? Why not 'er'?
+        return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
+      else do
+        z <- createAltsForMissingCons x missingCons er
+        -- TODO currently not sorted (reversed)
+        return $ alts ++ z
 
 -------------------------------------------------------------------------------
 -- Case Completion                                                           --
 -------------------------------------------------------------------------------
-
 -- | Looks up the constructors of the data type that is matched by the given
 --   @case@ expression alternatives for which there are no alternatives already.
 identifyMissingCons
   :: Members '[Env a, Report] r => [S.Alt a] -> Sem r [ConEntry a]
-identifyMissingCons [] =
-  reportFatal
-    $  Message Error
-    $  "Could not identify missing constructors: "
-    ++ "Empty case expressions are not supported."
+identifyMissingCons []   = reportFatal
+  $ Message Error
+  $ "Could not identify missing constructors: "
+  ++ "Empty case expressions are not supported."
 identifyMissingCons alts = do
   matchedConNames <- mapM getAltConName alts
-  dataEntry       <- findDataEntry (head matchedConNames)
+  dataEntry <- findDataEntry (head matchedConNames)
   let missingConNames = dataEntryCons dataEntry \\ matchedConNames
   mapM lookupConEntryOrReport missingConNames
 
@@ -209,7 +175,6 @@ findDataEntry conName = do
   lookupDataEntryOrReport dataName
 
 -- TODO refactor with smartcons
-
 -- | Creates new @case@ expression alternatives for the given missing
 --   constructors.
 createAltsForMissingCons
@@ -228,13 +193,10 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
     -> Sem r (S.Alt a)
   createAltForMissingCon pat e conEntry = do
     nvars <- replicateM (conEntryArity conEntry)
-                        (freshVarPat genericFreshPrefix)
-    let p
-          | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan
-                                                   (head nvars)
-                                                   (conEntryName conEntry)
-                                                   (nvars !! 1)
-          | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
+      (freshVarPat genericFreshPrefix)
+    let p    | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan (head nvars)
+               (conEntryName conEntry) (nvars !! 1)
+             | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry) nvars
         p'   = S.patToExp p
         pat' = S.patToExp pat
         e'   = substitute (tSubst pat' p') e
@@ -243,17 +205,16 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
 -------------------------------------------------------------------------------
 -- Grouping                                                                  --
 -------------------------------------------------------------------------------
-
 -- | Groups the given equations based on the type of their first pattern.
 --
 --   The order of the equations is not changed, i.e., concatenation of the
 --   resulting groups yields the original list of equations.
-
 --   Two equations are in the same group only if their pattern lists both
 --   start with a variable pattern or both start with a constructor pattern.
 groupByFirstPatType :: [Eqs a] -> [[Eqs a]]
 groupByFirstPatType = groupBy ordPats
-  where ordPats (ps, _) (qs, _) = isVarPat (head ps) && isVarPat (head qs)
+ where
+  ordPats (ps, _) (qs, _) = isVarPat (head ps) && isVarPat (head qs)
 
 -- | Groups the given equations based on the constructor matched by their
 --   first pattern.
@@ -285,9 +246,9 @@ groupBy2 :: (a -> a -> Bool) -> [a] -> [[a]]
 groupBy2 = groupBy2' []
  where
   groupBy2' :: [[a]] -> (a -> a -> Bool) -> [a] -> [[a]]
-  groupBy2' acc _ [] = reverse acc -- TODO makes acc redundant.. refactor
-  groupBy2' acc comp (x : xs) =
-    let (ys, zs) = partition (comp x) xs in groupBy2' ((x : ys) : acc) comp zs
+  groupBy2' acc _ []          = reverse acc -- TODO makes acc redundant.. refactor
+  groupBy2' acc comp (x : xs) = let (ys, zs) = partition (comp x) xs
+                                in groupBy2' ((x : ys) : acc) comp zs
 
 -- | Tests whether the pattern lists of the given equations start with the same
 --   constructor.
@@ -302,7 +263,6 @@ compareCons = (==) `on` getMaybePatConName
 -------------------------------------------------------------------------------
 -- Code Generation                                                           --
 -------------------------------------------------------------------------------
-
 -- | Creates an alternative for a @case@ expression for the given group of
 --   equations whose first pattern matches the same constructor.
 --
@@ -323,39 +283,36 @@ computeAlt
 computeAlt pat pats er prps@(p : _) = do
   -- oldpats need to be computed for each pattern
   (capp, nvars, _) <- decomposeConPat (firstPat p)
-  nprps            <- mapM f prps
+  nprps <- mapM f prps
   let sub = tSubst (S.patToExp pat) (S.patToExp capp)
   res <- match (nvars ++ pats) nprps (substitute sub er)
   let res' = substitute sub res
   return (S.alt capp res')
  where
   f :: Members '[Fresh, Report] r => Eqs a -> Sem r (Eqs a)
-  f ([]    , r) = return ([], r) -- potentially unused
+  f ([], r)     = return ([], r) -- potentially unused
   f (v : vs, r) = do
     (_, _, oldpats) <- decomposeConPat v
     return (oldpats ++ vs, r)
-computeAlt _ _ _ [] =
-  reportFatal $ Message Internal $ "Expected at least one pattern in group."
+computeAlt _ _ _ []
+  = reportFatal $ Message Internal $ "Expected at least one pattern in group."
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
 --      oldpats
-
 -- | Replaces the child patterns of a pattern with fresh variable patterns.
 --
 --   Returns the pattern with replaced child patterns and a list of new and
 --   old child patterns.
-decomposeConPat
-  :: Members '[Fresh, Report] r
-  => S.Pat a
-  -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
-decomposeConPat (S.PApp _ qname ps) = do
+decomposeConPat :: Members '[Fresh, Report] r
+                => S.Pat a
+                -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
+decomposeConPat (S.PApp _ qname ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
 decomposeConPat (S.PInfixApp _ p1 qname p2) = failToReport $ do
   nvars@[nv1, nv2] <- replicateM 2 (freshVarPat genericFreshPrefix)
   let ps = [p1, p2]
   return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
-
 -- Decompose patterns with special syntax.
 decomposeConPat (S.PList _ ps)
   | null ps = return (S.PList S.NoSrcSpan [], [], [])
@@ -363,21 +320,20 @@ decomposeConPat (S.PList _ ps)
     let (n : nv) = ps
         listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
     decomposeConPat (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
-decomposeConPat (S.PTuple _ bxd ps) = do
+decomposeConPat (S.PTuple _ bxd ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PTuple S.NoSrcSpan bxd nvars, nvars, ps)
-
 -- Decompose patterns with parentheses recursively.
-decomposeConPat (S.PParen _ p ) = decomposeConPat p
-
+decomposeConPat (S.PParen _ p)              = decomposeConPat p
 -- Variable and wildcard patterns don't contain child patterns.
-decomposeConPat (S.PWildCard _) = return (S.PWildCard S.NoSrcSpan, [], [])
-decomposeConPat (S.PVar _ name) = return (S.PVar S.NoSrcSpan name, [], [])
+decomposeConPat (S.PWildCard _)
+  = return (S.PWildCard S.NoSrcSpan, [], [])
+decomposeConPat (S.PVar _ name)
+  = return (S.PVar S.NoSrcSpan name, [], [])
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
 -------------------------------------------------------------------------------
-
 -- | Tests whether the pattern lists of all given equations starts with a
 --   variable pattern.
 allVarPats :: [Eqs a] -> Bool

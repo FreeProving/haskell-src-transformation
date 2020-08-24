@@ -1,46 +1,19 @@
 -- | This module contains tests for "HST.Effect.Report".
+module HST.Effect.ReportTests ( testReportEffect ) where
 
-module HST.Effect.ReportTests
-  ( testReportEffect
-  )
-where
-
-import           Control.Exception              ( finally )
-
-import           HST.Effect.Cancel              ( runCancel )
-import           HST.Effect.Report              ( Message(..)
-                                                , Report
-                                                , Severity(..)
-                                                , filterReportedMessages
-                                                , report
-                                                , reportFatal
-                                                , reportToHandleOrCancel
-                                                , reportToOutputOrCancel
-                                                , runReport
-                                                )
-
-import           Polysemy                       ( Member
-                                                , Sem
-                                                , run
-                                                , runM
-                                                )
-import           Polysemy.Output                ( runOutputList )
-
-import           System.Directory               ( getTemporaryDirectory
-                                                , removeFile
-                                                )
+import           Control.Exception ( finally )
+import           Polysemy          ( Member, Sem, run, runM )
+import           Polysemy.Output   ( runOutputList )
+import           System.Directory  ( getTemporaryDirectory, removeFile )
 import           System.IO
-import           System.IO.Error                ( catchIOError )
+import           System.IO.Error   ( catchIOError )
+import           Test.Hspec
+  ( Spec, context, describe, it, shouldBe, shouldReturn )
 
-
-import           Test.Hspec                     ( Spec
-                                                , context
-                                                , describe
-                                                , it
-                                                , shouldBe
-                                                , shouldReturn
-                                                )
-
+import           HST.Effect.Cancel ( runCancel )
+import           HST.Effect.Report
+  ( Message(..), Report, Severity(..), filterReportedMessages, report
+  , reportFatal, reportToHandleOrCancel, reportToOutputOrCancel, runReport )
 
 -- | Test group for interpreters of the 'HST.Effect.Report.Report' effect.
 testReportEffect :: Spec
@@ -64,10 +37,10 @@ testRunReport = context "runReport" $ do
     run (runReport comp) `shouldBe` ([msg], Nothing)
   it "returns Just a value and a single message if a single message is reported"
     $ do
-        let msg = Message Warning "Some warning"
-            comp :: Member Report r => Sem r Int
-            comp = report msg >> return 42
-        run (runReport comp) `shouldBe` ([msg], Just 42)
+      let msg = Message Warning "Some warning"
+          comp :: Member Report r => Sem r Int
+          comp = report msg >> return 42
+      run (runReport comp) `shouldBe` ([msg], Just 42)
   it "reports messages in the correct order" $ do
     let msg1 = Message Info "Some info"
         msg2 = Message Warning "Some warning"
@@ -89,17 +62,18 @@ testReportToOutputOrCancel = context "reportToOutputOrCancel" $ do
     outputRun comp `shouldBe` ([msg], Nothing)
   it "returns Just a value and a single message if a single message is reported"
     $ do
-        let msg = Message Warning "Some warning"
-            comp :: Member Report r => Sem r Int
-            comp = report msg >> return 42
-        outputRun comp `shouldBe` ([msg], Just 42)
+      let msg = Message Warning "Some warning"
+          comp :: Member Report r => Sem r Int
+          comp = report msg >> return 42
+      outputRun comp `shouldBe` ([msg], Just 42)
   it "reports messages in the correct order" $ do
     let msg1 = Message Info "Some info"
         msg2 = Message Warning "Some warning"
         comp :: Member Report r => Sem r Int
         comp = report msg1 >> report msg2 >> return 42
     outputRun comp `shouldBe` ([msg1, msg2], Just 42)
-  where outputRun = run . runOutputList . runCancel . reportToOutputOrCancel
+ where
+  outputRun = run . runOutputList . runCancel . reportToOutputOrCancel
 
 -- | Test group for 'reportToHandleOrCancel' tests.
 testReportToHandleOrCancel :: Spec
@@ -107,53 +81,48 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
   it "should write no message to the handle if nothing is reported"
     $ processCompHandle "tempFile"
     $ \h -> do
-        let comp :: Member Report r => Sem r Int
-            comp = return 42
-        (runM . runCancel . reportToHandleOrCancel h) comp
-          `shouldReturn` Just 42
+      let comp :: Member Report r => Sem r Int
+          comp = return 42
+      (runM . runCancel . reportToHandleOrCancel h) comp `shouldReturn` Just 42
+      hSeek h AbsoluteSeek 0
+      c <- hGetContents h
+      null c `shouldBe` True
+  it ("should return Nothing and write a single message to the handle "
+      ++ "if a fatal message was reported")
+    $ do
+      processCompHandle "tempFile" $ \h -> do
+        let msg = Message Error "Some Error"
+            comp :: Member Report r => Sem r Int
+            comp = reportFatal msg >> return 42
+        val <- (runM . runCancel . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
-        null c `shouldBe` True
-  it
-      (  "should return Nothing and write a single message to the handle "
-      ++ "if a fatal message was reported"
-      )
+        val `shouldBe` Nothing
+        lines c `shouldBe` ["Error: Some Error"]
+  it ("should return Just a value and write a single message to the handle "
+      ++ "if a single message was reported")
     $ do
-        processCompHandle "tempFile" $ \h -> do
-          let msg = Message Error "Some Error"
-              comp :: Member Report r => Sem r Int
-              comp = reportFatal msg >> return 42
-          val <- (runM . runCancel . reportToHandleOrCancel h) comp
-          hSeek h AbsoluteSeek 0
-          c <- hGetContents h
-          val `shouldBe` Nothing
-          lines c `shouldBe` ["Error: Some Error"]
-  it
-      (  "should return Just a value and write a single message to the handle "
-      ++ "if a single message was reported"
-      )
-    $ do
-        processCompHandle "tempFile" $ \h -> do
-          let msg = Message Warning "Some Warning"
-              comp :: Member Report r => Sem r Int
-              comp = report msg >> return 42
-          val <- (runM . runCancel . reportToHandleOrCancel h) comp
-          hSeek h AbsoluteSeek 0
-          c <- hGetContents h
-          val `shouldBe` Just 42
-          lines c `shouldBe` ["Warning: Some Warning"]
-  it "should write reported messages to the handle in the right order"
-    $ processCompHandle "tempFile"
-    $ \h -> do
-        let msg1 = Message Info "Some Info"
-        let msg2 = Message Warning "Some Warning"
+      processCompHandle "tempFile" $ \h -> do
+        let msg = Message Warning "Some Warning"
             comp :: Member Report r => Sem r Int
-            comp = report msg1 >> report msg2 >> return 42
+            comp = report msg >> return 42
         val <- (runM . runCancel . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Just 42
-        lines c `shouldBe` ["Info: Some Info", "Warning: Some Warning"]
+        lines c `shouldBe` ["Warning: Some Warning"]
+  it "should write reported messages to the handle in the right order"
+    $ processCompHandle "tempFile"
+    $ \h -> do
+      let msg1 = Message Info "Some Info"
+      let msg2 = Message Warning "Some Warning"
+          comp :: Member Report r => Sem r Int
+          comp = report msg1 >> report msg2 >> return 42
+      val <- (runM . runCancel . reportToHandleOrCancel h) comp
+      hSeek h AbsoluteSeek 0
+      c <- hGetContents h
+      val `shouldBe` Just 42
+      lines c `shouldBe` ["Info: Some Info", "Warning: Some Warning"]
 
 -- | Test group for 'filterReportedMessages' tests.
 testFilterReportedMessages :: Spec
@@ -170,24 +139,24 @@ testFilterReportedMessages = context "filterReportedMessages" $ do
   it "should report all messages for tautologic predicate" $ do
     let msg = Message Warning "Some warning"
         comp, comp2 :: Member Report r => Sem r Int
-        comp  = report msg >> return 42
+        comp = report msg >> return 42
         comp2 = reportFatal msg >> return 42
     runFilter (const True) comp `shouldBe` ([msg], Just 42)
     runFilter (const True) comp2 `shouldBe` ([msg], Nothing)
   it "should report all messages if all reported messages satisfy the predicate"
     $ do
-        let msg1 = Message Warning "Some warning"
-            msg2 = Message Warning "Another warning"
-            comp :: Member Report r => Sem r Int
-            comp = report msg1 >> report msg2 >> return 42
-        runFilter isWarn comp `shouldBe` ([msg1, msg2], Just 42)
+      let msg1 = Message Warning "Some warning"
+          msg2 = Message Warning "Another warning"
+          comp :: Member Report r => Sem r Int
+          comp = report msg1 >> report msg2 >> return 42
+      runFilter isWarn comp `shouldBe` ([msg1, msg2], Just 42)
   it "should report no messages if no reported message satisfies the predicate"
     $ do
-        let msg1 = Message Info "Some info"
-            msg2 = Message Error "Some error"
-            comp :: Member Report r => Sem r Int
-            comp = report msg1 >> report msg2 >> return 42
-        runFilter isWarn comp `shouldBe` ([], Just 42)
+      let msg1 = Message Info "Some info"
+          msg2 = Message Error "Some error"
+          comp :: Member Report r => Sem r Int
+          comp = report msg1 >> report msg2 >> return 42
+      runFilter isWarn comp `shouldBe` ([], Just 42)
   it "should report all messages that satisfy the predicate" $ do
     let msg1 = Message Info "Some info"
         msg2 = Message Warning "Some warning"
@@ -196,16 +165,14 @@ testFilterReportedMessages = context "filterReportedMessages" $ do
     runFilter isWarn comp `shouldBe` ([msg2], Just 42)
  where
   runFilter p = run . runReport . filterReportedMessages p
-  isWarn = (== Warning) . msgSeverity
+
+  isWarn      = (== Warning) . msgSeverity
 
 -- | Opens a temporary file, then processes it and deletes it afterwards.
 processCompHandle :: String -> (Handle -> IO a) -> IO a
 processCompHandle pat comp = do
-  tempdir           <- catchIOError getTemporaryDirectory (\_ -> return ".")
+  tempdir <- catchIOError getTemporaryDirectory (\_ -> return ".")
   (tempfile, temph) <- openTempFile tempdir pat
-  finally
-    (comp temph)
-    (do
-      hClose temph
-      removeFile tempfile
-    )
+  finally (comp temph) (do
+                          hClose temph
+                          removeFile tempfile)

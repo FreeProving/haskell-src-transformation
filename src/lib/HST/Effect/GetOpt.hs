@@ -1,9 +1,10 @@
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
-{-# LANGUAGE LambdaCase, BlockArguments #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | This module defines an effect for computations that depend on the
 --   command line options of the pattern matching compiler.
-
 module HST.Effect.GetOpt
   ( -- * Command Line Options
     Options(..)
@@ -15,42 +16,29 @@ module HST.Effect.GetOpt
   , runWithOptions
   , runWithArgs
   , runWithArgsIO
-  )
-where
+  ) where
 
-import           Polysemy                       ( Member
-                                                , Members
-                                                , Sem
-                                                , makeSem
-                                                , reinterpret
-                                                )
-import           Polysemy.Embed                 ( Embed
-                                                , embed
-                                                )
-import           Polysemy.Reader                ( asks
-                                                , runReader
-                                                )
-import           System.Environment             ( getArgs )
+import           Polysemy
+  ( Member, Members, Sem, makeSem, reinterpret )
+import           Polysemy.Embed     ( Embed, embed )
+import           Polysemy.Reader    ( asks, runReader )
+import           System.Environment ( getArgs )
 
-import           HST.Effect.Report              ( Report )
-import           HST.Options                    ( Options(..)
-                                                , parseArgs
-                                                )
+import           HST.Effect.Report  ( Report )
+import           HST.Options        ( Options(..), parseArgs )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
-
 -- | An effect capable of providing the command line options.
 data GetOpt m a where
-  GetOpt ::(Options -> a) -> GetOpt m a
+  GetOpt :: (Options -> a) -> GetOpt m a
 
 makeSem ''GetOpt
 
 -------------------------------------------------------------------------------
 -- Interpretations                                                           --
 -------------------------------------------------------------------------------
-
 -- | Interprets a computation that needs command line options by providing
 --   the given command line options.
 runWithOptions :: Options -> Sem (GetOpt ': r) a -> Sem r a
@@ -71,7 +59,8 @@ runWithArgs args comp = do
 --   them to the computation.
 --
 --   If the command line options cannot be parsed, a fatal error is reported.
-runWithArgsIO :: Members '[Report, Embed IO] r => Sem (GetOpt ': r) a -> Sem r a
+runWithArgsIO
+  :: Members '[Report, Embed IO] r => Sem (GetOpt ': r) a -> Sem r a
 runWithArgsIO comp = do
   args <- embed getArgs
   runWithArgs args comp

@@ -1,31 +1,20 @@
 -- | This module contains environment entries for built-in data types and
 --   data constructors.
+module HST.Environment.Prelude ( insertPreludeEntries ) where
 
-module HST.Environment.Prelude
-  ( insertPreludeEntries
-  )
-where
+import           Polysemy            ( Member, Sem )
 
-import           Polysemy                       ( Member
-                                                , Sem
-                                                )
-
-import           HST.Effect.Env                 ( Env
-                                                , modifyEnv
-                                                )
-import           HST.Environment                ( ConEntry(..)
-                                                , DataEntry(..)
-                                                , insertConEntry
-                                                , insertDataEntry
-                                                )
-import qualified HST.Frontend.Syntax           as S
+import           HST.Effect.Env      ( Env, modifyEnv )
+import           HST.Environment
+  ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
+import qualified HST.Frontend.Syntax as S
 
 -- | Inserts entries for built-in data types and data constructors into the
 --   environment.
 insertPreludeEntries :: Member (Env a) r => Sem r ()
 insertPreludeEntries = do
   mapM_ (modifyEnv . insertDataEntry) preludeDataEntries
-  mapM_ (modifyEnv . insertConEntry)  preludeConEntries
+  mapM_ (modifyEnv . insertConEntry) preludeConEntries
 
 -- | Environment entries for built-in data types.
 preludeDataEntries :: [DataEntry a]
@@ -38,7 +27,6 @@ preludeConEntries = [unitConEntry, pairConEntry] ++ listConEntries
 -------------------------------------------------------------------------------
 -- Unit                                                                      --
 -------------------------------------------------------------------------------
-
 -- | Environment entry for the unit data type.
 unitDataEntry :: DataEntry a
 unitDataEntry = DataEntry
@@ -58,7 +46,6 @@ unitConEntry = ConEntry
 -------------------------------------------------------------------------------
 -- Pairs                                                                     --
 -------------------------------------------------------------------------------
-
 -- | Environment entry for the pair data type.
 pairDataEntry :: DataEntry a
 pairDataEntry = DataEntry
@@ -78,7 +65,6 @@ pairConEntry = ConEntry
 -------------------------------------------------------------------------------
 -- Lists                                                                     --
 -------------------------------------------------------------------------------
-
 -- | Environment entry for the list data type.
 listDataEntry :: DataEntry a
 listDataEntry = DataEntry
@@ -88,15 +74,15 @@ listDataEntry = DataEntry
 
 -- | Environment entry for the pair data constructor.
 listConEntries :: [ConEntry a]
-listConEntries =
-  [ ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
-             , conEntryArity   = 0
-             , conEntryIsInfix = False
-             , conEntryType    = dataEntryName listDataEntry
-             }
-  , ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
-             , conEntryArity   = 2
-             , conEntryIsInfix = True
-             , conEntryType    = dataEntryName listDataEntry
-             }
-  ]
+listConEntries
+  = [ ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
+               , conEntryArity   = 0
+               , conEntryIsInfix = False
+               , conEntryType    = dataEntryName listDataEntry
+               }
+    , ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
+               , conEntryArity   = 2
+               , conEntryIsInfix = True
+               , conEntryType    = dataEntryName listDataEntry
+               }
+    ]

@@ -1,83 +1,46 @@
 -- | This module contains the command line interface for the
 --   @haskell-src-transformations@ package.
+module Main ( main ) where
 
-module Main
-  ( main
-  )
-where
+import           Control.Exception       ( SomeException, displayException )
+import           Data.List.Extra         ( splitOn )
+import           Polysemy                ( Members, Sem )
+import           Polysemy.Embed          ( Embed, embed )
+import           Polysemy.Final          ( embedToFinal, runFinal )
+import           System.Console.GetOpt   ( usageInfo )
+import           System.Directory        ( createDirectoryIfMissing )
+import           System.Environment      ( getProgName )
+import           System.FilePath
+  ( (<.>), (</>), joinPath, takeBaseName, takeDirectory )
+import           System.IO               ( stderr )
 
-import           Control.Exception              ( SomeException
-                                                , displayException
-                                                )
-import           Data.List.Extra                ( splitOn )
-import           Polysemy                       ( Members
-                                                , Sem
-                                                )
-import           Polysemy.Embed                 ( Embed
-                                                , embed
-                                                )
-import           Polysemy.Final                 ( embedToFinal
-                                                , runFinal
-                                                )
-import           System.Console.GetOpt          ( usageInfo )
-import           System.Environment             ( getProgName )
-import           System.Directory               ( createDirectoryIfMissing )
-import           System.FilePath                ( (</>)
-                                                , (<.>)
-                                                , joinPath
-                                                , takeBaseName
-                                                , takeDirectory
-                                                )
-import           System.IO                      ( stderr )
-
-import           HST.Application                ( processModule )
-import           HST.Effect.Report              ( Message(Message)
-                                                , Report
-                                                , Severity(Debug, Internal)
-                                                , exceptionToReport
-                                                , filterReportedMessages
-                                                , msgSeverity
-                                                , reportToHandleOrCancel
-                                                )
-import           HST.Effect.Cancel              ( Cancel
-                                                , cancelToExit
-                                                )
-import           HST.Effect.Env                 ( runEnv )
-import           HST.Effect.Fresh               ( runFresh )
-import           HST.Effect.GetOpt              ( GetOpt
-                                                , getOpt
-                                                , runWithArgsIO
-                                                )
-import           HST.Effect.WithFrontend        ( parseModule
-                                                , prettyPrintModule
-                                                , runWithFrontend
-                                                , transformModule
-                                                , unTransformModule
-                                                )
-import qualified HST.Frontend.Syntax           as S
-import           HST.Options                    ( Frontend(..)
-                                                , optShowHelp
-                                                , optInputFiles
-                                                , optOutputDir
-                                                , optEnableDebug
-                                                , optFrontend
-                                                , optionDescriptors
-                                                , parseFrontend
-                                                )
+import           HST.Application         ( processModule )
+import           HST.Effect.Cancel       ( Cancel, cancelToExit )
+import           HST.Effect.Env          ( runEnv )
+import           HST.Effect.Fresh        ( runFresh )
+import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
+import           HST.Effect.Report
+  ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
+  , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
+import           HST.Effect.WithFrontend
+  ( parseModule, prettyPrintModule, runWithFrontend, transformModule
+  , unTransformModule )
+import qualified HST.Frontend.Syntax     as S
+import           HST.Options
+  ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
+  , optShowHelp, optionDescriptors, parseFrontend )
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --
 -------------------------------------------------------------------------------
-
 -- | The header of the help message.
 --
 --   This text is added before the description of the command line arguments.
 usageHeader :: FilePath -> String
-usageHeader progName =
-  "Usage: "
-    ++ progName
-    ++ " [options...] <input-files...>\n\n"
-    ++ "Command line options:"
+usageHeader progName = "Usage: "
+  ++ progName
+  ++ " [options...] <input-files...>\n\n"
+  ++ "Command line options:"
 
 -- | Prints the help message for the command line interface.
 --
@@ -90,19 +53,17 @@ putUsageInfo = do
 -------------------------------------------------------------------------------
 -- Main                                                                      --
 -------------------------------------------------------------------------------
-
 -- | The main function of the command line interface.
 --
 --   Runs the 'application' and interprets all unhandled effects.
 main :: IO ()
-main =
-  runFinal
-    . embedToFinal
-    . cancelToExit
-    . reportToHandleOrCancel stderr
-    . exceptionToReport exceptionToMessage
-    . runWithArgsIO
-    $ application
+main = runFinal
+  . embedToFinal
+  . cancelToExit
+  . reportToHandleOrCancel stderr
+  . exceptionToReport exceptionToMessage
+  . runWithArgsIO
+  $ application
  where
   exceptionToMessage :: SomeException -> Message
   exceptionToMessage e = Message Internal (displayException e)
@@ -119,18 +80,17 @@ application = do
   debuggingEnabled <- getOpt optEnableDebug
   filterReportedMessages (\msg -> debuggingEnabled || msgSeverity msg /= Debug)
     $ do
-        -- Show usage information when the @--help@ flag is specified or there
-        -- is no input file.
-        showHelp   <- getOpt optShowHelp
-        inputFiles <- getOpt optInputFiles
-        if showHelp || null inputFiles
-          then embed putUsageInfo
-          else mapM_ processInputFile inputFiles
+      -- Show usage information when the @--help@ flag is specified or there
+      -- is no input file.
+      showHelp <- getOpt optShowHelp
+      inputFiles <- getOpt optInputFiles
+      if showHelp || null inputFiles
+        then embed putUsageInfo
+        else mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
 -------------------------------------------------------------------------------
-
 -- | Applies the transformation to the given file and writes the transformed
 --   module to the console or an output file depending on the command line
 --   options.
@@ -142,31 +102,30 @@ application = do
 processInputFile
   :: Members '[Cancel, Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
 processInputFile inputFilename = do
-  input                <- embed $ readFile inputFilename
-  frontend             <- parseFrontend =<< getOpt optFrontend
+  input <- embed $ readFile inputFilename
+  frontend <- parseFrontend =<< getOpt optFrontend
   (output, moduleName) <- processInput frontend inputFilename input
-  maybeOutputDir       <- getOpt optOutputDir
+  maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
-      let outputFilename =
-            outputDir </> makeOutputFileName inputFilename moduleName
+      let outputFilename
+            = outputDir </> makeOutputFileName inputFilename moduleName
       embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
       embed $ writeFile outputFilename output
-    Nothing -> embed $ putStrLn output
+    Nothing        -> embed $ putStrLn output
 
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
-processInput
-  :: Members '[Cancel, GetOpt, Report] r
-  => Frontend -- ^ The frontend to use to parse and print the file.
-  -> FilePath -- ^ The name of the input file.
-  -> String   -- ^ The contents of the input file.
-  -> Sem r (String, Maybe String)
+processInput :: Members '[Cancel, GetOpt, Report] r
+             => Frontend -- ^ The frontend to use to parse and print the file.
+             -> FilePath -- ^ The name of the input file.
+             -> String   -- ^ The contents of the input file.
+             -> Sem r (String, Maybe String)
 processInput frontend inputFilename input = runWithFrontend frontend $ do
-  inputModule        <- parseModule inputFilename input
+  inputModule <- parseModule inputFilename input
   intermediateModule <- transformModule inputModule
-  outputModule       <- runEnv . runFresh $ do
+  outputModule <- runEnv . runFresh $ do
     intermediateModule' <- processModule intermediateModule
     unTransformModule intermediateModule'
   output <- prettyPrintModule outputModule
@@ -183,7 +142,6 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
 -------------------------------------------------------------------------------
 -- Output                                                                    --
 -------------------------------------------------------------------------------
-
 -- | Gets the name of the output file for a module that has been read from the
 --   input file with the given name.
 --
@@ -193,9 +151,10 @@ makeOutputFileName
   :: FilePath     -- ^ The name of the input file.
   -> Maybe String -- ^ The name of the module to make the output file name of.
   -> FilePath     -- ^ The name of the output file.
+
 makeOutputFileName inputFile modName = outputFileName <.> "hs"
  where
   -- | The output file name without file extension.
   outputFileName :: FilePath
-  outputFileName =
-    maybe (takeBaseName inputFile) (joinPath . splitOn ".") modName
+  outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
+    modName
