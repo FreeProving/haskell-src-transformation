@@ -432,14 +432,15 @@ class HasSrcSpan node where
 --
 --   Only the original source span is used when transforming a source span
 --   back, all other data is used for displaying input code excerpts.
-data SrcSpan a = SrcSpan { srcSpanFilePath    :: FilePath
-                         , srcSpanStartLine   :: Int
-                         , srcSpanStartColumn :: Int
-                         , srcSpanEndLine     :: Int
-                         , srcSpanEndColumn   :: Int
-                         , originalSrcSpan    :: SrcSpanType a
-                         }
-               | NoSrcSpan
+data SrcSpan a
+  = SrcSpan { srcSpanFilePath    :: FilePath
+            , srcSpanStartLine   :: Int
+            , srcSpanStartColumn :: Int
+            , srcSpanEndLine     :: Int
+            , srcSpanEndColumn   :: Int
+            , originalSrcSpan    :: SrcSpanType a
+            }
+  | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 

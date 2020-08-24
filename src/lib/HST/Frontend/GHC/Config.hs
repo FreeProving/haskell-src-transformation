@@ -31,9 +31,8 @@ import qualified HST.Frontend.Syntax                                 as S
 --   Instantiates the type families for source spans, literals, type
 --   expressions, additional data from the original module and original
 --   declarations with the concrete types from @ghc-lib-parser@ or wrappers for
---   these types. Also adds instances for 'S.EqAST', 'S.ShowAST' and
---   'S.SimpleLoc' to allow the usage of @==@ and @show@ for all AST components
---   and 'S.toSimpleSourceSpan' for source spans.
+--   these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to allow
+--   the usage of @==@ and @show@ for all AST components.
 data GHC
 
 type instance S.SrcSpanType GHC = GHC.SrcSpan

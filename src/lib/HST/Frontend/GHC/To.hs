@@ -371,5 +371,5 @@ transformSpecialCon (S.ExprHole _)             = reportFatal
 -------------------------------------------------------------------------------
 -- | Unwraps the HST type for source spans into an GHC source span.
 transformSrcSpan :: S.SrcSpan GHC -> GHC.SrcSpan
-transformSrcSpan srcSpan@S.SrcSpan{} = S.originalSrcSpan srcSpan
-transformSrcSpan S.NoSrcSpan = GHC.noSrcSpan
+transformSrcSpan srcSpan@S.SrcSpan {} = S.originalSrcSpan srcSpan
+transformSrcSpan S.NoSrcSpan          = GHC.noSrcSpan

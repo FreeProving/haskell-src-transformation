@@ -15,10 +15,10 @@ module HST.Effect.InputFile
   , runInputFile
   ) where
 
-import           Data.Map.Strict     ( Map )
-import qualified Data.Map.Strict     as Map
-import           Polysemy       ( Sem, makeSem, reinterpret )
-import           Polysemy.State ( State, evalState, get, put )
+import           Data.Map.Strict ( Map )
+import qualified Data.Map.Strict as Map
+import           Polysemy        ( Sem, makeSem, reinterpret )
+import           Polysemy.State  ( State, evalState, get, put )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
