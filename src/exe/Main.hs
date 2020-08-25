@@ -101,8 +101,9 @@ application = do
 --   'makeOutputFileName' for the input module to the output directory.
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
-processInputFile
-  :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r => FilePath -> Sem r ()
+processInputFile :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r
+                 => FilePath
+                 -> Sem r ()
 processInputFile inputFilename = do
   input <- embed $ readFile inputFilename
   frontend <- parseFrontend =<< getOpt optFrontend

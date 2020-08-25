@@ -35,12 +35,11 @@ parseTestModule = parseModule "<test-input>" . unlines
 
 -- | Runs the given computation with an empty environment and no additional
 --   command line arguments.
-runTest
-  :: (forall f.
-      S.EqAST f
-      => Sem '[WithFrontend f, GetOpt, InputFile, Cancel, Report, SetExpectation, Embed IO]
-      ())
-  -> IO ()
+runTest :: (forall f.
+            S.EqAST f
+            => Sem '[WithFrontend f, GetOpt, InputFile, Cancel, Report,
+  SetExpectation, Embed IO] ())
+        -> IO ()
 runTest comp = runM
   $ setExpectationToIO
   $ reportToSetExpectation
@@ -56,7 +55,10 @@ runTest comp = runM
 --   and sets the expectation that the given output module is produced.
 shouldTransformTo
   :: ( S.EqAST f
-     , Members '[GetOpt, Cancel, InputFile, Report, SetExpectation, WithFrontend f] r
+     , Members
+         '[GetOpt, Cancel, InputFile, Report, SetExpectation,
+  WithFrontend f]
+         r
      )
   => [String]
   -> [String]

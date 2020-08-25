@@ -113,7 +113,7 @@ displayCodeExcerpt src@S.SrcSpan {} = do
            -- Excerpts consisting of no lines should be exfiltrated by
            -- 'isValidSrcSpan'.
            []        -> []
-           -- For one-line excerpts, an additional line below the excerpt
+           -- For single-line excerpts, an additional line below the excerpt
            -- marking the entire spanned code is added.
            [_]       ->
              let lastLine = replicate
