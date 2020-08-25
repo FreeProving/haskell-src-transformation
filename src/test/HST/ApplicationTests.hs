@@ -13,6 +13,7 @@ import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Env            ( runEnv )
 import           HST.Effect.Fresh          ( runFresh )
 import           HST.Effect.GetOpt         ( GetOpt, runWithArgs )
+import           HST.Effect.InputFile      ( InputFile, runInputFile )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Info), cancelToReport )
 import           HST.Effect.SetExpectation
@@ -27,7 +28,7 @@ import qualified HST.Frontend.Syntax       as S
 -- Utility Functions                                                         --
 -------------------------------------------------------------------------------
 -- | Parses a module for testing purposes.
-parseTestModule :: Members '[Cancel, Report, WithFrontend f] r
+parseTestModule :: Members '[Cancel, InputFile, Report, WithFrontend f] r
                 => [String]
                 -> Sem r (ParsedModule f)
 parseTestModule = parseModule "<test-input>" . unlines
@@ -37,13 +38,14 @@ parseTestModule = parseModule "<test-input>" . unlines
 runTest
   :: (forall f.
       S.EqAST f
-      => Sem '[WithFrontend f, GetOpt, Cancel, Report, SetExpectation, Embed IO]
+      => Sem '[WithFrontend f, GetOpt, InputFile, Cancel, Report, SetExpectation, Embed IO]
       ())
   -> IO ()
 runTest comp = runM
   $ setExpectationToIO
   $ reportToSetExpectation
   $ cancelToReport (Message Info "The computation was canceled.")
+  $ runInputFile
   $ runWithArgs []
   $ runWithAllFrontends comp
 
@@ -54,7 +56,7 @@ runTest comp = runM
 --   and sets the expectation that the given output module is produced.
 shouldTransformTo
   :: ( S.EqAST f
-     , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
+     , Members '[GetOpt, Cancel, InputFile, Report, SetExpectation, WithFrontend f] r
      )
   => [String]
   -> [String]

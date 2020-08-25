@@ -8,6 +8,7 @@ import           Test.Hspec
   ( Expectation, Spec, context, describe, it )
 
 import           HST.CoreAlgorithm       ( compareCons )
+import           HST.Effect.InputFile    ( runInputFile )
 import           HST.Effect.Report
 import           HST.Frontend.HSE.Config ( HSE )
 import qualified HST.Frontend.HSE.From   as FromHSE
@@ -24,7 +25,7 @@ testCoreAlgorithm = describe "HST.CoreAlgorithm" $ do
 parseTestPat :: String -> IO (S.Pat HSE)
 parseTestPat patStr = case HSE.parsePat patStr of
   HSE.ParseOk pat          ->
-    runM . reportToExpectation $ FromHSE.transformPat pat
+    runM . reportToExpectation $ runInputFile $ FromHSE.transformPat pat
   HSE.ParseFailed _ errMsg -> assertFailure errMsg
 
 -- | Handles the 'Report' effect by asserting that no fatal message is reported.
