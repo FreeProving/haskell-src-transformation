@@ -5,23 +5,25 @@
 module HST.Frontend.HSE.From where
 
 import qualified Language.Haskell.Exts             as HSE
-import           Polysemy                          ( Member, Sem )
+import           Polysemy                          ( Member, Members, Sem )
 
+import           HST.Effect.InputFile              ( InputFile )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error), reportFatal )
 import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(OriginalModuleHead) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupported, skipNotSupported )
+  ( notSupported, notSupportedWithExcerpt, skipNotSupported )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
 -------------------------------------------------------------------------------
 -- | Transforms the @haskell-src-exts@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
-transformModule
-  :: Member Report r => HSE.Module HSE.SrcSpanInfo -> Sem r (S.Module HSE)
+transformModule :: Members '[InputFile, Report] r
+                => HSE.Module HSE.SrcSpanInfo
+                -> Sem r (S.Module HSE)
 transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
   <$> mapM transformModuleHead moduleHead
@@ -44,7 +46,7 @@ transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 --
 --   Unsupported declarations are preserved by wrapping them in the
 --   'S.OtherDecl' constructor.
-transformDecl :: Member Report r
+transformDecl :: Members '[InputFile, Report] r
               => HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
               -> Sem r (S.Decl HSE)
 
@@ -165,15 +167,16 @@ transformDeclHead (HSE.DHApp _ dHead _)   = transformDeclHead dHead
 
 -- | Transforms an HSE qualified constructor declaration into an HST
 --   constructor declaration.
-transformQualConDecl :: Member Report r
+transformQualConDecl :: Members '[InputFile, Report] r
                      => HSE.QualConDecl HSE.SrcSpanInfo
                      -> Sem r (S.ConDecl HSE)
 transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 
 -- | Transforms an HSE constructor declaration into an HST constructor
 --   declaration.
-transformConDecl
-  :: Member Report r => HSE.ConDecl HSE.SrcSpanInfo -> Sem r (S.ConDecl HSE)
+transformConDecl :: Members '[InputFile, Report] r
+                 => HSE.ConDecl HSE.SrcSpanInfo
+                 -> Sem r (S.ConDecl HSE)
 transformConDecl (HSE.ConDecl s cName types)    = do
   name' <- transformName cName
   return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
@@ -188,21 +191,25 @@ transformConDecl (HSE.InfixConDecl s _ cName _) = do
                    , S.conDeclArity   = 2
                    , S.conDeclIsInfix = True
                    }
-transformConDecl (HSE.RecDecl _ _ _)            = notSupported "Records"
+transformConDecl (HSE.RecDecl s _ _)            = notSupportedWithExcerpt
+  "Records" (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
 -- Function Declarations                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE binding group into an HST binding group.
-transformBinds
-  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
+transformBinds :: Members '[InputFile, Report] r
+               => HSE.Binds HSE.SrcSpanInfo
+               -> Sem r (S.Binds HSE)
 transformBinds (HSE.BDecls s decls) = S.BDecls (transformSrcSpan s)
   <$> mapM transformDecl decls
-transformBinds (HSE.IPBinds _ _)    = notSupported "Implicit-parameters"
+transformBinds (HSE.IPBinds s _)    = notSupportedWithExcerpt
+  "Implicit-parameters" (transformSrcSpan s)
 
 -- | Transforms an HSE match into an HST match.
-transformMatch
-  :: Member Report r => HSE.Match HSE.SrcSpanInfo -> Sem r (S.Match HSE)
+transformMatch :: Members '[InputFile, Report] r
+               => HSE.Match HSE.SrcSpanInfo
+               -> Sem r (S.Match HSE)
 transformMatch (HSE.Match s name pats rhs mBinds)
   = S.Match (transformSrcSpan s) <$> transformName name
   <*> mapM transformPat pats
@@ -216,7 +223,9 @@ transformMatch (HSE.InfixMatch s pat name pats rhs mBinds)
   <*> mapM transformBinds mBinds
 
 -- | Transforms an HSE right hand side into an HST right hand side.
-transformRhs :: Member Report r => HSE.Rhs HSE.SrcSpanInfo -> Sem r (S.Rhs HSE)
+transformRhs :: Members '[InputFile, Report] r
+             => HSE.Rhs HSE.SrcSpanInfo
+             -> Sem r (S.Rhs HSE)
 transformRhs (HSE.UnGuardedRhs s e)    = S.UnGuardedRhs (transformSrcSpan s)
   <$> transformExp e
 transformRhs (HSE.GuardedRhss s grhss) = S.GuardedRhss (transformSrcSpan s)
@@ -224,13 +233,13 @@ transformRhs (HSE.GuardedRhss s grhss) = S.GuardedRhss (transformSrcSpan s)
 
 -- | Transforms an HSE guarded right hand side into an HST guarded right hand
 --   side.
-transformGuardedRhs :: Member Report r
+transformGuardedRhs :: Members '[InputFile, Report] r
                     => HSE.GuardedRhs HSE.SrcSpanInfo
                     -> Sem r (S.GuardedRhs HSE)
 transformGuardedRhs (HSE.GuardedRhs s [HSE.Qualifier _ ge] e)
   = S.GuardedRhs (transformSrcSpan s) <$> transformExp ge <*> transformExp e
-transformGuardedRhs (HSE.GuardedRhs _ _ _)
-  = notSupported "Pattern guards"
+transformGuardedRhs (HSE.GuardedRhs s _ _)
+  = notSupportedWithExcerpt "Pattern guards" (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
 -- Expressions                                                               --
@@ -241,7 +250,9 @@ transformBoxed HSE.Boxed   = return S.Boxed
 transformBoxed HSE.Unboxed = return S.Unboxed
 
 -- | Transforms an HSE expression into an HST expression.
-transformExp :: Member Report r => HSE.Exp HSE.SrcSpanInfo -> Sem r (S.Exp HSE)
+transformExp :: Members '[InputFile, Report] r
+             => HSE.Exp HSE.SrcSpanInfo
+             -> Sem r (S.Exp HSE)
 transformExp (HSE.Var s qName)                = S.Var (transformSrcSpan s)
   <$> transformQName qName
 transformExp (HSE.Con s qName)                = S.Con (transformSrcSpan s)
@@ -276,62 +287,95 @@ transformExp (HSE.Paren s e)                  = S.Paren (transformSrcSpan s)
 transformExp (HSE.ExpTypeSig s e typ)
   = S.ExpTypeSig (transformSrcSpan s) <$> transformExp e <*> return typ
 -- All other expressions are not supported.
-transformExp (HSE.OverloadedLabel _ _)        = notSupported "Overloaded labels"
-transformExp (HSE.IPVar _ _)
-  = notSupported "Implicit-parameters"
-transformExp (HSE.MultiIf _ _)
-  = notSupported "Multi-Way if-expressions"
-transformExp (HSE.Do _ _)                     = notSupported "do-expressions"
-transformExp (HSE.MDo _ _)                    = notSupported "mdo-expressions"
-transformExp (HSE.UnboxedSum _ _ _ _)         = notSupported "Unboxed sums"
-transformExp (HSE.TupleSection _ _ _)         = notSupported "Tuple sections"
-transformExp (HSE.ParArray _ _)               = notSupported "Parallel arrays"
-transformExp (HSE.LeftSection _ _ _)          = notSupported "Sections"
-transformExp (HSE.RightSection _ _ _)         = notSupported "Sections"
-transformExp (HSE.RecConstr _ _ _)            = notSupported "Records"
-transformExp (HSE.RecUpdate _ _ _)            = notSupported "Records"
-transformExp (HSE.EnumFrom _ _)               = notSupported "Enumerations"
-transformExp (HSE.EnumFromTo _ _ _)           = notSupported "Enumerations"
-transformExp (HSE.EnumFromThen _ _ _)         = notSupported "Enumerations"
-transformExp (HSE.EnumFromThenTo _ _ _ _)     = notSupported "Enumerations"
-transformExp (HSE.ParArrayFromTo _ _ _)       = notSupported "Parallel arrays"
-transformExp (HSE.ParArrayFromThenTo _ _ _ _) = notSupported "Parallel arrays"
-transformExp (HSE.ListComp _ _ _)
-  = notSupported "List comprehensions"
-transformExp (HSE.ParComp _ _ _)
-  = notSupported "List comprehensions"
-transformExp (HSE.ParArrayComp _ _ _)         = notSupported "Parallel arrays"
-transformExp (HSE.VarQuote _ _)
-  = notSupported "Template Haskell expressions"
-transformExp (HSE.TypQuote _ _)
-  = notSupported "Template Haskell expressions"
-transformExp (HSE.BracketExp _ _)
-  = notSupported "Template Haskell expressions"
-transformExp (HSE.SpliceExp _ _)
-  = notSupported "Template Haskell expressions"
-transformExp (HSE.QuasiQuote _ _ _)
-  = notSupported "Template Haskell expressions"
-transformExp (HSE.TypeApp _ _)
-  = notSupported "Visible type applications"
-transformExp (HSE.XTag _ _ _ _ _)             = notSupported "XML expressions"
-transformExp (HSE.XETag _ _ _ _)              = notSupported "XML expressions"
-transformExp (HSE.XPcdata _ _)                = notSupported "XML expressions"
-transformExp (HSE.XExpTag _ _)                = notSupported "XML expressions"
-transformExp (HSE.XChildTag _ _)              = notSupported "XML expressions"
-transformExp (HSE.CorePragma _ _ _)           = notSupported "CORE pragmas"
-transformExp (HSE.SCCPragma _ _ _)            = notSupported "SCC pragmas"
-transformExp (HSE.GenPragma _ _ _ _ _)        = notSupported "GENERATED pragmas"
-transformExp (HSE.Proc _ _ _)                 = notSupported "Arrow expressions"
-transformExp (HSE.LeftArrApp _ _ _)           = notSupported "Arrow expressions"
-transformExp (HSE.RightArrApp _ _ _)          = notSupported "Arrow expressions"
-transformExp (HSE.LeftArrHighApp _ _ _)       = notSupported "Arrow expressions"
-transformExp (HSE.RightArrHighApp _ _ _)      = notSupported "Arrow expressions"
-transformExp (HSE.ArrOp _ _)                  = notSupported "Arrow expressions"
-transformExp (HSE.LCase _ _)
-  = notSupported "Lambda case expressions"
+transformExp (HSE.OverloadedLabel s _)        = notSupportedWithExcerpt
+  "Overloaded labels" (transformSrcSpan s)
+transformExp (HSE.IPVar s _)                  = notSupportedWithExcerpt
+  "Implicit-parameters" (transformSrcSpan s)
+transformExp (HSE.MultiIf s _)                = notSupportedWithExcerpt
+  "Multi-Way if-expressions" (transformSrcSpan s)
+transformExp (HSE.Do s _)                     = notSupportedWithExcerpt
+  "do-expressions" (transformSrcSpan s)
+transformExp (HSE.MDo s _)                    = notSupportedWithExcerpt
+  "mdo-expressions" (transformSrcSpan s)
+transformExp (HSE.UnboxedSum s _ _ _)         = notSupportedWithExcerpt
+  "Unboxed sums" (transformSrcSpan s)
+transformExp (HSE.TupleSection s _ _)         = notSupportedWithExcerpt
+  "Tuple sections" (transformSrcSpan s)
+transformExp (HSE.ParArray s _)               = notSupportedWithExcerpt
+  "Parallel arrays" (transformSrcSpan s)
+transformExp (HSE.LeftSection s _ _)          = notSupportedWithExcerpt
+  "Sections" (transformSrcSpan s)
+transformExp (HSE.RightSection s _ _)         = notSupportedWithExcerpt
+  "Sections" (transformSrcSpan s)
+transformExp (HSE.RecConstr s _ _)            = notSupportedWithExcerpt
+  "Records" (transformSrcSpan s)
+transformExp (HSE.RecUpdate s _ _)            = notSupportedWithExcerpt
+  "Records" (transformSrcSpan s)
+transformExp (HSE.EnumFrom s _)               = notSupportedWithExcerpt
+  "Enumerations" (transformSrcSpan s)
+transformExp (HSE.EnumFromTo s _ _)           = notSupportedWithExcerpt
+  "Enumerations" (transformSrcSpan s)
+transformExp (HSE.EnumFromThen s _ _)         = notSupportedWithExcerpt
+  "Enumerations" (transformSrcSpan s)
+transformExp (HSE.EnumFromThenTo s _ _ _)     = notSupportedWithExcerpt
+  "Enumerations" (transformSrcSpan s)
+transformExp (HSE.ParArrayFromTo s _ _)       = notSupportedWithExcerpt
+  "Parallel arrays" (transformSrcSpan s)
+transformExp (HSE.ParArrayFromThenTo s _ _ _) = notSupportedWithExcerpt
+  "Parallel arrays" (transformSrcSpan s)
+transformExp (HSE.ListComp s _ _)             = notSupportedWithExcerpt
+  "List comprehensions" (transformSrcSpan s)
+transformExp (HSE.ParComp s _ _)              = notSupportedWithExcerpt
+  "List comprehensions" (transformSrcSpan s)
+transformExp (HSE.ParArrayComp s _ _)         = notSupportedWithExcerpt
+  "Parallel arrays" (transformSrcSpan s)
+transformExp (HSE.VarQuote s _)               = notSupportedWithExcerpt
+  "Template Haskell expressions" (transformSrcSpan s)
+transformExp (HSE.TypQuote s _)               = notSupportedWithExcerpt
+  "Template Haskell expressions" (transformSrcSpan s)
+transformExp (HSE.BracketExp s _)             = notSupportedWithExcerpt
+  "Template Haskell expressions" (transformSrcSpan s)
+transformExp (HSE.SpliceExp s _)              = notSupportedWithExcerpt
+  "Template Haskell expressions" (transformSrcSpan s)
+transformExp (HSE.QuasiQuote s _ _)           = notSupportedWithExcerpt
+  "Template Haskell expressions" (transformSrcSpan s)
+transformExp (HSE.TypeApp s _)                = notSupportedWithExcerpt
+  "Visible type applications" (transformSrcSpan s)
+transformExp (HSE.XTag s _ _ _ _)             = notSupportedWithExcerpt
+  "XML expressions" (transformSrcSpan s)
+transformExp (HSE.XETag s _ _ _)              = notSupportedWithExcerpt
+  "XML expressions" (transformSrcSpan s)
+transformExp (HSE.XPcdata s _)                = notSupportedWithExcerpt
+  "XML expressions" (transformSrcSpan s)
+transformExp (HSE.XExpTag s _)                = notSupportedWithExcerpt
+  "XML expressions" (transformSrcSpan s)
+transformExp (HSE.XChildTag s _)              = notSupportedWithExcerpt
+  "XML expressions" (transformSrcSpan s)
+transformExp (HSE.CorePragma s _ _)           = notSupportedWithExcerpt
+  "CORE pragmas" (transformSrcSpan s)
+transformExp (HSE.SCCPragma s _ _)            = notSupportedWithExcerpt
+  "SCC pragmas" (transformSrcSpan s)
+transformExp (HSE.GenPragma s _ _ _ _)        = notSupportedWithExcerpt
+  "GENERATED pragmas" (transformSrcSpan s)
+transformExp (HSE.Proc s _ _)                 = notSupportedWithExcerpt
+  "Arrow expressions" (transformSrcSpan s)
+transformExp (HSE.LeftArrApp s _ _)           = notSupportedWithExcerpt
+  "Arrow expressions" (transformSrcSpan s)
+transformExp (HSE.RightArrApp s _ _)          = notSupportedWithExcerpt
+  "Arrow expressions" (transformSrcSpan s)
+transformExp (HSE.LeftArrHighApp s _ _)       = notSupportedWithExcerpt
+  "Arrow expressions" (transformSrcSpan s)
+transformExp (HSE.RightArrHighApp s _ _)      = notSupportedWithExcerpt
+  "Arrow expressions" (transformSrcSpan s)
+transformExp (HSE.ArrOp s _)                  = notSupportedWithExcerpt
+  "Arrow expressions" (transformSrcSpan s)
+transformExp (HSE.LCase s _)                  = notSupportedWithExcerpt
+  "Lambda case expressions" (transformSrcSpan s)
 
 -- | Transforms an HSE case alternative into an HST case alternative.
-transformAlt :: Member Report r => HSE.Alt HSE.SrcSpanInfo -> Sem r (S.Alt HSE)
+transformAlt :: Members '[InputFile, Report] r
+             => HSE.Alt HSE.SrcSpanInfo
+             -> Sem r (S.Alt HSE)
 transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
   <$> transformPat pat
   <*> transformRhs rhs
@@ -341,7 +385,9 @@ transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
 -- Patterns                                                                  --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE pattern into an HST pattern.
-transformPat :: Member Report r => HSE.Pat HSE.SrcSpanInfo -> Sem r (S.Pat HSE)
+transformPat :: Members '[InputFile, Report] r
+             => HSE.Pat HSE.SrcSpanInfo
+             -> Sem r (S.Pat HSE)
 transformPat (HSE.PVar s name)                 = S.PVar (transformSrcSpan s)
   <$> transformName name
 transformPat (HSE.PInfixApp s pat1 qName pat2)
@@ -361,25 +407,40 @@ transformPat (HSE.PList s pats)                = S.PList (transformSrcSpan s)
 transformPat (HSE.PWildCard s)                 = return
   (S.PWildCard (transformSrcSpan s))
 -- All other patterns are not supported.
-transformPat (HSE.PLit _ _ _)                  = notSupported "Literal patterns"
-transformPat (HSE.PNPlusK _ _ _)               = notSupported "n+k patterns"
-transformPat (HSE.PUnboxedSum _ _ _ _)         = notSupported "Unboxed sums"
-transformPat (HSE.PRec _ _ _)                  = notSupported "Records"
-transformPat (HSE.PAsPat _ _ _)                = notSupported "as-patterns"
-transformPat (HSE.PIrrPat _ _)
-  = notSupported "Irrefutable patterns"
-transformPat (HSE.PatTypeSig _ _ _)
-  = notSupported "Patterns with type signatures"
-transformPat (HSE.PViewPat _ _ _)              = notSupported "View patterns"
-transformPat (HSE.PRPat _ _)                   = notSupported "Regular patterns"
-transformPat (HSE.PXTag _ _ _ _ _)             = notSupported "XML patterns"
-transformPat (HSE.PXETag _ _ _ _)              = notSupported "XML patterns"
-transformPat (HSE.PXPcdata _ _)                = notSupported "XML patterns"
-transformPat (HSE.PXPatTag _ _)                = notSupported "XML patterns"
-transformPat (HSE.PXRPats _ _)                 = notSupported "XML patterns"
-transformPat (HSE.PSplice _ _)                 = notSupported "Template Haskell"
-transformPat (HSE.PQuasiQuote _ _ _)           = notSupported "Template Haskell"
-transformPat (HSE.PBangPat _ _)                = notSupported "Bang patterns"
+transformPat (HSE.PLit s _ _)                  = notSupportedWithExcerpt
+  "Literal patterns" (transformSrcSpan s)
+transformPat (HSE.PNPlusK s _ _)               = notSupportedWithExcerpt
+  "n+k patterns" (transformSrcSpan s)
+transformPat (HSE.PUnboxedSum s _ _ _)         = notSupportedWithExcerpt
+  "Unboxed sums" (transformSrcSpan s)
+transformPat (HSE.PRec s _ _)                  = notSupportedWithExcerpt
+  "Records" (transformSrcSpan s)
+transformPat (HSE.PAsPat s _ _)                = notSupportedWithExcerpt
+  "as-patterns" (transformSrcSpan s)
+transformPat (HSE.PIrrPat s _)                 = notSupportedWithExcerpt
+  "Irrefutable patterns" (transformSrcSpan s)
+transformPat (HSE.PatTypeSig s _ _)            = notSupportedWithExcerpt
+  "Patterns with type signatures" (transformSrcSpan s)
+transformPat (HSE.PViewPat s _ _)              = notSupportedWithExcerpt
+  "View patterns" (transformSrcSpan s)
+transformPat (HSE.PRPat s _)                   = notSupportedWithExcerpt
+  "Regular patterns" (transformSrcSpan s)
+transformPat (HSE.PXTag s _ _ _ _)             = notSupportedWithExcerpt
+  "XML patterns" (transformSrcSpan s)
+transformPat (HSE.PXETag s _ _ _)              = notSupportedWithExcerpt
+  "XML patterns" (transformSrcSpan s)
+transformPat (HSE.PXPcdata s _)                = notSupportedWithExcerpt
+  "XML patterns" (transformSrcSpan s)
+transformPat (HSE.PXPatTag s _)                = notSupportedWithExcerpt
+  "XML patterns" (transformSrcSpan s)
+transformPat (HSE.PXRPats s _)                 = notSupportedWithExcerpt
+  "XML patterns" (transformSrcSpan s)
+transformPat (HSE.PSplice s _)                 = notSupportedWithExcerpt
+  "Template Haskell" (transformSrcSpan s)
+transformPat (HSE.PQuasiQuote s _ _)           = notSupportedWithExcerpt
+  "Template Haskell" (transformSrcSpan s)
+transformPat (HSE.PBangPat s _)                = notSupportedWithExcerpt
+  "Bang patterns" (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
 -- Names                                                                     --
@@ -391,8 +452,9 @@ transformModuleName (HSE.ModuleName s name) = return
   $ S.ModuleName (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified name into an HST qualified name.
-transformQName
-  :: Member Report r => HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
+transformQName :: Members '[InputFile, Report] r
+               => HSE.QName HSE.SrcSpanInfo
+               -> Sem r (S.QName HSE)
 transformQName (HSE.Qual s modName name) = S.Qual (transformSrcSpan s)
   <$> transformModuleName modName
   <*> transformName name
@@ -407,14 +469,16 @@ transformName (HSE.Ident s name)  = return $ S.Ident (transformSrcSpan s) name
 transformName (HSE.Symbol s name) = return $ S.Symbol (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified operator into an HST qualified operator.
-transformQOp :: Member Report r => HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
+transformQOp :: Members '[InputFile, Report] r
+             => HSE.QOp HSE.SrcSpanInfo
+             -> Sem r (S.QOp HSE)
 transformQOp (HSE.QVarOp s qName) = S.QVarOp (transformSrcSpan s)
   <$> transformQName qName
 transformQOp (HSE.QConOp s qName) = S.QConOp (transformSrcSpan s)
   <$> transformQName qName
 
 -- | Transforms an HSE special constructor into an HST special constructor.
-transformSpecialCon :: Member Report r
+transformSpecialCon :: Members '[InputFile, Report] r
                     => HSE.SpecialCon HSE.SrcSpanInfo
                     -> Sem r (S.SpecialCon HSE)
 transformSpecialCon (HSE.UnitCon s)          = return
