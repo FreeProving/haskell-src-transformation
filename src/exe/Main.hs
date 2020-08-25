@@ -19,6 +19,8 @@ import           HST.Effect.Cancel       ( Cancel, cancelToExit )
 import           HST.Effect.Env          ( runEnv )
 import           HST.Effect.Fresh        ( runFresh )
 import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
+import           HST.Effect.InputFile
+  ( InputFile, addInputFile, runInputFile )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
   , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
@@ -86,7 +88,7 @@ application = do
       inputFiles <- getOpt optInputFiles
       if showHelp || null inputFiles
         then embed putUsageInfo
-        else mapM_ processInputFile inputFiles
+        else runInputFile $ mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -100,10 +102,11 @@ application = do
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
 processInputFile
-  :: Members '[Cancel, Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
+  :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r => FilePath -> Sem r ()
 processInputFile inputFilename = do
   input <- embed $ readFile inputFilename
   frontend <- parseFrontend =<< getOpt optFrontend
+  _ <- addInputFile inputFilename input
   (output, moduleName) <- processInput frontend inputFilename input
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
@@ -117,7 +120,7 @@ processInputFile inputFilename = do
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
-processInput :: Members '[Cancel, GetOpt, Report] r
+processInput :: Members '[Cancel, GetOpt, InputFile, Report] r
              => Frontend -- ^ The frontend to use to parse and print the file.
              -> FilePath -- ^ The name of the input file.
              -> String   -- ^ The contents of the input file.
