@@ -7,7 +7,6 @@ module HST.Util.FreeVars
   , freeVars
     -- * Bound Variables
   , BoundVars
-  , boundVarSet
   , boundVars
   ) where
 
@@ -144,59 +143,40 @@ instance FreeVars S.Module where
 -------------------------------------------------------------------------------
 -- | Type class for AST nodes that bind variables.
 class BoundVars node where
-  -- | Gets an ordered set of names of the variables that are bound by the
-  --   given AST node.
-  --
-  --   The names are sorted by their first occurrence from left to right.
-  boundVarOSet :: node a -> OSet (S.Name a)
-
--- | Gets the 'unions' of the bound variables of the given nodes.
-boundVarOSetUnion
-  :: (Foldable t, Functor t, BoundVars node) => t (node a) -> OSet (S.Name a)
-boundVarOSetUnion = unions . fmap boundVarOSet
-
--- | Gets a set of names of the variables that occur freely in the given AST
---   node.
-boundVarSet :: BoundVars node => node a -> Set (S.Name a)
-boundVarSet = OSet.toSet . boundVarOSet
-
--- | Gets the names of the variables that occur freely in the given AST node.
---
---   The names are sorted by their first occurrence from left to right.
-boundVars :: BoundVars node => node a -> [S.Name a]
-boundVars = toList . boundVarOSet
+  -- | Gets the names of the variables that are bound by the given AST node
+  --   sorted by their first occurrence from left to right.
+  boundVars :: node a -> [S.Name a]
 
 -- | Variables are bound by variable patterns.
 instance BoundVars S.Pat where
-  boundVarOSet (S.PVar _ varName)      = OSet.singleton varName
-  boundVarOSet (S.PInfixApp _ p1 _ p2)
-    = boundVarOSet p1 `union` boundVarOSet p2
-  boundVarOSet (S.PApp _ _ pats)       = boundVarOSetUnion pats
-  boundVarOSet (S.PTuple _ _ pats)     = boundVarOSetUnion pats
-  boundVarOSet (S.PParen _ pat)        = boundVarOSet pat
-  boundVarOSet (S.PList _ pats)        = boundVarOSetUnion pats
-  boundVarOSet (S.PWildCard _)         = OSet.empty
+  boundVars (S.PVar _ varName)      = [varName]
+  boundVars (S.PInfixApp _ p1 _ p2) = boundVars p1 ++ boundVars p2
+  boundVars (S.PApp _ _ pats)       = concatMap boundVars pats
+  boundVars (S.PTuple _ _ pats)     = concatMap boundVars pats
+  boundVars (S.PParen _ pat)        = boundVars pat
+  boundVars (S.PList _ pats)        = concatMap boundVars pats
+  boundVars (S.PWildCard _)         = []
 
 -- | Local declarations can bind variables.
 instance BoundVars S.Binds where
-  boundVarOSet (S.BDecls _ decls) = boundVarOSetUnion decls
+  boundVars (S.BDecls _ decls) = concatMap boundVars decls
 
 -- | Declarations can bind variables.
 --
 --   Function declarations are the only supported declarations that can bind
 --   variables.
 instance BoundVars S.Decl where
-  boundVarOSet (S.FunBind _ matches) = boundVarOSetUnion matches
-  boundVarOSet (S.DataDecl _ _ _ _)  = OSet.empty
-  boundVarOSet (S.OtherDecl _ _)     = OSet.empty
+  boundVars (S.FunBind _ matches) = concatMap boundVars matches
+  boundVars (S.DataDecl _ _ _ _)  = []
+  boundVars (S.OtherDecl _ _)     = []
 
 -- | Function declarations bind the name of the declared function.
 --
 --   The arguments and local declarations of the function are not visible to
 --   the outside and thus, not considered to be bound by the function.
 instance BoundVars S.Match where
-  boundVarOSet (S.Match _ name _ _ _)        = OSet.singleton name
-  boundVarOSet (S.InfixMatch _ _ name _ _ _) = OSet.singleton name
+  boundVars (S.Match _ name _ _ _)        = [name]
+  boundVars (S.InfixMatch _ _ name _ _ _) = [name]
 
 -------------------------------------------------------------------------------
 -- Utility functions                                                         --
@@ -232,5 +212,5 @@ withoutBoundVarsUnion :: (Foldable t, BoundVars node)
                       => t (node a)
                       -> OSet (S.QName a)
                       -> OSet (S.QName a)
-withoutBoundVarsUnion binders fvs = foldr OSet.delete fvs
-  $ map S.unQual (concatMap boundVars binders)
+withoutBoundVarsUnion binders fvs = foldr (OSet.delete . S.unQual) fvs
+  $ concatMap boundVars binders

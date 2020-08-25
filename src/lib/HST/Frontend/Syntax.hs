@@ -243,6 +243,34 @@ var name = Var (getSrcSpan name) (toQName name)
 con :: (HasSrcSpan name, QNameLike name) => name a -> Exp a
 con name = Con (getSrcSpan name) (toQName name)
 
+-- | Creates an application expression.
+--
+--   The given source span is inserted into every generated application node.
+app :: SrcSpan a -- ^ The source span to insert.
+    -> Exp a     -- ^ The expression to apply.
+    -> [Exp a]   -- ^ The arguments to apply the expression to.
+    -> Exp a
+app srcSpan = foldr (App srcSpan)
+
+-- | Creates an application expression in infix notation if possible.
+--
+--   If the second given expression is a variable or constructor, an infix
+--   application is created. Otherwise, a regular application expression is
+--   created instead.
+infixApp :: SrcSpan a -- ^ The source span to insert.
+         -> Exp a     -- ^ The left operand.
+         -> Exp a     -- ^ The expression to apply.
+         -> Exp a     -- ^ The right operand.
+         -> Exp a
+infixApp appSrcSpan e1 opExpr e2 = case exprToQOp opExpr of
+  Nothing -> app appSrcSpan opExpr [e1, e2]
+  Just op -> InfixApp appSrcSpan e1 op e2
+ where
+  exprToQOp :: Exp a -> Maybe (QOp a)
+  exprToQOp (Var opSrcSpan opName) = Just (QVarOp opSrcSpan opName)
+  exprToQOp (Con opSrcSpan opName) = Just (QVarOp opSrcSpan opName)
+  exprToQOp _ = Nothing
+
 -- | An alternative in a @case@ expression.
 data Alt a = Alt (SrcSpan a) (Pat a) (Rhs a) (Maybe (Binds a))
 
