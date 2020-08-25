@@ -19,6 +19,8 @@
 
 # Aliases for qualified imports.
 - modules:
+  - {name: [ Data.Set ], as: Set}
+  - {name: [ Data.Set.Ordered ], as: OSet}
   - {name: [ Data.Map.Strict ], as: Map}
   - {name: [ HST.Frontend.GHC.From ], as: FromGHC}
   - {name: [ HST.Frontend.GHC.To ], as: ToGHC}
