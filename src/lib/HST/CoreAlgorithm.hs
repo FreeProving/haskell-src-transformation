@@ -143,7 +143,7 @@ computeAlts x xs eqs er = do
   if null missingCons then return alts else do
     b <- getOpt optTrivialCase
     if b
-      then
+      then 
         -- TODO is 'defaultErrorExp' correct? Why not 'er'?
         return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
       else do
@@ -194,9 +194,10 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
   createAltForMissingCon pat e conEntry = do
     nvars <- replicateM (conEntryArity conEntry)
       (freshVarPat genericFreshPrefix)
-    let p    | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan pat) (head nvars)
-               (conEntryName conEntry) (nvars !! 1)
-             | otherwise = S.PApp (S.getSrcSpan pat) (conEntryName conEntry) nvars
+    let p    | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan pat)
+               (head nvars) (conEntryName conEntry) (nvars !! 1)
+             | otherwise = S.PApp (S.getSrcSpan pat) (conEntryName conEntry)
+               nvars
         p'   = S.patToExp p
         pat' = S.patToExp pat
         e'   = substitute (tSubst pat' p') e
@@ -327,10 +328,8 @@ decomposeConPat (S.PTuple s bxd ps)         = do
 -- Decompose patterns with parentheses recursively.
 decomposeConPat (S.PParen _ p)              = decomposeConPat p
 -- Variable and wildcard patterns don't contain child patterns.
-decomposeConPat (S.PWildCard s)
-  = return (S.PWildCard s, [], [])
-decomposeConPat (S.PVar s name)
-  = return (S.PVar s name, [], [])
+decomposeConPat (S.PWildCard s)             = return (S.PWildCard s, [], [])
+decomposeConPat (S.PVar s name)             = return (S.PVar s name, [], [])
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
