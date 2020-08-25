@@ -2,8 +2,9 @@
 --   with the different front ends to the intermediate syntax and back.
 module HST.Frontend.Transformer ( Transformable(..) ) where
 
-import           Polysemy                ( Member, Sem )
+import           Polysemy                ( Members, Sem )
 
+import           HST.Effect.InputFile    ( InputFile )
 import           HST.Effect.Report       ( Report )
 import           HST.Frontend.GHC.Config ( GHC )
 import qualified HST.Frontend.GHC.From   as FromGHC
@@ -20,13 +21,13 @@ import qualified HST.Frontend.Syntax     as S
 --   can be transformed to and from the intermediate syntax.
 class Transformable a where
   -- | Transforms a parsed module to the intermediate syntax.
-  transformModule :: Member Report r
+  transformModule :: Members '[InputFile, Report] r
                   => ParsedModule a -- ^ The parsed module to transform.
                   -> Sem r (S.Module a)
 
   -- | Transforms a module from the intermediate syntax back to a pretty
   --   printable module.
-  unTransformModule :: Member Report r
+  unTransformModule :: Members '[InputFile, Report] r
                     => S.Module a     -- ^ The module to transform.
                     -> Sem r (ParsedModule a)
 

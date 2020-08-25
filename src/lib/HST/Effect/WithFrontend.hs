@@ -29,6 +29,7 @@ import qualified Data.Map                   as Map
 import           Polysemy                   ( Members, Sem, interpret, makeSem )
 
 import           HST.Effect.Cancel          ( Cancel )
+import           HST.Effect.InputFile       ( InputFile )
 import           HST.Effect.Report          ( Report )
 import           HST.Frontend.GHC.Config    ( GHC )
 import           HST.Frontend.HSE.Config    ( HSE )
@@ -71,7 +72,11 @@ makeSem ''WithFrontend
 --   type class instances for @f@.
 runWithFrontendInstances
   :: forall f r a.
-  (Parsable f, Transformable f, PrettyPrintable f, Members '[Cancel, Report] r)
+  ( Parsable f
+  , Transformable f
+  , PrettyPrintable f
+  , Members '[Cancel, InputFile, Report] r
+  )
   => Sem (WithFrontend f ': r) a
   -> Sem r a
 runWithFrontendInstances = interpret \case
@@ -93,7 +98,7 @@ runWithFrontendInstances = interpret \case
 --   constraints are included to allow computations that need to show or
 --   compare ASTs.
 runWithFrontend
-  :: Members '[Cancel, Report] r
+  :: Members '[Cancel, InputFile, Report] r
   => Frontend
   -> (forall f.
       (Parsable f, Transformable f, PrettyPrintable f, S.EqAST f, S.ShowAST f)
@@ -105,7 +110,7 @@ runWithFrontend GHClib = runWithFrontendInstances @GHC
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running
 --   the computation with the type classes for 'GHC' and 'HSE'.
 runWithAllFrontends
-  :: Members '[Cancel, Report] r
+  :: Members '[Cancel, InputFile, Report] r
   => (forall f.
       (Parsable f, Transformable f, PrettyPrintable f, S.EqAST f, S.ShowAST f)
       => Sem (WithFrontend f ': r) a)
