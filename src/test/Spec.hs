@@ -7,11 +7,13 @@ import           HST.CoreAlgorithmTests ( testCoreAlgorithm )
 import           HST.Effect.CancelTests ( testCancelEffect )
 import           HST.Effect.ReportTests ( testReportEffect )
 import           HST.Util.FreeVarsTests ( testFreeVars )
+import           HST.Util.SubstTests    ( testSubst )
 
 main :: IO ()
 main = hspec $ do
   testApplication
-  testCoreAlgorithm
   testCancelEffect
-  testReportEffect
+  testCoreAlgorithm
   testFreeVars
+  testReportEffect
+  testSubst

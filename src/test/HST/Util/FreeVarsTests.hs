@@ -36,29 +36,35 @@ shouldBeFreeIn idents inputLines = do
 -------------------------------------------------------------------------------
 -- | Test group for "HST.Util.FreeVars".
 testFreeVars :: Spec
-testFreeVars = describe "HST.Util.FreeVars" $ context "freeVars" $ do
-  it "should find free variables" $ runTest $ ["g"] `shouldBeFreeIn` ["f = g"]
-  it "should find free variables in left to right order" $ runTest $ do
-    ["g", "x", "h"] `shouldBeFreeIn` ["f = (g x, h x)"]
-  it "should find free variables in guards" $ runTest $ do
-    ["c", "g"] `shouldBeFreeIn` ["f | c = g"]
-  it "should find unbound variables of local declarations" $ runTest $ do
-    ["h"] `shouldBeFreeIn` ["f = g where g = h"]
-  it "should not contain arguments" $ runTest $ do
-    [] `shouldBeFreeIn` ["id x = x"]
-  it "should not contain local declarations" $ runTest $ do
-    [] `shouldBeFreeIn` ["f = g where g = 42"]
-  it "should not contain recursive calls" $ runTest $ do
-    [] `shouldBeFreeIn` ["repeat x = x : repeat x"]
-  it "should not contain lambda arguments" $ runTest $ do
-    ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
-  it "should not contain lambda arguments" $ runTest $ do
-    ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
-  it "should not contain lambda arguments" $ runTest $ do
-    ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
-  it "should not contain let-bindings" $ runTest $ do
-    ["z", "g"] `shouldBeFreeIn` ["f = let {x = y; y = z} in g x"]
-  it "should not contain patterns of case alternatives" $ runTest $ do
-    ["g"] `shouldBeFreeIn` ["f xy = case xy of (x, y) -> g x y"]
-  it "should contain free variables of guarded case alternatives" $ runTest $ do
-    ["p", "g"] `shouldBeFreeIn` ["f xy = case xy of (x, y) | p x y -> g x y"]
+testFreeVars = describe "HST.Util.FreeVars" $ do
+  context "freeVars" $ do
+    it "should find free variables"
+      $ runTest
+      $ ["g"] `shouldBeFreeIn` ["f = g"]
+    it "should find free variables in left to right order" $ runTest $ do
+      ["g", "x", "h"] `shouldBeFreeIn` ["f = (g x, h x)"]
+    it "should find free variables in guards" $ runTest $ do
+      ["c", "g"] `shouldBeFreeIn` ["f | c = g"]
+    it "should find unbound variables of local declarations" $ runTest $ do
+      ["h"] `shouldBeFreeIn` ["f = g where g = h"]
+    it "should not contain arguments" $ runTest $ do
+      [] `shouldBeFreeIn` ["id x = x"]
+    it "should not contain local declarations" $ runTest $ do
+      [] `shouldBeFreeIn` ["f = g where g = 42"]
+    it "should not contain recursive calls" $ runTest $ do
+      [] `shouldBeFreeIn` ["repeat x = x : repeat x"]
+    it "should not contain lambda arguments" $ runTest $ do
+      ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
+    it "should not contain lambda arguments" $ runTest $ do
+      ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
+    it "should not contain lambda arguments" $ runTest $ do
+      ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
+    it "should not contain let-bindings" $ runTest $ do
+      ["z", "g"] `shouldBeFreeIn` ["f = let {x = y; y = z} in g x"]
+    it "should not contain patterns of case alternatives" $ runTest $ do
+      ["g"] `shouldBeFreeIn` ["f xy = case xy of (x, y) -> g x y"]
+    it "should contain free variables of guarded case alternatives"
+      $ runTest
+      $ do
+        ["p", "g"]
+          `shouldBeFreeIn` ["f xy = case xy of (x, y) | p x y -> g x y"]
