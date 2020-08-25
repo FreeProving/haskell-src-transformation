@@ -126,7 +126,7 @@ displayCodeExcerpt src@S.SrcSpan {} = do
            -- A line below the excerpt marking the end of the spanned code.
            _ : _ : _ ->
              let maxLineLength = maximum
-                   (S.srcSpanEndColumn src - 1 : (map length (init ls)))
+                   (S.srcSpanEndColumn src - 1 : map length (init ls))
                  minPadding    = minimum
                    (S.srcSpanStartColumn src - 1
                     : map (length . takeWhile (== ' ')) (tail ls))
