@@ -22,6 +22,7 @@ import           HST.Effect.WithFrontend
   , transformModule, unTransformModule )
 import           HST.Frontend.Parser       ( ParsedModule )
 import qualified HST.Frontend.Syntax       as S
+import           HST.Util.Selectors        ( getIdentifiers )
 
 -------------------------------------------------------------------------------
 -- Utility Functions                                                         --
@@ -62,7 +63,8 @@ shouldTransformTo
 shouldTransformTo input expectedOutput = do
   inputModule <- parseTestModule input
   inputModule' <- transformModule inputModule
-  outputModule <- runEnv . runFresh $ processModule inputModule'
+  outputModule <- runEnv . runFresh (getIdentifiers inputModule')
+    $ processModule inputModule'
   outputModule' <- unTransformModule outputModule
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule' `prettyModuleShouldBe` expectedOutputModule
