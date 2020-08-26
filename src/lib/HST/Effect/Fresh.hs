@@ -20,8 +20,11 @@ module HST.Effect.Fresh
   , genericFreshPrefix
   ) where
 
+import           Control.Monad.Extra ( whileM )
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
+import           Data.Set            ( Set )
+import qualified Data.Set            as Set
 import           Polysemy            ( Member, Sem, makeSem, reinterpret )
 import           Polysemy.State      ( State, evalState, gets, modify )
 
@@ -57,17 +60,22 @@ freshVarPat prefix = S.PVar S.NoSrcSpan <$> freshName prefix
 -------------------------------------------------------------------------------
 -- | Interprets a computation that needs fresh variables by generating
 --   identifiers of the form @<prefix><N>@.
-runFresh :: Sem (Fresh ': r) a -> Sem r a
-runFresh = evalState Map.empty . freshToState
+runFresh :: Set String -> Sem (Fresh ': r) a -> Sem r a
+runFresh usedIdentifiers = evalState Map.empty . freshToState usedIdentifiers
  where
   -- | Reinterprets 'Fresh' in terms of 'State'.
-  freshToState :: Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
-  freshToState = reinterpret \case
+  freshToState :: Set String -> Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
+  freshToState usedIdentifiers = reinterpret \case
     FreshIdent prefix -> do
       nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
-      modify $ Map.insert prefix (nextId + 1)
-      return (prefix ++ show nextId)
+      let newId = while (\n -> (prefix ++ show n) `Set.member` usedIdentifiers) (+1) nextId
+      modify $ Map.insert prefix (newId)
+      return (prefix ++ show newId)
 
+   -- Applies a given function to a given value as long as the condition holds
+while :: (a -> Bool) -> (a -> a) -> a -> a
+while p f x | p x       = x
+            | otherwise = while p f (f x)
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --
 -------------------------------------------------------------------------------

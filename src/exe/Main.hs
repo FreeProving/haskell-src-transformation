@@ -29,6 +29,7 @@ import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
+import           HST.Util.Selectors ( getIdentifiers )
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --
@@ -125,7 +126,7 @@ processInput :: Members '[Cancel, GetOpt, Report] r
 processInput frontend inputFilename input = runWithFrontend frontend $ do
   inputModule <- parseModule inputFilename input
   intermediateModule <- transformModule inputModule
-  outputModule <- runEnv . runFresh $ do
+  outputModule <- runEnv . runFresh (getIdentifiers intermediateModule) $ do
     intermediateModule' <- processModule intermediateModule
     unTransformModule intermediateModule'
   output <- prettyPrintModule outputModule

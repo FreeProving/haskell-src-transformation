@@ -5,12 +5,16 @@ module HST.Util.Selectors
     expFromUnguardedRhs
     -- * Pattern Names
   , getAltConName
+  , getIdentifiers
   , getPatConName
   , getMaybePatConName
   , getPatVarName
   ) where
 
 import           Polysemy            ( Member, Members, Sem, run )
+
+import           Data.Set            ( Set )
+import qualified Data.Set            as Set
 
 import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
 import           HST.Effect.Report
@@ -89,3 +93,12 @@ getPatVarName (S.PTuple _ _ _) = reportFatal
 getPatVarName (S.PList _ _) = reportFatal
   $ Message Error
   $ "Expected variable or wildcard pattern, got list pattern."
+
+getIdentifiers :: S.Module a -> Set String
+getIdentifiers (S.Module _ _ _ decls) = Set.empty -- Set.unions (map getIdentifiersDecl decls)
+
+getIdentifiersDecl :: S.Decl a -> Set String
+getIdentifiersDecl (S.DataDecl _ _ _ _) = Set.empty
+getIdentifiersDecl (S.FunBind _ ms) = Set.unions (map getIdentifiersMatch ms)
+
+getIdentifiersMatch = undefined
