@@ -167,8 +167,10 @@ instance ApplySubst S.Exp where
 
 -- Substitutions can be applied to alternatives of @case@-expressions.
 instance ApplySubst S.Alt where
-  applySubst subst (S.Alt srcSpan pat rhs mBinds)
-    = let (subst', [pat'], mBinds') = renamePatternsAndBinds subst [pat] mBinds
+  applySubst subst alt@(S.Alt srcSpan pat rhs mBinds)
+    = let fvs = subst `substFreeVarSetIn` alt
+          (renaming, [pat'], mBinds') = renamePatternsAndBinds fvs [pat] mBinds
+          subst' = subst `extendSubst` renaming
           rhs' = applySubst subst' rhs
           mBinds'' = fmap (applySubst subst') mBinds'
       in S.Alt srcSpan pat' rhs' mBinds''
@@ -192,14 +194,18 @@ instance ApplySubst S.Decl where
 
 -- | Substitutions can be applied to matches of function declarations.
 instance ApplySubst S.Match where
-  applySubst subst (S.Match srcSpan name args rhs mBinds)
-    = let (subst', args', mBinds') = renamePatternsAndBinds subst args mBinds
-          rhs'                     = applySubst subst' rhs
-          mBinds''                 = fmap (applySubst subst') mBinds'
+  applySubst subst match@(S.Match srcSpan name args rhs mBinds)
+    = let fvs = subst `substFreeVarSetIn` match
+          (renaming, args', mBinds') = renamePatternsAndBinds fvs args mBinds
+          subst' = subst `extendSubst` renaming
+          rhs' = applySubst subst' rhs
+          mBinds'' = fmap (applySubst subst') mBinds'
       in S.Match srcSpan name args' rhs' mBinds''
-  applySubst subst (S.InfixMatch srcSpan arg name args rhs mBinds)
-    = let (subst', arg' : args', mBinds') = renamePatternsAndBinds subst
+  applySubst subst match@(S.InfixMatch srcSpan arg name args rhs mBinds)
+    = let fvs = subst `substFreeVarSetIn` match
+          (renaming, arg' : args', mBinds') = renamePatternsAndBinds fvs
             (arg : args) mBinds
+          subst' = subst `extendSubst` renaming
           rhs' = applySubst subst' rhs
           mBinds'' = fmap (applySubst subst') mBinds'
       in S.InfixMatch srcSpan arg' name args' rhs' mBinds''
@@ -246,28 +252,43 @@ substFreeVarSetIn subst node
 -------------------------------------------------------------------------------
 -- Renaming Bound Variables                                                  --
 -------------------------------------------------------------------------------
--- | TODO
+-- | Renames the given patterns such that there is no variable pattern that
+--   binds one of the given names.
+--
+--   Returns the renamed patterns and a substitution that replaces the old
+--   names by the new names including the names that have not changed.
 renamePatterns :: Set (S.QName a) -> [S.Pat a] -> (Subst a, [S.Pat a])
 renamePatterns = foldRenameBoundVars
 
--- | TODO
+-- | Renames the given local declarations such that there is no local
+--   declaration that binds one of the given names.
+--
+--   Returns the renamed local declarations and a substitution that replaces
+--   the old names by the new names including the names that have not changed.
 renameBinds :: Set (S.QName a) -> S.Binds a -> (Subst a, S.Binds a)
-renameBinds subst (S.BDecls srcSpan decls)
-  = S.BDecls srcSpan <$> foldRenameBoundVars subst decls
+renameBinds fvs (S.BDecls srcSpan decls)
+  = S.BDecls srcSpan <$> foldRenameBoundVars fvs decls
 
--- | TODO
-renamePatternsAndBinds :: Subst a
+-- | Combines an application of 'renamePatterns' with an optional application
+--   of 'renameBinds'.
+--
+--   This function is used to rename the variables that are bound by @case@
+--   expression alternatives and function matches.
+renamePatternsAndBinds :: Set (S.QName a)
                        -> [S.Pat a]
                        -> Maybe (S.Binds a)
                        -> (Subst a, [S.Pat a], Maybe (S.Binds a))
-renamePatternsAndBinds subst pats mBinds
-  = let (subst', pats')    = renamePatterns (substFreeVarSet subst) pats
-        (subst'', mBinds') = maybe (subst', mBinds)
-          (fmap Just . renameBinds (substFreeVarSet subst')) mBinds
-    in (subst'', pats', mBinds')
+renamePatternsAndBinds fvs pats mBinds
+  = let (renaming, pats')    = renamePatterns fvs pats
+        (renaming', mBinds') = maybe (identitySubst, Nothing)
+          (fmap Just . renameBinds fvs) mBinds
+    in (renaming `extendSubst` renaming', pats', mBinds')
 
 -- | Renames the variables that are bound by the given nodes such that the
 --   variables with the given names are not captured.
+--
+--    Returns the renamed nodes and a substitution that replaces the old
+--    names by the new names including the names that have not changed.
 foldRenameBoundVars
   :: (BoundVars node)
   => Set (S.QName a) -- ^ The variables that must not be captured.
