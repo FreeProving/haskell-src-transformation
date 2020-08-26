@@ -107,7 +107,7 @@ processInputFile :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r
 processInputFile inputFilename = do
   input <- embed $ readFile inputFilename
   frontend <- parseFrontend =<< getOpt optFrontend
-  _ <- addInputFile inputFilename input
+  addInputFile inputFilename input
   (output, moduleName) <- processInput frontend inputFilename input
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of

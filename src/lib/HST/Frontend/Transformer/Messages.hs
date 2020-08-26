@@ -83,7 +83,7 @@ displayCodeExcerpt src@S.SrcSpan {} = do
   --   exclusive. Invalid indices do not cause runtime errors.
   --   Example: getLines 1 3 [1, 2, 3, 4, 5] = [2, 3]
   getLines :: Int -> Int -> [a] -> [a]
-  getLines i1 i2 ls = (take (i2 - i1) . drop i1) ls
+  getLines i1 i2 = take (i2 - i1) . drop i1
 
   -- | Tests if a source span is valid by checking if the locations specified
   --   in the source span do exist in the given lines.
