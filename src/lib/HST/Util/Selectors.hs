@@ -98,16 +98,19 @@ getPatVarName (S.PList _ _) = reportFatal
 -------------------------------------------------------------------------------
 -- Find identifiers in a programs                                                             --
 -------------------------------------------------------------------------------
+-- | Collects all identifiers in a module in a set.
 getIdentifiers :: S.Module a -> Set String
 getIdentifiers (S.Module _ _ _ decls) = Set.unions
   (map getIdentifiersDecl decls)
 
+-- | Collects all identifiers in a declaration.
 getIdentifiersDecl :: S.Decl a -> Set String
 getIdentifiersDecl (S.DataDecl _ _ _ _) = Set.empty
 getIdentifiersDecl (S.FunBind _ ms)     = Set.unions
   (map getIdentifiersMatch ms)
 getIdentifiersDecl (S.OtherDecl _ _)    = Set.empty
 
+-- | Collects all identifiers in a pattern matching rule.
 getIdentifiersMatch :: S.Match a -> Set String
 getIdentifiersMatch (S.Match _ name pats rhs binds)          = Set.unions
   [ Set.singleton (prettyName name)
@@ -122,6 +125,7 @@ getIdentifiersMatch (S.InfixMatch _ pat name pats rhs binds) = Set.unions
   , maybe Set.empty getIdentifiersBinds binds
   ]
 
+-- | Collects all identifiers in a pattern.
 getIdentifiersPat :: S.Pat a -> Set String
 getIdentifiersPat (S.PVar _ name)                 = Set.singleton
   (prettyName name)
@@ -137,15 +141,18 @@ getIdentifiersPat (S.PList _ pats)                = Set.unions
   (map getIdentifiersPat pats)
 getIdentifiersPat (S.PWildCard _)                 = Set.empty
 
+-- | Collects all identifiers in a right-hand side of a pattern matching rule.
 getIdentifiersRhs :: S.Rhs a -> Set String
 getIdentifiersRhs (S.UnGuardedRhs _ expr) = getIdentifiersExp expr
 getIdentifiersRhs (S.GuardedRhss _ grhss) = Set.unions
   (map getIdentifiersGRhs grhss)
 
+-- | Collects all identifiers in a guarded right-hand side.
 getIdentifiersGRhs :: S.GuardedRhs a -> Set String
 getIdentifiersGRhs (S.GuardedRhs _ cond expr) = Set.union
   (getIdentifiersExp cond) (getIdentifiersExp expr)
 
+-- | Collects all identifiers in an expression.
 getIdentifiersExp :: S.Exp a -> Set String
 getIdentifiersExp (S.Var _ qname)            = Set.singleton (prettyName qname)
 getIdentifiersExp (S.Con _ qname)            = Set.singleton (prettyName qname)
@@ -171,10 +178,12 @@ getIdentifiersExp (S.List _ exps)            = Set.unions
 getIdentifiersExp (S.Paren _ expr)           = getIdentifiersExp expr
 getIdentifiersExp (S.ExpTypeSig _ expr _)    = getIdentifiersExp expr
 
+-- | collects all identifiers in a `case` alternative.
 getIdentifiersAlt :: S.Alt a -> Set String
 getIdentifiersAlt (S.Alt _ pat rhs binds) = Set.union (getIdentifiersPat pat)
   (Set.union (getIdentifiersRhs rhs) (maybe Set.empty getIdentifiersBinds binds))
 
+-- | Collects all identifiers in `let` and `while` bindings.
 getIdentifiersBinds :: S.Binds a -> Set String
 getIdentifiersBinds (S.BDecls _ decls) = Set.unions
   (map getIdentifiersDecl decls)
