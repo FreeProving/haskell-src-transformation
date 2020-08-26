@@ -10,9 +10,13 @@
 - ignore: {name: "Redundant $"}
 - ignore: {name: "Redundant do"}
 
-# Duplication makes the test code easier to read.
-- ignore: {name: "Reduce duplication"
-          , within: ["HST.Effect.ReportTests", "HST.Util.SubstTests"]}
+# Duplication often makes test code easier to read.
+- ignore:
+    name: "Reduce duplication"
+    within:
+    - "HST.Effect.ReportTests"
+    - "HST.Util.Subst"
+    - "HST.Util.SubstTests"
 
 # Aliases for qualified imports.
 - modules:
