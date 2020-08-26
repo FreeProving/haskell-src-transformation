@@ -85,8 +85,10 @@ useAlgo ms = do
   eqs <- mapM matchToEquation ms
   let name  = getMatchName (head ms)
       arity = length (fst (head eqs))
-  nVars <- replicateM arity (freshVarPat genericFreshPrefix)
-  nExp <- match nVars eqs defaultErrorExp
+      varNames = concatMap vars (fst (head eqs))
+      prefix = longest genericFreshPrefix varNames
+  nVars <- replicateM arity (freshVarPat prefix)
+  nExp <- match prefix nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return
     $ S.Match S.NoSrcSpan name nVars (S.UnGuardedRhs S.NoSrcSpan nExp') Nothing
@@ -101,6 +103,22 @@ useAlgo ms = do
   matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
     expr <- expFromUnguardedRhs rhs
     return (pat : pats, expr)
+
+  vars :: S.Pat a -> [String]
+  vars (S.PVar _ name) = [getString name]
+  vars (S.PInfixApp _ p1 _ p2) = vars p1 ++ vars p2
+  vars (S.PApp _ _ ps) = concatMap vars ps
+  vars (S.PTuple _ _ ps) = concatMap vars ps
+  vars (S.PParen _ p) = vars p
+  vars (S.PList _ ps) = concatMap vars ps
+  vars (S.PWildcard _) = []
+
+  longest :: String -> [String] -> String
+  longest def []     = def
+  longest def (s:ss) = if length s < length def
+                       then longest def ss
+                       else longest s ss
+
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --
