@@ -87,7 +87,7 @@ composeSubsts = foldl composeSubst identitySubst
 --
 --   yields the substitution.
 --
---   > σ₂ ∘ σ₁ = { x₁ ↦ e₁, …, xₙ ↦ eₙ, y₁ ↦ f₁, …, yₘ ↦ fₘ }
+--   > σ₂ ∪ σ₁ = { x₁ ↦ e₁, …, xₙ ↦ eₙ, y₁ ↦ f₁, …, yₘ ↦ fₘ }
 --
 --   If a @xᵢ@ equals an @yⱼ@, the substitution for @yⱼ@ takes precedence.
 extendSubst :: Subst a -> Subst a -> Subst a
