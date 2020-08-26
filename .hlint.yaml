@@ -5,10 +5,6 @@
 # Record patterns don't improve the readability of the code necessarily.
 - ignore: {name: "Use record patterns"}
 
-# In the renaming module substitutions are modeled as functions.
-# The usage of lambda abstractions actually improves the readability.
-- ignore: {name: "Redundant lambda", within: ["HST.Environment.Renaming"]}
-
 # When reporting errors and in the test suite we are using `$` and `do` to
 # format code correctly.
 - ignore: {name: "Redundant $"}

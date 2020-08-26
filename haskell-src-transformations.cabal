@@ -94,7 +94,6 @@ library
                     , HST.Environment
                     , HST.Environment.LookupOrReport
                     , HST.Environment.Prelude
-                    , HST.Environment.Renaming
                     , HST.Feature.CaseCompletion
                     , HST.Feature.GuardElimination
                     , HST.Feature.Optimization
