@@ -173,8 +173,7 @@ getIdentifiersExp (S.ExpTypeSig _ expr _)    = getIdentifiersExp expr
 
 getIdentifiersAlt :: S.Alt a -> Set String
 getIdentifiersAlt (S.Alt _ pat rhs binds) = Set.union (getIdentifiersPat pat)
-  (Set.union (getIdentifiersRhs rhs) (maybe Set.empty
-  getIdentifiersBinds binds))
+  (Set.union (getIdentifiersRhs rhs) (maybe Set.empty getIdentifiersBinds binds))
 
 getIdentifiersBinds :: S.Binds a -> Set String
 getIdentifiersBinds (S.BDecls _ decls) = Set.unions
