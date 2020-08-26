@@ -223,12 +223,48 @@ instance ApplySubst S.GuardedRhs where
       in S.GuardedRhs srcSpan e1' e2'
 
 -------------------------------------------------------------------------------
+-- Free Variables of Substitutions                                           --
+-------------------------------------------------------------------------------
+-- | Gets the names of free variables that occur freely on right-hand sides
+--   of mappings of the given
+substFreeVarSet :: Subst a -> Set (S.QName a)
+substFreeVarSet = Set.unions . map freeVarSet . Map.elems . substMap
+
+-- | Gets the names of variables that occur freely in the given node and on
+--   the right-hand sides of mappings of the given substitution for the free
+--   variables of the node.
+--
+--   This function is used to determine the set of variable names that must
+--   not be captured by (renamed) binders of the given node when the given
+--   substitution is applied.
+substFreeVarSetIn :: FreeVars node => Subst a -> node a -> Set (S.QName a)
+substFreeVarSetIn subst node
+  = let fvs    = freeVarSet node
+        subst' = Subst (substMap subst `Map.restrictKeys` fvs)
+    in substFreeVarSet subst' `Set.union` fvs
+
+-------------------------------------------------------------------------------
 -- Renaming Bound Variables                                                  --
 -------------------------------------------------------------------------------
--- | The prefix to use for fresh variables when renaming a symbolic
---   identifier.
-freshSymbolPrefix :: String
-freshSymbolPrefix = "x"
+-- | TODO
+renamePatterns :: Set (S.QName a) -> [S.Pat a] -> (Subst a, [S.Pat a])
+renamePatterns = foldRenameBoundVars
+
+-- | TODO
+renameBinds :: Set (S.QName a) -> S.Binds a -> (Subst a, S.Binds a)
+renameBinds subst (S.BDecls srcSpan decls)
+  = S.BDecls srcSpan <$> foldRenameBoundVars subst decls
+
+-- | TODO
+renamePatternsAndBinds :: Subst a
+                       -> [S.Pat a]
+                       -> Maybe (S.Binds a)
+                       -> (Subst a, [S.Pat a], Maybe (S.Binds a))
+renamePatternsAndBinds subst pats mBinds
+  = let (subst', pats')    = renamePatterns (substFreeVarSet subst) pats
+        (subst'', mBinds') = maybe (subst', mBinds)
+          (fmap Just . renameBinds (substFreeVarSet subst')) mBinds
+    in (subst'', pats', mBinds')
 
 -- | Renames the variables that are bound by the given nodes such that the
 --   variables with the given names are not captured.
@@ -279,17 +315,40 @@ renameBoundVars' fvs (bv : bvs)
 renameBoundVar :: Set (S.QName a) -- ^ The variables that must not be captured.
                -> S.Name a        -- ^ The bound variable to rename.
                -> S.Name a
-renameBoundVar fvs bv | capturesFreeVar fvs bv = renameBoundVar' fvs bv 0
-                      | otherwise = bv
-
-renameBoundVar' :: Set (S.QName a) -- ^ The variables that must not be captured.
-                -> S.Name a        -- ^ The bound variable to rename.
-                -> Int             -- ^ The suffix to append to the variable.
-                -> S.Name a
-renameBoundVar' fvs bv n
-  | capturesFreeVar fvs bv' = renameBoundVar' fvs bv (n + 1)
-  | otherwise = bv'
+renameBoundVar fvs bv = head (filter notCaptures (bv : suggestFreshNames bv))
  where
+  -- | Tests whether the given bound variable does not capture any variable
+  --   in 'fvs'.
+  {- notCaptures :: S.Name a -> Bool -}
+  notCaptures bv' = S.unQual bv' `Set.notMember` fvs
+
+-------------------------------------------------------------------------------
+-- Generating Fresh Names for Bound Variables                                --
+-------------------------------------------------------------------------------
+-- | The prefix to use for fresh variables when renaming a symbolic
+--   identifier.
+freshSymbolPrefix :: String
+freshSymbolPrefix = "x"
+
+-- | Generates an infinite list of fresh names to try when renaming a bound
+--   variable with the given name.
+--
+--   The suggested names are derived from the original name by adding a @_N@
+--   suffix where @N@ is a natural number. If the variable has a @_N@ suffix
+--   of the form @_N@ already, the original suffix is replaced by the new one.
+--
+--   If the original name is a symbol, the generated names start with the
+--   prefix @x@.
+suggestFreshNames :: S.Name a -> [S.Name a]
+suggestFreshNames name
+  = [S.Ident srcSpan (prefix ++ "_" ++ show n) | n <- [0 :: Integer ..]]
+ where
+  -- | The source span of the original name.
+  --
+  --   The source span information is preserved.
+  {- srcSpan :: SrcSpan a -}
+  srcSpan = S.getSrcSpan name
+
   -- | The prefix for the fresh variable (i.e., the new identifier without
   --   the @_N@ suffix).
   --
@@ -297,7 +356,7 @@ renameBoundVar' fvs bv n
   --   variable. If the variable has a @_N@ suffix already, it is removed.
   --   If the variable is a symbol, 'freshSymbolPrefix' is used instead.
   prefix :: String
-  prefix = case bv of
+  prefix = case name of
     S.Ident _ ident -> removeSuffix ident
     S.Symbol _ _    -> freshSymbolPrefix
 
@@ -310,47 +369,3 @@ renameBoundVar' fvs bv n
                        in if not (null ident') && all isDigit suffix
                             then dropEnd1 ident'
                             else ident
-
-  -- | The name of the fresh variable.
-  {- bv' :: S.Name a -}
-  bv' = S.Ident (S.getSrcSpan bv) (prefix ++ "_" ++ show n)
-
--- | Tests whether the given bound variable capture one of the given variables.
-capturesFreeVar :: Set (S.QName a) -- ^ The variables that must not be captured.
-                -> S.Name a        -- ^ The bound variable to rename.
-                -> Bool
-capturesFreeVar fvs bv = S.unQual bv `Set.member` fvs
-
--- | Gets the names of free variables that occur freely on right-hand sides
---   of mappings of the given
-substFreeVarSet :: Subst a -> Set (S.QName a)
-substFreeVarSet = Set.unions . map freeVarSet . Map.elems . substMap
-
--- | Gets the names of variables that occur freely in the given node and on
---   the right-hand sides of mappings of the given substitution for the free
---   variables of the node.
-substFreeVarSetIn :: FreeVars node => Subst a -> node a -> Set (S.QName a)
-substFreeVarSetIn subst node
-  = let fvs    = freeVarSet node
-        subst' = Subst (substMap subst `Map.restrictKeys` fvs)
-    in substFreeVarSet subst' `Set.union` fvs
-
--- | TODO
-renamePatterns :: Set (S.QName a) -> [S.Pat a] -> (Subst a, [S.Pat a])
-renamePatterns = foldRenameBoundVars
-
--- | TODO
-renameBinds :: Set (S.QName a) -> S.Binds a -> (Subst a, S.Binds a)
-renameBinds subst (S.BDecls srcSpan decls) =
-  S.BDecls srcSpan <$> foldRenameBoundVars subst decls
-
--- | TODO
-renamePatternsAndBinds :: Subst a
-                       -> [S.Pat a]
-                       -> Maybe (S.Binds a)
-                       -> (Subst a, [S.Pat a], Maybe (S.Binds a))
-renamePatternsAndBinds subst pats mBinds
-  = let (subst', pats')    = renamePatterns (substFreeVarSet subst) pats
-        (subst'', mBinds') = maybe (subst', mBinds)
-          (fmap Just . renameBinds (substFreeVarSet subst')) mBinds
-    in (subst'', pats', mBinds')
