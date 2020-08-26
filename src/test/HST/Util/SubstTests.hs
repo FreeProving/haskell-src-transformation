@@ -143,6 +143,32 @@ testSubst = describe "HST.Util.Subst" $ do
         $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x]
         (S.Tuple S.NoSrcSpan S.Boxed [S.var x, S.var z])
       setExpectation (e' `shouldBe` expected)
+    it "does not rename bound variables that capture unused free variables"
+      $ runTest
+      $ do
+        -- σ    = { x ↦ y }
+        -- e    = \y -> y
+        -- σ(e) = \y -> y
+        let subst = singleSubst (S.unQual x) (S.var y)
+            e     = S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan y]
+              (S.Tuple S.NoSrcSpan S.Boxed [S.var y])
+        e' <- currentFrontendSyntax $ applySubst subst e
+        expected <- currentFrontendSyntax
+          $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan y]
+          (S.Tuple S.NoSrcSpan S.Boxed [S.var y])
+        setExpectation (e' `shouldBe` expected)
+    it "avoids capture by renaming variables" $ runTest $ do
+      -- σ    = { y ↦ x }
+      -- e    = \x   -> (x, x_0, y)
+      -- σ(e) = \x_1 -> (x_1, x_0, x)
+      let subst = singleSubst (S.unQual y) (S.var x)
+          e     = S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x]
+            (S.Tuple S.NoSrcSpan S.Boxed [S.var x, S.var x_0, S.var y])
+      e' <- currentFrontendSyntax $ applySubst subst e
+      expected <- currentFrontendSyntax
+        $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x_1]
+        (S.Tuple S.NoSrcSpan S.Boxed [S.var x_1, S.var x_0, S.var x])
+      setExpectation (e' `shouldBe` expected)
     it "avoids capture of renamed variables" $ runTest $ do
       -- σ    = { y ↦ x }
       -- e    = \x   x_0 -> (x, x_0, y)

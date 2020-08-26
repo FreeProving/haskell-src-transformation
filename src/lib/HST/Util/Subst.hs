@@ -27,7 +27,7 @@ import           Data.Tuple.Extra    ( (***) )
 
 import qualified HST.Frontend.Syntax as S
 import           HST.Util.FreeVars
-  ( BoundVars, boundVars, freeVarSet, withBoundVars )
+  ( BoundVars, FreeVars, boundVars, freeVarSet, withBoundVars )
 
 -------------------------------------------------------------------------------
 -- Substitutions                                                             --
@@ -121,9 +121,11 @@ instance ApplySubst S.Exp where
   -- The arguments of lambda abstractions and bindings of @let@ expressions
   -- must be renamed such that the substitution does not introduce name
   -- conflicts.
-  applySubst subst (S.Lambda srcSpan args expr)
-    = let (subst', args') = renamePatterns subst args
-          expr'           = applySubst subst' expr
+  applySubst subst lambdaExpr@(S.Lambda srcSpan args expr)
+    = let fvs               = subst `substFreeVarSetIn` lambdaExpr
+          (renaming, args') = foldRenameBoundVars fvs args
+          subst'            = subst `extendSubst` renaming
+          expr'             = applySubst subst' expr
       in S.Lambda srcSpan args' expr'
   applySubst subst (S.Let srcSpan binds expr)
     = let (subst', binds') = renameBinds subst binds
@@ -317,15 +319,19 @@ capturesFreeVar :: Set (S.QName a) -- ^ The variables that must not be captured.
                 -> Bool
 capturesFreeVar fvs bv = S.unQual bv `Set.member` fvs
 
--- | Gets the names of free variables that occur on the
+-- | Gets the names of free variables that occur freely on right-hand sides
+--   of mappings of the given
 substFreeVarSet :: Subst a -> Set (S.QName a)
 substFreeVarSet = Set.unions . map freeVarSet . Map.elems . substMap
 
--- | TODO
-renamePatterns :: Subst a -> [S.Pat a] -> (Subst a, [S.Pat a])
-renamePatterns subst pats
-  = let (renaming, pats') = foldRenameBoundVars (substFreeVarSet subst) pats
-    in (subst `extendSubst` renaming, pats')
+-- | Gets the names of variables that occur freely in the given node and on
+--   the right-hand sides of mappings of the given substitution for the free
+--   variables of the node.
+substFreeVarSetIn :: FreeVars node => Subst a -> node a -> Set (S.QName a)
+substFreeVarSetIn subst node
+  = let fvs    = freeVarSet node
+        subst' = Subst (substMap subst `Map.restrictKeys` fvs)
+    in substFreeVarSet subst' `Set.union` fvs
 
 -- | TODO
 renameBinds :: Subst a -> S.Binds a -> (Subst a, S.Binds a)
@@ -337,7 +343,7 @@ renamePatternsAndBinds :: Subst a
                        -> Maybe (S.Binds a)
                        -> (Subst a, [S.Pat a], Maybe (S.Binds a))
 renamePatternsAndBinds subst pats mBinds
-  = let (subst', pats')    = renamePatterns subst pats
+  = let (subst', pats')    = foldRenameBoundVars (substFreeVarSet subst) pats
         (subst'', mBinds') = maybe (subst', mBinds)
           (fmap Just . renameBinds subst') mBinds
     in (subst'', pats', mBinds')
