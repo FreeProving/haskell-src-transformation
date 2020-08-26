@@ -113,13 +113,13 @@ getIdentifiersMatch (S.Match _ name pats rhs binds)          = Set.unions
   [ Set.singleton (prettyName name)
   , Set.unions (map getIdentifiersPat pats)
   , getIdentifiersRhs rhs
-  , maybe Set.empty (getIdentifiersBinds binds)
+  , maybe Set.empty getIdentifiersBinds binds
   ]
 getIdentifiersMatch (S.InfixMatch _ pat name pats rhs binds) = Set.unions
   [ Set.singleton (prettyName name)
   , Set.unions (map getIdentifiersPat (pat : pats))
   , getIdentifiersRhs rhs
-  , maybe Set.empty (getIdentifiersBinds binds)
+  , maybe Set.empty getIdentifiersBinds binds
   ]
 
 getIdentifiersPat :: S.Pat a -> Set String
@@ -173,8 +173,8 @@ getIdentifiersExp (S.ExpTypeSig _ expr _)    = getIdentifiersExp expr
 
 getIdentifiersAlt :: S.Alt a -> Set String
 getIdentifiersAlt (S.Alt _ pat rhs binds) = Set.union (getIdentifiersPat pat)
-  (Set.union (getIdentifiersRhs rhs) maybe Set.empty
-   (fmap getIdentifiersBinds binds))
+  (Set.union (getIdentifiersRhs rhs) (maybe Set.empty
+  getIdentifiersBinds binds))
 
 getIdentifiersBinds :: S.Binds a -> Set String
 getIdentifiersBinds (S.BDecls _ decls) = Set.unions
