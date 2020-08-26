@@ -123,14 +123,16 @@ instance ApplySubst S.Exp where
   -- conflicts.
   applySubst subst lambdaExpr@(S.Lambda srcSpan args expr)
     = let fvs               = subst `substFreeVarSetIn` lambdaExpr
-          (renaming, args') = foldRenameBoundVars fvs args
+          (renaming, args') = renamePatterns fvs args
           subst'            = subst `extendSubst` renaming
           expr'             = applySubst subst' expr
       in S.Lambda srcSpan args' expr'
-  applySubst subst (S.Let srcSpan binds expr)
-    = let (subst', binds') = renameBinds subst binds
-          binds''          = applySubst subst' binds'
-          expr'            = applySubst subst' expr
+  applySubst subst letExpr@(S.Let srcSpan binds expr)
+    = let fvs                = subst `substFreeVarSetIn` letExpr
+          (renaming, binds') = renameBinds fvs binds
+          subst'             = subst `extendSubst` renaming
+          binds''            = applySubst subst' binds'
+          expr'              = applySubst subst' expr
       in S.Let srcSpan binds'' expr'
   -- Substitute recursively.
   applySubst subst (S.App srcSpan e1 e2)
@@ -334,8 +336,13 @@ substFreeVarSetIn subst node
     in substFreeVarSet subst' `Set.union` fvs
 
 -- | TODO
-renameBinds :: Subst a -> S.Binds a -> (Subst a, S.Binds a)
-renameBinds subst binds = (subst, binds)
+renamePatterns :: Set (S.QName a) -> [S.Pat a] -> (Subst a, [S.Pat a])
+renamePatterns = foldRenameBoundVars
+
+-- | TODO
+renameBinds :: Set (S.QName a) -> S.Binds a -> (Subst a, S.Binds a)
+renameBinds subst (S.BDecls srcSpan decls) =
+  S.BDecls srcSpan <$> foldRenameBoundVars subst decls
 
 -- | TODO
 renamePatternsAndBinds :: Subst a
@@ -343,7 +350,7 @@ renamePatternsAndBinds :: Subst a
                        -> Maybe (S.Binds a)
                        -> (Subst a, [S.Pat a], Maybe (S.Binds a))
 renamePatternsAndBinds subst pats mBinds
-  = let (subst', pats')    = foldRenameBoundVars (substFreeVarSet subst) pats
+  = let (subst', pats')    = renamePatterns (substFreeVarSet subst) pats
         (subst'', mBinds') = maybe (subst', mBinds)
-          (fmap Just . renameBinds subst') mBinds
+          (fmap Just . renameBinds (substFreeVarSet subst')) mBinds
     in (subst'', pats', mBinds')
