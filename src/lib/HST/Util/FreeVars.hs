@@ -8,8 +8,11 @@ module HST.Util.FreeVars
     -- * Bound Variables
   , BoundVars
   , boundVars
+  , withBoundVars
   ) where
 
+import           Control.Monad.Extra   ( whenM )
+import           Control.Monad.State   ( State, evalState, gets, modify )
 import           Data.Foldable         ( toList )
 import           Data.Functor.Identity ( Identity(..) )
 import           Data.Set              ( Set )
@@ -147,6 +150,19 @@ class BoundVars node where
   --   sorted by their first occurrence from left to right.
   boundVars :: node a -> [S.Name a]
 
+  -- | Sets the names of the variables that are bound by the given AST node
+  --   using an internal state to keep track of the names that still have
+  --   to be assigned to binders.
+  withBoundVars' :: node a -> State [S.Name a] (node a)
+
+-- | Sets the names of the variables that are bound by the given AST node.
+--
+--   If not enough new variable names are provided, an error is thrown
+--   (see 'nextName'). It is allowed to provide more variable names than
+--   needed.
+withBoundVars :: BoundVars node => node a -> [S.Name a] -> node a
+withBoundVars = evalState . withBoundVars'
+
 -- | Variables are bound by variable patterns.
 instance BoundVars S.Pat where
   boundVars (S.PVar _ varName)      = [varName]
@@ -157,9 +173,27 @@ instance BoundVars S.Pat where
   boundVars (S.PList _ pats)        = concatMap boundVars pats
   boundVars (S.PWildCard _)         = []
 
+  withBoundVars' (S.PVar srcSpan _)             = S.PVar srcSpan <$> nextName
+  withBoundVars' (S.PInfixApp srcSpan p1 op p2) = S.PInfixApp srcSpan
+    <$> withBoundVars' p1
+    <*> return op
+    <*> withBoundVars' p2
+  withBoundVars' (S.PApp srcSpan conName pats)
+    = S.PApp srcSpan conName <$> mapM withBoundVars' pats
+  withBoundVars' (S.PTuple srcSpan boxed pats)
+    = S.PTuple srcSpan boxed <$> mapM withBoundVars' pats
+  withBoundVars' (S.PParen srcSpan pat)
+    = S.PParen srcSpan <$> withBoundVars' pat
+  withBoundVars' (S.PList srcSpan pats)
+    = S.PList srcSpan <$> mapM withBoundVars' pats
+  withBoundVars' pat@(S.PWildCard _)            = return pat
+
 -- | Local declarations can bind variables.
 instance BoundVars S.Binds where
   boundVars (S.BDecls _ decls) = concatMap boundVars decls
+
+  withBoundVars' (S.BDecls srcSpan decls)
+    = S.BDecls srcSpan <$> mapM withBoundVars' decls
 
 -- | Declarations can bind variables.
 --
@@ -170,6 +204,11 @@ instance BoundVars S.Decl where
   boundVars (S.DataDecl _ _ _ _)  = []
   boundVars (S.OtherDecl _ _)     = []
 
+  withBoundVars' (S.FunBind srcSpan matches)
+    = S.FunBind srcSpan <$> mapM withBoundVars' matches
+  withBoundVars' decl@(S.DataDecl _ _ _ _)   = return decl
+  withBoundVars' decl@(S.OtherDecl _ _)      = return decl
+
 -- | Function declarations bind the name of the declared function.
 --
 --   The arguments and local declarations of the function are not visible to
@@ -178,8 +217,19 @@ instance BoundVars S.Match where
   boundVars (S.Match _ name _ _ _)        = [name]
   boundVars (S.InfixMatch _ _ name _ _ _) = [name]
 
+  withBoundVars' (S.Match srcSpan _ args rhs mBinds)          = S.Match srcSpan
+    <$> nextName
+    <*> return args
+    <*> return rhs
+    <*> return mBinds
+  withBoundVars' (S.InfixMatch srcSpan arg _ args rhs mBinds)
+    = S.InfixMatch srcSpan arg <$> nextName
+    <*> return args
+    <*> return rhs
+    <*> return mBinds
+
 -------------------------------------------------------------------------------
--- Utility functions                                                         --
+-- Ordered Set Utility Functions                                             --
 -------------------------------------------------------------------------------
 -- | When a variable is an element of two sets of free variables, the indices
 --   of the first set take precedence in the union of both sets.
@@ -195,6 +245,9 @@ union = (OSet.|<>)
 unions :: (Foldable t, Ord a) => t (OSet a) -> OSet a
 unions = foldr union OSet.empty
 
+-------------------------------------------------------------------------------
+-- Free Variable Getter Utility Functions                                    --
+-------------------------------------------------------------------------------
 -- | Removes the variable with the given name from the given set of free
 --   variables.
 withoutBoundVar :: S.Name a -> OSet (S.QName a) -> OSet (S.QName a)
@@ -214,3 +267,17 @@ withoutBoundVarsUnion :: (Foldable t, BoundVars node)
                       -> OSet (S.QName a)
 withoutBoundVarsUnion binders fvs = foldr (OSet.delete . S.unQual) fvs
   $ concatMap boundVars binders
+
+-------------------------------------------------------------------------------
+-- Bound Variable Setter Utility Functions                                   --
+-------------------------------------------------------------------------------
+-- | Gets the name for the next variable binder from the internal state of
+--   'withBoundVars''.
+--
+--   Throws an error if there are no more names.
+nextName :: State [S.Name a] (S.Name a)
+nextName = do
+  whenM (gets null) $ error "withBoundVars: Not enough new variable names."
+  name <- gets head
+  modify tail
+  return name

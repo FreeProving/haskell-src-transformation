@@ -11,15 +11,23 @@ module HST.Util.Subst
     -- * Composition
   , composeSubst
   , composeSubsts
+  , extendSubst
     -- * Application
   , ApplySubst(..)
   ) where
 
+import           Data.Char           ( isDigit )
 import           Data.Composition    ( (.:) )
+import           Data.List.Extra     ( breakOnEnd, dropEnd1 )
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
+import           Data.Set            ( Set )
+import qualified Data.Set            as Set
+import           Data.Tuple.Extra    ( (***) )
 
 import qualified HST.Frontend.Syntax as S
+import           HST.Util.FreeVars
+  ( BoundVars, boundVars, freeVarSet, withBoundVars )
 
 -------------------------------------------------------------------------------
 -- Substitutions                                                             --
@@ -50,16 +58,40 @@ substFromList = Subst . Map.fromList
 -------------------------------------------------------------------------------
 -- | Creates a new substitution that applies both given substitutions after
 --   each other.
+--
+--   For example, the composition of the following two substitutions
+--
+--   > σ₂ = { x₁ ↦ e₁, …, xₙ ↦ eₙ }
+--   > σ₁ = { y₁ ↦ f₁, …, yₘ ↦ fₘ }
+--
+--   yields the substitution.
+--
+--   > σ₂ ∘ σ₁ = { x₁ ↦ e₁, …, xₙ ↦ eₙ, y₁ ↦ σ₂(f₁), …, yₘ ↦ σ₂(fₘ) }
+--
+--   If a @xᵢ@ equals an @yⱼ@, the substritution for @yⱼ@ takes precedence.
 composeSubst :: Subst a -> Subst a -> Subst a
-composeSubst s2@(Subst m2) (Subst m1)
-  = let m1' = fmap (applySubst s2) m1
-        m2' = Map.filterWithKey (\v _ -> v `Map.notMember` m1) m2
-    in Subst (m2' `Map.union` m1')
+composeSubst s2 (Subst m1) = s2 `extendSubst` Subst (fmap (applySubst s2) m1)
 
 -- | Creates a new substitution that applies all given substitutions after
 --   each other.
 composeSubsts :: [Subst a] -> Subst a
 composeSubsts = foldl composeSubst identitySubst
+
+-- | Creates a new substitution that applies both substitutions without
+--   composing the substitutions.
+--
+--   For example, the composition of the following two substitutions
+--
+--   > σ₂ = { x₁ ↦ e₁, …, xₙ ↦ eₙ }
+--   > σ₁ = { y₁ ↦ f₁, …, yₘ ↦ fₘ }
+--
+--   yields the substitution.
+--
+--   > σ₂ ∘ σ₁ = { x₁ ↦ e₁, …, xₙ ↦ eₙ, y₁ ↦ f₁, …, yₘ ↦ fₘ }
+--
+--   If a @xᵢ@ equals an @yⱼ@, the substitution for @yⱼ@ takes precedence.
+extendSubst :: Subst a -> Subst a -> Subst a
+extendSubst (Subst m2) (Subst m1) = Subst (Map.unionWith (const id) m2 m1)
 
 -------------------------------------------------------------------------------
 -- Application                                                               --
@@ -187,11 +219,113 @@ instance ApplySubst S.GuardedRhs where
       in S.GuardedRhs srcSpan e1' e2'
 
 -------------------------------------------------------------------------------
--- Renaming arguments and binders                                            --
+-- Renaming Bound Variables                                                  --
 -------------------------------------------------------------------------------
+-- | The prefix to use for fresh variables when renaming a symbolic
+--   identifier.
+freshSymbolPrefix :: String
+freshSymbolPrefix = "x"
+
+-- | Renames the variables that are bound by the given nodes such that the
+--   variables with the given names are not captured.
+foldRenameBoundVars
+  :: (BoundVars node)
+  => Set (S.QName a) -- ^ The variables that must not be captured.
+  -> [node a]        -- ^ The nodes that binds variables.
+  -> (Subst a, [node a])
+foldRenameBoundVars _ []               = (identitySubst, [])
+foldRenameBoundVars fvs (node : nodes)
+  = let (renaming, node')   = renameBoundVars fvs node
+        fvs'                = fvs `Set.union` substFreeVarSet renaming
+        (renaming', nodes') = foldRenameBoundVars fvs' nodes
+    in (renaming `extendSubst` renaming', node' : nodes')
+
+-- | Renames the variables that are bound by the given node such that the
+--   variables with the given names are not captured.
+--
+--   Returns the renamed node as well as a substitution that replaces the old
+--   names by the new names including the names that have not changed.
+renameBoundVars :: BoundVars node
+                => Set (S.QName a) -- ^ The variables that must not be captured.
+                -> node a          -- ^ The node that binds variables.
+                -> (Subst a, node a)
+renameBoundVars fvs node
+  = let bvs   = boundVars node
+        bvs'  = renameBoundVars' fvs bvs
+        subst = substFromList (zipWith (curry (S.unQual *** S.var)) bvs bvs')
+    in (subst, withBoundVars node bvs')
+
+-- | Renames the given bound variables such that the variables with the given
+--   names are not captured.
+renameBoundVars'
+  :: Set (S.QName a) -- ^ The variables that must not be captured.
+  -> [S.Name a]      -- ^ The bound variables to rename.
+  -> [S.Name a]
+renameBoundVars' _ []           = []
+renameBoundVars' fvs (bv : bvs)
+  = let bv' = renameBoundVar fvs bv
+    in bv' : renameBoundVars' (Set.insert (S.unQual bv') fvs) bvs
+
+-- | Renames the given bound variable such that it does not capture any of the
+--   variables with the given names.
+--
+--   If the bound variable @x@ does not capture any variable, it is not renamed.
+--   Otherwise the smallest @N@ is found such that @x_N@ does not capture a
+--   variable.
+renameBoundVar :: Set (S.QName a) -- ^ The variables that must not be captured.
+               -> S.Name a        -- ^ The bound variable to rename.
+               -> S.Name a
+renameBoundVar fvs bv | capturesFreeVar fvs bv = renameBoundVar' fvs bv 0
+                      | otherwise = bv
+
+renameBoundVar' :: Set (S.QName a) -- ^ The variables that must not be captured.
+                -> S.Name a        -- ^ The bound variable to rename.
+                -> Int             -- ^ The suffix to append to the variable.
+                -> S.Name a
+renameBoundVar' fvs bv n
+  | capturesFreeVar fvs bv' = renameBoundVar' fvs bv (n + 1)
+  | otherwise = bv'
+ where
+  -- | The prefix for the fresh variable (i.e., the new identifier without
+  --   the @_N@ suffix).
+  --
+  --   The prefix is usually the name of the original identifier of the bound
+  --   variable. If the variable has a @_N@ suffix already, it is removed.
+  --   If the variable is a symbol, 'freshSymbolPrefix' is used instead.
+  prefix :: String
+  prefix = case bv of
+    S.Ident _ ident -> removeSuffix ident
+    S.Symbol _ _    -> freshSymbolPrefix
+
+  -- | Removes a suffix of the form @_N@ where @N@ is an integer from a
+  --   variable identifier.
+  --
+  --   If the identifier does not have such a suffix, it is returned unchanged.
+  removeSuffix :: String -> String
+  removeSuffix ident = let (ident', suffix) = breakOnEnd "_" ident
+                       in if not (null ident') && all isDigit suffix
+                            then dropEnd1 ident'
+                            else ident
+
+  -- | The name of the fresh variable.
+  {- bv' :: S.Name a -}
+  bv' = S.Ident (S.getSrcSpan bv) (prefix ++ "_" ++ show n)
+
+-- | Tests whether the given bound variable capture one of the given variables.
+capturesFreeVar :: Set (S.QName a) -- ^ The variables that must not be captured.
+                -> S.Name a        -- ^ The bound variable to rename.
+                -> Bool
+capturesFreeVar fvs bv = S.unQual bv `Set.member` fvs
+
+-- | Gets the names of free variables that occur on the
+substFreeVarSet :: Subst a -> Set (S.QName a)
+substFreeVarSet = Set.unions . map freeVarSet . Map.elems . substMap
+
 -- | TODO
 renamePatterns :: Subst a -> [S.Pat a] -> (Subst a, [S.Pat a])
-renamePatterns subst pats = (subst, pats)
+renamePatterns subst pats
+  = let (renaming, pats') = foldRenameBoundVars (substFreeVarSet subst) pats
+    in (subst `extendSubst` renaming, pats')
 
 -- | TODO
 renameBinds :: Subst a -> S.Binds a -> (Subst a, S.Binds a)

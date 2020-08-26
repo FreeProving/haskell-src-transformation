@@ -250,7 +250,7 @@ app :: SrcSpan a -- ^ The source span to insert.
     -> Exp a     -- ^ The expression to apply.
     -> [Exp a]   -- ^ The arguments to apply the expression to.
     -> Exp a
-app srcSpan = foldr (App srcSpan)
+app srcSpan = foldl (App srcSpan)
 
 -- | Creates an application expression in infix notation if possible.
 --

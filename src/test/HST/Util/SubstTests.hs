@@ -27,9 +27,13 @@ f = S.Ident S.NoSrcSpan "f"
 x :: S.Name a
 x = S.Ident S.NoSrcSpan "x"
 
--- | Name of of the fresh test variable @x0@.
-x0 :: S.Name a
-x0 = S.Ident S.NoSrcSpan "x0"
+-- | Name of of the fresh test variable @x_0@.
+x_0 :: S.Name a
+x_0 = S.Ident S.NoSrcSpan "x_0"
+
+-- | Name of of the fresh test variable @x_1@.
+x_1 :: S.Name a
+x_1 = S.Ident S.NoSrcSpan "x_1"
 
 -- | Name of of a test variable @y@.
 y :: S.Name a
@@ -118,14 +122,14 @@ testSubst = describe "HST.Util.Subst" $ do
     it "renames bound variables to avoid capture" $ runTest $ do
       -- σ    = { y ↦ x }
       -- e    = \x -> (x, y)
-      -- σ(e) = \x0 -> (x0, x)
+      -- σ(e) = \x_0 -> (x_0, x)
       let subst = singleSubst (S.unQual y) (S.var x)
           e     = S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x]
             (S.Tuple S.NoSrcSpan S.Boxed [S.var x, S.var y])
       e' <- currentFrontendSyntax $ applySubst subst e
       expected <- currentFrontendSyntax
-        $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x0]
-        (S.Tuple S.NoSrcSpan S.Boxed [S.var x0, S.var x])
+        $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x_0]
+        (S.Tuple S.NoSrcSpan S.Boxed [S.var x_0, S.var x])
       setExpectation (e' `shouldBe` expected)
     it "renames bound variables only if necessary" $ runTest $ do
       -- σ    = { y ↦ z }
@@ -138,4 +142,17 @@ testSubst = describe "HST.Util.Subst" $ do
       expected <- currentFrontendSyntax
         $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x]
         (S.Tuple S.NoSrcSpan S.Boxed [S.var x, S.var z])
+      setExpectation (e' `shouldBe` expected)
+    it "avoids capture of renamed variables" $ runTest $ do
+      -- σ    = { y ↦ x }
+      -- e    = \x   x_0 -> (x, x_0, y)
+      -- σ(e) = \x_0 x_1 -> (x_0, x_1, x)
+      let subst = singleSubst (S.unQual y) (S.var x)
+          e     = S.Lambda S.NoSrcSpan
+            [S.PVar S.NoSrcSpan x, S.PVar S.NoSrcSpan x_0]
+            (S.Tuple S.NoSrcSpan S.Boxed [S.var x, S.var x_0, S.var y])
+      e' <- currentFrontendSyntax $ applySubst subst e
+      expected <- currentFrontendSyntax
+        $ S.Lambda S.NoSrcSpan [S.PVar S.NoSrcSpan x_0, S.PVar S.NoSrcSpan x_1]
+        (S.Tuple S.NoSrcSpan S.Boxed [S.var x_0, S.var x_1, S.var x])
       setExpectation (e' `shouldBe` expected)
