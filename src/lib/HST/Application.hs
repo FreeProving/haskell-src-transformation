@@ -105,13 +105,17 @@ useAlgo ms = do
     return (pat : pats, expr)
 
   vars :: S.Pat a -> [String]
-  vars (S.PVar _ name) = [getString name]
+  vars (S.PVar _ name) = [nameToString name]
   vars (S.PInfixApp _ p1 _ p2) = vars p1 ++ vars p2
   vars (S.PApp _ _ ps) = concatMap vars ps
   vars (S.PTuple _ _ ps) = concatMap vars ps
   vars (S.PParen _ p) = vars p
   vars (S.PList _ ps) = concatMap vars ps
   vars (S.PWildcard _) = []
+
+  nameToString :: S.Name -> String
+  nameToString (Ident _ s) = s
+  nameToString (Symbol _ s) = s
 
   longest :: String -> [String] -> String
   longest def []     = def
