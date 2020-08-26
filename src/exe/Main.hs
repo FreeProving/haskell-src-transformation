@@ -29,7 +29,7 @@ import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
-import           HST.Util.Selectors ( getIdentifiers )
+import           HST.Util.Selectors      ( getIdentifiers )
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --

@@ -20,7 +20,6 @@ module HST.Effect.Fresh
   , genericFreshPrefix
   ) where
 
-import           Control.Monad.Extra ( whileM )
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
 import           Data.Set            ( Set )
@@ -61,21 +60,23 @@ freshVarPat prefix = S.PVar S.NoSrcSpan <$> freshName prefix
 -- | Interprets a computation that needs fresh variables by generating
 --   identifiers of the form @<prefix><N>@.
 runFresh :: Set String -> Sem (Fresh ': r) a -> Sem r a
-runFresh usedIdentifiers = evalState Map.empty . freshToState usedIdentifiers
+runFresh usedIdentifiers = evalState Map.empty . freshToState
  where
   -- | Reinterprets 'Fresh' in terms of 'State'.
-  freshToState :: Set String -> Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
-  freshToState usedIdentifiers = reinterpret \case
+  freshToState :: Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
+  freshToState = reinterpret \case
     FreshIdent prefix -> do
       nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
-      let newId = while (\n -> (prefix ++ show n) `Set.member` usedIdentifiers) (+1) nextId
-      modify $ Map.insert prefix (newId)
+      let newId = while (\n -> (prefix ++ show n) `Set.member` usedIdentifiers)
+            (+ 1) nextId
+      modify $ Map.insert prefix (newId + 1)
       return (prefix ++ show newId)
 
    -- Applies a given function to a given value as long as the condition holds
-while :: (a -> Bool) -> (a -> a) -> a -> a
-while p f x | p x       = x
-            | otherwise = while p f (f x)
+  while :: (a -> Bool) -> (a -> a) -> a -> a
+  while p f x | p x = while p f (f x)
+              | otherwise = x
+
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --
 -------------------------------------------------------------------------------

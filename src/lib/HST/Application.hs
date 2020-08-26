@@ -23,7 +23,7 @@ import           HST.Feature.Optimization     ( optimize )
 import qualified HST.Frontend.Syntax          as S
 import           HST.Options                  ( optOptimizeCase )
 import           HST.Util.Predicates          ( isConPat )
-import           HST.Util.Selectors           ( expFromUnguardedRhs, getIdentifiers )
+import           HST.Util.Selectors           ( expFromUnguardedRhs )
 
 -------------------------------------------------------------------------------
 -- Application of Core Algorithm                                             --

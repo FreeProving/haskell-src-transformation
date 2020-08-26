@@ -11,15 +11,16 @@ module HST.Util.Selectors
   , getPatVarName
   ) where
 
-import           Polysemy            ( Member, Members, Sem, run )
-
+import           Data.Maybe          ( maybe )
 import           Data.Set            ( Set )
 import qualified Data.Set            as Set
+import           Polysemy            ( Member, Members, Sem, run )
 
 import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
 import           HST.Effect.Report
   ( Message(..), Report, Severity(Error, Internal), evalReport, reportFatal )
 import qualified HST.Frontend.Syntax as S
+import           HST.Util.PrettyName
 
 -------------------------------------------------------------------------------
 -- Right-hand sides                                                          --
@@ -94,11 +95,87 @@ getPatVarName (S.PList _ _) = reportFatal
   $ Message Error
   $ "Expected variable or wildcard pattern, got list pattern."
 
+-------------------------------------------------------------------------------
+-- Find identifiers in a programs                                                             --
+-------------------------------------------------------------------------------
 getIdentifiers :: S.Module a -> Set String
-getIdentifiers (S.Module _ _ _ decls) = Set.empty -- Set.unions (map getIdentifiersDecl decls)
+getIdentifiers (S.Module _ _ _ decls) = Set.unions
+  (map getIdentifiersDecl decls)
 
 getIdentifiersDecl :: S.Decl a -> Set String
 getIdentifiersDecl (S.DataDecl _ _ _ _) = Set.empty
-getIdentifiersDecl (S.FunBind _ ms) = Set.unions (map getIdentifiersMatch ms)
+getIdentifiersDecl (S.FunBind _ ms)     = Set.unions
+  (map getIdentifiersMatch ms)
+getIdentifiersDecl (S.OtherDecl _ _)    = Set.empty
 
-getIdentifiersMatch = undefined
+getIdentifiersMatch :: S.Match a -> Set String
+getIdentifiersMatch (S.Match _ name pats rhs binds)          = Set.unions
+  [ Set.singleton (prettyName name)
+  , Set.unions (map getIdentifiersPat pats)
+  , getIdentifiersRhs rhs
+  , maybe Set.empty (getIdentifiersBinds binds)
+  ]
+getIdentifiersMatch (S.InfixMatch _ pat name pats rhs binds) = Set.unions
+  [ Set.singleton (prettyName name)
+  , Set.unions (map getIdentifiersPat (pat : pats))
+  , getIdentifiersRhs rhs
+  , maybe Set.empty (getIdentifiersBinds binds)
+  ]
+
+getIdentifiersPat :: S.Pat a -> Set String
+getIdentifiersPat (S.PVar _ name)                 = Set.singleton
+  (prettyName name)
+getIdentifiersPat (S.PInfixApp _ pat1 qname pat2) = Set.insert
+  (prettyName qname)
+  (Set.union (getIdentifiersPat pat1) (getIdentifiersPat pat2))
+getIdentifiersPat (S.PApp _ qname pats)           = Set.insert
+  (prettyName qname) (Set.unions (map getIdentifiersPat pats))
+getIdentifiersPat (S.PTuple _ _ pats)             = Set.unions
+  (map getIdentifiersPat pats)
+getIdentifiersPat (S.PParen _ pat)                = getIdentifiersPat pat
+getIdentifiersPat (S.PList _ pats)                = Set.unions
+  (map getIdentifiersPat pats)
+getIdentifiersPat (S.PWildCard _)                 = Set.empty
+
+getIdentifiersRhs :: S.Rhs a -> Set String
+getIdentifiersRhs (S.UnGuardedRhs _ expr) = getIdentifiersExp expr
+getIdentifiersRhs (S.GuardedRhss _ grhss) = Set.unions
+  (map getIdentifiersGRhs grhss)
+
+getIdentifiersGRhs :: S.GuardedRhs a -> Set String
+getIdentifiersGRhs (S.GuardedRhs _ cond expr) = Set.union
+  (getIdentifiersExp cond) (getIdentifiersExp expr)
+
+getIdentifiersExp :: S.Exp a -> Set String
+getIdentifiersExp (S.Var _ qname)            = Set.singleton (prettyName qname)
+getIdentifiersExp (S.Con _ qname)            = Set.singleton (prettyName qname)
+getIdentifiersExp (S.Lit _ _)                = Set.empty
+getIdentifiersExp (S.InfixApp _ exp1 _ exp2) = Set.union
+  (getIdentifiersExp exp1) (getIdentifiersExp exp2)
+getIdentifiersExp (S.App _ exp1 exp2)        = Set.union
+  (getIdentifiersExp exp1) (getIdentifiersExp exp2)
+getIdentifiersExp (S.NegApp _ expr)          = getIdentifiersExp expr
+getIdentifiersExp (S.Lambda _ pats expr)     = Set.union
+  (Set.unions (map getIdentifiersPat pats)) (getIdentifiersExp expr)
+getIdentifiersExp (S.Let _ binds expr)       = Set.union
+  (getIdentifiersBinds binds) (getIdentifiersExp expr)
+getIdentifiersExp (S.If _ cond exp1 exp2)    = Set.union
+  (getIdentifiersExp cond)
+  (Set.union (getIdentifiersExp exp1) (getIdentifiersExp exp2))
+getIdentifiersExp (S.Case _ scrutinee alts)  = Set.union
+  (getIdentifiersExp scrutinee) (Set.unions (map getIdentifiersAlt alts))
+getIdentifiersExp (S.Tuple _ _ exps)         = Set.unions
+  (map getIdentifiersExp exps)
+getIdentifiersExp (S.List _ exps)            = Set.unions
+  (map getIdentifiersExp exps)
+getIdentifiersExp (S.Paren _ expr)           = getIdentifiersExp expr
+getIdentifiersExp (S.ExpTypeSig _ expr _)    = getIdentifiersExp expr
+
+getIdentifiersAlt :: S.Alt a -> Set String
+getIdentifiersAlt (S.Alt _ pat rhs binds) = Set.union (getIdentifiersPat pat)
+  (Set.union (getIdentifiersRhs rhs)
+   maybe Set.empty (fmap getIdentifiersBinds binds))
+
+getIdentifiersBinds :: S.Binds a -> Set String
+getIdentifiersBinds (S.BDecls _ decls) = Set.unions
+  (map getIdentifiersDecl decls)
