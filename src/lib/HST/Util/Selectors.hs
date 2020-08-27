@@ -178,12 +178,12 @@ getIdentifiersExp (S.List _ exps)            = Set.unions
 getIdentifiersExp (S.Paren _ expr)           = getIdentifiersExp expr
 getIdentifiersExp (S.ExpTypeSig _ expr _)    = getIdentifiersExp expr
 
--- | collects all identifiers in a `case` alternative.
+-- | Collects all identifiers in a @case@ alternative.
 getIdentifiersAlt :: S.Alt a -> Set String
 getIdentifiersAlt (S.Alt _ pat rhs binds) = Set.union (getIdentifiersPat pat)
   (Set.union (getIdentifiersRhs rhs) (maybe Set.empty getIdentifiersBinds binds))
 
--- | Collects all identifiers in `let` and `where` bindings.
+-- | Collects all identifiers in @let@ and @where@ bindings.
 getIdentifiersBinds :: S.Binds a -> Set String
 getIdentifiersBinds (S.BDecls _ decls) = Set.unions
   (map getIdentifiersDecl decls)
