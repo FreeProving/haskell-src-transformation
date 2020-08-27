@@ -1,12 +1,12 @@
 -- | This module contains methods for eliminating guards in modules.
 module HST.Feature.GuardElimination ( applyGEModule, getMatchName ) where
 
-import           Control.Monad       ( replicateM )
+import           Data.List           ( zipWith4 )
 import           Polysemy            ( Member, Sem )
 
 import           HST.CoreAlgorithm   ( defaultErrorExp )
 import           HST.Effect.Fresh
-  ( Fresh, freshName, freshVarPat, genericFreshPrefix )
+  ( Fresh, freshName, freshNameWithSpan, freshVarPat, freshVarPatWithSpan, genericFreshPrefix )
 import qualified HST.Frontend.Syntax as S
 
 -- | A pair of patterns to match and a right-hand side to use when all
@@ -42,13 +42,16 @@ generateLet
   -> [GExp a]  -- ^ Patterns to match and the corresponding right-hand sides.
   -> Sem r (S.Exp a)
 generateLet vs err gExps = do
-  varNames <- replicateM (length gExps + 1) (freshName genericFreshPrefix)
-  let startVarExpr : nextVarExprs = map S.var varNames
+  let srcSpans = map gExpSrcSpan gExps
+  varNames' <- mapM (\sp -> freshNameWithSpan genericFreshPrefix sp) srcSpans
+  varName   <- freshName genericFreshPrefix
+  let varNames                    = varNames' ++ [varName]
+      startVarExpr : nextVarExprs = map S.var varNames
       ifExprs                     = zipWith (rhsToIf . gExpRhs) gExps
         nextVarExprs
   ifExprs' <- mapM applyGEExp ifExprs
   let exprPats  = map (zip vs . gExpPats) gExps
-      caseExprs = zipWith3 generateNestedCases ifExprs' nextVarExprs exprPats
+      caseExprs = zipWith4 generateNestedCases srcSpans ifExprs' nextVarExprs exprPats
       decls     = zipWith makeVarBinding varNames (caseExprs ++ [err])
   return $ S.Let S.NoSrcSpan (S.BDecls S.NoSrcSpan decls) startVarExpr
 
@@ -68,14 +71,15 @@ makeVarBinding name expr = S.FunBind S.NoSrcSpan
 --
 --   > case x₁ of { p₁ -> (… case xₙ of { pₙ -> e ; _ -> f }  …) ; _ -> f }
 generateNestedCases
-  :: S.Exp a              -- ^ Expression to use if all patterns match.
+  :: S.SrcSpan a          -- ^ The source span to use.
+  -> S.Exp a              -- ^ Expression to use if all patterns match.
   -> S.Exp a              -- ^ Expression to use if any pattern does not match.
   -> [(S.Exp a, S.Pat a)] -- ^ Expression/pattern pairs to match.
   -> S.Exp a
-generateNestedCases successExpr failExpr = foldr generateNestedCase successExpr
+generateNestedCases s successExpr failExpr = foldr generateNestedCase successExpr
  where
   {- generateNestedCase :: (S.Exp a, S.Pat a) -> S.Exp a -> S.Exp a -}
-  generateNestedCase (v, p) nestedExpr = S.Case S.NoSrcSpan v
+  generateNestedCase (v, p) nestedExpr = S.Case s v
     $ [S.alt p nestedExpr, S.alt (S.PWildCard S.NoSrcSpan) failExpr]
 
 -------------------------------------------------------------------------------
@@ -162,9 +166,10 @@ applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
 applyGEAlts alts
   | any hasGuardsAlt alts = do
     let gexps = map altToGExp alts
+        firstSpan = S.getSrcSpan (head alts)
     newVar' <- freshVarPat genericFreshPrefix
     e <- generateLet [S.patToExp newVar'] defaultErrorExp gexps
-    return [S.Alt S.NoSrcSpan newVar' (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
+    return [S.Alt firstSpan newVar' (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing]
   | otherwise = return alts
 
 -- | Applies guard elimination to function declarations in the given module.
@@ -200,8 +205,8 @@ applyGE ms = do
   let name    = getMatchName (head ms)
       lhsSpan = S.getSrcSpan (head ms)
       gexps   = map matchToGExp ms
-      arity   = length (gExpPats (head gexps))
-  varPats <- replicateM arity (freshVarPat genericFreshPrefix)
+      srcSpans   = map S.getSrcSpan (gExpPats (head gexps))
+  varPats <- mapM (\sp -> freshVarPatWithSpan genericFreshPrefix sp) srcSpans
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
     $ S.Match lhsSpan name varPats (S.UnGuardedRhs S.NoSrcSpan expr') Nothing

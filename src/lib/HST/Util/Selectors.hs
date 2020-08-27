@@ -43,11 +43,11 @@ getPatConName :: Member Report r => S.Pat a -> Sem r (S.QName a)
 getPatConName (S.PApp _ conName _)        = return conName
 getPatConName (S.PInfixApp _ _ conName _) = return conName
 -- Constructor patterns with special syntax.
-getPatConName (S.PList _ pats)
-  | null pats = return $ S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
-  | otherwise = return $ S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
-getPatConName (S.PTuple _ boxed pats)     = return
-  $ S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan boxed (length pats))
+getPatConName (S.PList s pats)
+  | null pats = return $ S.Special s (S.NilCon s)
+  | otherwise = return $ S.Special s (S.ConsCon s)
+getPatConName (S.PTuple s boxed pats)     = return
+  $ S.Special s (S.TupleCon s boxed (length pats))
 -- Look into parentheses recursively.
 getPatConName (S.PParen _ pat)            = getPatConName pat
 -- All other patterns are not constructor patterns.

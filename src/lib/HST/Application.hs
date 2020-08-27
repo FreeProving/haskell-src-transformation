@@ -56,7 +56,7 @@ useAlgoDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
             => S.Decl a
             -> Sem r (S.Decl a)
 useAlgoDecl (S.FunBind s ms) = do
-  m' <- useAlgoMatches ms
+  m' <- useAlgoMatches s ms
   return (S.FunBind s [m'])
 useAlgoDecl v                = return v
 
@@ -66,10 +66,11 @@ useAlgoDecl v                = return v
 --   If the function has only one rule and no pattern is a constructor
 --   pattern, the function is is left unchanged.
 useAlgoMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => [S.Match a]
+               => S.SrcSpan a
+               -> [S.Match a]
                -> Sem r (S.Match a)
-useAlgoMatches [m] | not (hasCons m) = return m
-useAlgoMatches ms  = useAlgo ms
+useAlgoMatches _ [m] | not (hasCons m) = return m
+useAlgoMatches s ms  = useAlgo s ms
 
 -- | Tests whether the given match of a function declaration contains
 --   a constructor pattern.
@@ -79,18 +80,18 @@ hasCons (S.InfixMatch _ p1 _ ps _ _) = any isConPat (p1 : ps)
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-        => [S.Match a]
+        => S.SrcSpan a
+        -> [S.Match a]
         -> Sem r (S.Match a)
-useAlgo ms = do
+useAlgo s ms = do
   eqs <- mapM matchToEquation ms
   let name    = getMatchName (head ms)
       arity   = length (fst (head eqs))
-      rhsSpan = S.getSrcSpan (snd (head eqs))
   nVars <- replicateM arity (freshVarPat genericFreshPrefix)
   nExp <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return
-    $ S.Match S.NoSrcSpan name nVars (S.UnGuardedRhs rhsSpan nExp') Nothing
+    $ S.Match s name nVars (S.UnGuardedRhs s nExp') Nothing
  where
   -- | Converts a rule of a function declaration to an equation.
   --

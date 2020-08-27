@@ -2,12 +2,11 @@
 --   expressions and entire modules.
 module HST.Feature.CaseCompletion ( applyCCModule ) where
 
-import           Control.Monad       ( replicateM )
 import           Polysemy            ( Member, Members, Sem )
 
 import           HST.CoreAlgorithm   ( Eqs, defaultErrorExp, match )
 import           HST.Effect.Env      ( Env )
-import           HST.Effect.Fresh    ( Fresh, freshVarPat, genericFreshPrefix )
+import           HST.Effect.Fresh    ( Fresh, freshVarPat, freshVarPatWithSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt   ( GetOpt )
 import           HST.Effect.Report   ( Report )
 import qualified HST.Frontend.Syntax as S
@@ -90,7 +89,8 @@ completeLambda :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                -> Bool
                -> Sem r (S.Exp a)
 completeLambda s ps e insideLet = do
-  xs <- replicateM (length ps) (freshVarPat genericFreshPrefix)
+  let srcSpans = map S.getSrcSpan ps
+  xs <- mapM (\sp -> freshVarPatWithSpan genericFreshPrefix sp) srcSpans
   e' <- completeCase insideLet e
   let eq = (ps, e')
   res <- match xs [eq] defaultErrorExp
