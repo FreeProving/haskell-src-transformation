@@ -19,8 +19,6 @@ import           HST.Util.FreeVars         ( freeVars )
 -------------------------------------------------------------------------------
 -- | Parses the given Haskell module and sets the expectation that the given
 --   variables are free.
---
---   All free
 shouldBeFreeIn
   :: (Members '[Cancel, Report, SetExpectation, WithFrontend f] r, ShowAST f)
   => [String] -- ^ The identifiers of the expected free variables.

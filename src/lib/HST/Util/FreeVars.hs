@@ -91,7 +91,7 @@ instance FreeVars S.Alt where
 -- | Local declarations can contain free variables.
 --
 --   Variables that are bound by any of the local declarations are not free
---   in all declarations.
+--   in the declarations.
 instance FreeVars S.Binds where
   freeVarOSet (S.BDecls _ decls) = withoutBoundVarsUnion decls
     (freeVarOSetUnion decls)
