@@ -6,7 +6,8 @@ import           Polysemy            ( Member, Sem )
 
 import           HST.CoreAlgorithm   ( defaultErrorExp )
 import           HST.Effect.Fresh
-  ( Fresh, freshName, freshNameWithSpan, freshVarPat, freshVarPatWithSpan, genericFreshPrefix )
+  ( Fresh, freshName, freshNameWithSpan, freshVarPat, freshVarPatWithSpan
+  , genericFreshPrefix )
 import qualified HST.Frontend.Syntax as S
 
 -- | A pair of patterns to match and a right-hand side to use when all
@@ -43,15 +44,16 @@ generateLet
   -> Sem r (S.Exp a)
 generateLet vs err gExps = do
   let srcSpans = map gExpSrcSpan gExps
-  varNames' <- mapM (\sp -> freshNameWithSpan genericFreshPrefix sp) srcSpans
-  varName   <- freshName genericFreshPrefix
+  varNames' <- mapM (freshNameWithSpan genericFreshPrefix) srcSpans
+  varName <- freshName genericFreshPrefix
   let varNames                    = varNames' ++ [varName]
       startVarExpr : nextVarExprs = map S.var varNames
       ifExprs                     = zipWith (rhsToIf . gExpRhs) gExps
         nextVarExprs
   ifExprs' <- mapM applyGEExp ifExprs
   let exprPats  = map (zip vs . gExpPats) gExps
-      caseExprs = zipWith4 generateNestedCases srcSpans ifExprs' nextVarExprs exprPats
+      caseExprs
+        = zipWith4 generateNestedCases srcSpans ifExprs' nextVarExprs exprPats
       decls     = zipWith makeVarBinding varNames (caseExprs ++ [err])
   return $ S.Let S.NoSrcSpan (S.BDecls S.NoSrcSpan decls) startVarExpr
 
@@ -76,7 +78,8 @@ generateNestedCases
   -> S.Exp a              -- ^ Expression to use if any pattern does not match.
   -> [(S.Exp a, S.Pat a)] -- ^ Expression/pattern pairs to match.
   -> S.Exp a
-generateNestedCases s successExpr failExpr = foldr generateNestedCase successExpr
+generateNestedCases s successExpr failExpr
+  = foldr generateNestedCase successExpr
  where
   {- generateNestedCase :: (S.Exp a, S.Pat a) -> S.Exp a -> S.Exp a -}
   generateNestedCase (v, p) nestedExpr = S.Case s v
@@ -165,11 +168,12 @@ applyGEExp e@(S.Lit _ _)                  = return e
 applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
 applyGEAlts alts
   | any hasGuardsAlt alts = do
-    let gexps = map altToGExp alts
+    let gexps     = map altToGExp alts
         firstSpan = S.getSrcSpan (head alts)
     newVar' <- freshVarPat genericFreshPrefix
     e <- generateLet [S.patToExp newVar'] defaultErrorExp gexps
-    return [S.Alt firstSpan newVar' (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing]
+    return [ S.Alt firstSpan newVar' (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing
+           ]
   | otherwise = return alts
 
 -- | Applies guard elimination to function declarations in the given module.
@@ -202,11 +206,11 @@ applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
 -- | Applies guard elimination to the rules of a function declaration.
 applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
 applyGE ms = do
-  let name    = getMatchName (head ms)
-      lhsSpan = S.getSrcSpan (head ms)
-      gexps   = map matchToGExp ms
-      srcSpans   = map S.getSrcSpan (gExpPats (head gexps))
-  varPats <- mapM (\sp -> freshVarPatWithSpan genericFreshPrefix sp) srcSpans
+  let name     = getMatchName (head ms)
+      lhsSpan  = S.getSrcSpan (head ms)
+      gexps    = map matchToGExp ms
+      srcSpans = map S.getSrcSpan (gExpPats (head gexps))
+  varPats <- mapM (freshVarPatWithSpan genericFreshPrefix) srcSpans
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
     $ S.Match lhsSpan name varPats (S.UnGuardedRhs S.NoSrcSpan expr') Nothing

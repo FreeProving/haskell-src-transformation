@@ -85,13 +85,12 @@ useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
         -> Sem r (S.Match a)
 useAlgo s ms = do
   eqs <- mapM matchToEquation ms
-  let name    = getMatchName (head ms)
-      arity   = length (fst (head eqs))
+  let name  = getMatchName (head ms)
+      arity = length (fst (head eqs))
   nVars <- replicateM arity (freshVarPat genericFreshPrefix)
   nExp <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
-  return
-    $ S.Match s name nVars (S.UnGuardedRhs s nExp') Nothing
+  return $ S.Match s name nVars (S.UnGuardedRhs s nExp') Nothing
  where
   -- | Converts a rule of a function declaration to an equation.
   --

@@ -81,7 +81,7 @@ optimizeCase sc (S.Var sv varName) alts = do
   case mpat of
     Just pat -> renameAndOpt pat alts
     Nothing  -> addAndOpt sc sv varName alts
-optimizeCase s e alts                 = do
+optimizeCase s e alts                   = do
   e' <- optimize' e
   alts' <- mapM optimizeAlt alts
   return $ S.Case s e' alts'
