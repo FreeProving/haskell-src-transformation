@@ -58,7 +58,8 @@ freshVarPat prefix = S.PVar S.NoSrcSpan <$> freshName prefix
 -- Interpretations                                                           --
 -------------------------------------------------------------------------------
 -- | Interprets a computation that needs fresh variables by generating
---   identifiers of the form @<prefix><N>@.
+--   identifiers of the form @<prefix><N>@ that do not collide with the given
+--   set of used identifiers.
 runFresh :: Set String -> Sem (Fresh ': r) a -> Sem r a
 runFresh usedIdentifiers = evalState Map.empty . freshToState
  where
