@@ -96,7 +96,7 @@ getPatVarName (S.PList _ _) = reportFatal
   $ "Expected variable or wildcard pattern, got list pattern."
 
 -------------------------------------------------------------------------------
--- Find identifiers in a programs                                                             --
+-- Find Identifiers in Modules                                               --
 -------------------------------------------------------------------------------
 -- | Collects all identifiers in a module in a set.
 getIdentifiers :: S.Module a -> Set String
