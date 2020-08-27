@@ -55,10 +55,6 @@ testFreeVars = describe "HST.Util.FreeVars" $ do
       [] `shouldBeFreeIn` ["repeat x = x : repeat x"]
     it "should not contain lambda arguments" $ runTest $ do
       ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
-    it "should not contain lambda arguments" $ runTest $ do
-      ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
-    it "should not contain lambda arguments" $ runTest $ do
-      ["x"] `shouldBeFreeIn` ["f = \\g -> g x"]
     it "should not contain let-bindings" $ runTest $ do
       ["z", "g"] `shouldBeFreeIn` ["f = let {x = y; y = z} in g x"]
     it "should not contain patterns of case alternatives" $ runTest $ do
