@@ -19,27 +19,27 @@ import           HST.Util.Subst
 -------------------------------------------------------------------------------
 -- Test Values                                                               --
 -------------------------------------------------------------------------------
--- | Name of of a test function @f@.
+-- | Name of a test function @f@.
 f :: S.Name a
 f = S.Ident S.NoSrcSpan "f"
 
--- | Name of of a test variable @x@.
+-- | Name of a test variable @x@.
 x :: S.Name a
 x = S.Ident S.NoSrcSpan "x"
 
--- | Name of of the fresh test variable @x_0@.
+-- | Name of the fresh test variable @x_0@.
 x_0 :: S.Name a
 x_0 = S.Ident S.NoSrcSpan "x_0"
 
--- | Name of of the fresh test variable @x_1@.
+-- | Name of the fresh test variable @x_1@.
 x_1 :: S.Name a
 x_1 = S.Ident S.NoSrcSpan "x_1"
 
--- | Name of of a test variable @y@.
+-- | Name of a test variable @y@.
 y :: S.Name a
 y = S.Ident S.NoSrcSpan "y"
 
--- | Name of of a test variable @z@.
+-- | Name of a test variable @z@.
 z :: S.Name a
 z = S.Ident S.NoSrcSpan "z"
 

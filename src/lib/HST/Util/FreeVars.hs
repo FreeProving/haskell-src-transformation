@@ -98,13 +98,12 @@ instance FreeVars S.Binds where
 
 -- | Declarations can contain free variables.
 --
---   Function declarations are the only supported declarations that can
---   contain free variables. Since a function declaration binds the name
---   of the function, the name of the function is not free in recursive
---   functions. However, two function declarations that depend on each
---   other contain free variables for the other function. Thus, bound
---   variables have to be removed explicitly from the 'union' of free
---   variable sets of declarations.
+--   Function declarations are the only supported declarations that can contain
+--   free variables. Since a function declaration binds the name of the
+--   function, the name of the function is not free in recursive functions.
+--   However, two function declarations that depend on each other contain free
+--   variables for the other function. Thus, bound variables have to be removed
+--   explicitly from the 'union' of free variable sets of declarations.
 instance FreeVars S.Decl where
   freeVarOSet (S.FunBind _ matches) = freeVarOSetUnion matches
   freeVarOSet (S.DataDecl _ _ _ _)  = OSet.empty

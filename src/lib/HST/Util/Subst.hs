@@ -68,7 +68,7 @@ substFromList = Subst . Map.fromList
 --
 --   > σ₂ ∘ σ₁ = { x₁ ↦ e₁, …, xₙ ↦ eₙ, y₁ ↦ σ₂(f₁), …, yₘ ↦ σ₂(fₘ) }
 --
---   If a @xᵢ@ equals an @yⱼ@, the substritution for @yⱼ@ takes precedence.
+--   If a @xᵢ@ equals an @yⱼ@, the substitution for @yⱼ@ takes precedence.
 composeSubst :: Subst a -> Subst a -> Subst a
 composeSubst s2 (Subst m1) = s2 `extendSubst` Subst (fmap (applySubst s2) m1)
 
@@ -105,8 +105,8 @@ class ApplySubst node where
 instance ApplySubst S.Exp where
   applySubst subst var@(S.Var _ varName) = Map.findWithDefault var varName
     (substMap subst)
-  -- If a variable is written in infix notation, it can be substituted as
-  -- well. The infix operators are then written in postfix notation.
+  -- If a variable is written in infix notation, it can be substituted as well.
+  -- The infix operators are then written in postfix notation.
   applySubst subst (S.InfixApp appSrcSpan e1 (S.QVarOp opSrcSpan opName) e2)
     = let e1'     = applySubst subst e1
           opExpr  = S.Var opSrcSpan opName
@@ -184,7 +184,7 @@ instance ApplySubst S.Binds where
 
 -- | Substitutions can be applied to declarations.
 --
---   They only have can effect on function declarations.
+--   They only have an effect on function declarations.
 instance ApplySubst S.Decl where
   applySubst subst (S.FunBind srcSpan matches)
     = let matches' = map (applySubst subst) matches
@@ -232,7 +232,7 @@ instance ApplySubst S.GuardedRhs where
 -- Free Variables of Substitutions                                           --
 -------------------------------------------------------------------------------
 -- | Gets the names of free variables that occur freely on right-hand sides
---   of mappings of the given
+--   of mappings of the given substitution.
 substFreeVarSet :: Subst a -> Set (S.QName a)
 substFreeVarSet = Set.unions . map freeVarSet . Map.elems . substMap
 
@@ -292,7 +292,7 @@ renamePatternsAndBinds fvs pats mBinds
 foldRenameBoundVars
   :: (BoundVars node)
   => Set (S.QName a) -- ^ The variables that must not be captured.
-  -> [node a]        -- ^ The nodes that binds variables.
+  -> [node a]        -- ^ The nodes that bind variables.
   -> (Subst a, [node a])
 foldRenameBoundVars _ []               = (identitySubst, [])
 foldRenameBoundVars fvs (node : nodes)
