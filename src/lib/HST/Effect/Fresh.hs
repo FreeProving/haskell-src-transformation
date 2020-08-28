@@ -73,7 +73,8 @@ runFresh usedIdentifiers = evalState Map.empty . freshToState
       modify $ Map.insert prefix (newId + 1)
       return (prefix ++ show newId)
 
-   -- Applies a given function to a given value as long as the condition holds
+  -- | Applies the given function repeatedly to the given value as long as the
+  --   condition holds.
   while :: (a -> Bool) -> (a -> a) -> a -> a
   while p f x | p x = while p f (f x)
               | otherwise = x
