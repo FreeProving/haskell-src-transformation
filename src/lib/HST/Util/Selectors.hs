@@ -5,7 +5,7 @@ module HST.Util.Selectors
     expFromUnguardedRhs
     -- * Pattern Names
   , getAltConName
-  , getIdentifiers
+  , findIdentifiers
   , getPatConName
   , getMaybePatConName
   , getPatVarName
@@ -20,7 +20,6 @@ import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
 import           HST.Effect.Report
   ( Message(..), Report, Severity(Error, Internal), evalReport, reportFatal )
 import qualified HST.Frontend.Syntax as S
-import           HST.Util.PrettyName
 
 -------------------------------------------------------------------------------
 -- Right-hand sides                                                          --
@@ -98,92 +97,102 @@ getPatVarName (S.PList _ _) = reportFatal
 -------------------------------------------------------------------------------
 -- Find Identifiers in Modules                                               --
 -------------------------------------------------------------------------------
+-- Class for all types that contain identifiers.
+class HasIdentifiers a where
+  findIdentifiers :: a -> Set String
+
+instance HasIdentifiers a => HasIdentifiers [a] where
+  findIdentifiers = Set.unions . map findIdentifiers
+
+instance HasIdentifiers a => HasIdentifiers (Maybe a) where
+  findIdentifiers = maybe Set.empty findIdentifiers
+
 -- | Collects all identifiers in a module in a set.
-getIdentifiers :: S.Module a -> Set String
-getIdentifiers (S.Module _ _ _ decls) = Set.unions
-  (map getIdentifiersDecl decls)
+instance HasIdentifiers (S.Module a) where
+  findIdentifiers (S.Module _ _ _ decls) = findIdentifiers decls
 
 -- | Collects all identifiers in a declaration.
-getIdentifiersDecl :: S.Decl a -> Set String
-getIdentifiersDecl (S.DataDecl _ _ _ _) = Set.empty
-getIdentifiersDecl (S.FunBind _ ms)     = Set.unions
-  (map getIdentifiersMatch ms)
-getIdentifiersDecl (S.OtherDecl _ _)    = Set.empty
+instance HasIdentifiers (S.Decl a) where
+  findIdentifiers (S.DataDecl _ _ _ _) = Set.empty
+  findIdentifiers (S.FunBind _ ms)     = findIdentifiers ms
+  findIdentifiers (S.OtherDecl _ _)    = Set.empty
 
 -- | Collects all identifiers in a pattern matching rule.
-getIdentifiersMatch :: S.Match a -> Set String
-getIdentifiersMatch (S.Match _ name pats rhs binds)          = Set.unions
-  [ Set.singleton (prettyName name)
-  , Set.unions (map getIdentifiersPat pats)
-  , getIdentifiersRhs rhs
-  , maybe Set.empty getIdentifiersBinds binds
-  ]
-getIdentifiersMatch (S.InfixMatch _ pat name pats rhs binds) = Set.unions
-  [ Set.singleton (prettyName name)
-  , Set.unions (map getIdentifiersPat (pat : pats))
-  , getIdentifiersRhs rhs
-  , maybe Set.empty getIdentifiersBinds binds
-  ]
+instance HasIdentifiers (S.Match a) where
+  findIdentifiers (S.Match _ name pats rhs binds)          = Set.unions
+    [ findIdentifiers name
+    , findIdentifiers pats
+    , findIdentifiers rhs
+    , findIdentifiers binds
+    ]
+  findIdentifiers (S.InfixMatch _ pat name pats rhs binds) = Set.unions
+    [ findIdentifiers name
+    , findIdentifiers (pat : pats)
+    , findIdentifiers rhs
+    , findIdentifiers binds
+    ]
 
 -- | Collects all identifiers in a pattern.
-getIdentifiersPat :: S.Pat a -> Set String
-getIdentifiersPat (S.PVar _ name)                 = Set.singleton
-  (prettyName name)
-getIdentifiersPat (S.PInfixApp _ pat1 qname pat2) = Set.insert
-  (prettyName qname)
-  (Set.union (getIdentifiersPat pat1) (getIdentifiersPat pat2))
-getIdentifiersPat (S.PApp _ qname pats)           = Set.insert
-  (prettyName qname) (Set.unions (map getIdentifiersPat pats))
-getIdentifiersPat (S.PTuple _ _ pats)             = Set.unions
-  (map getIdentifiersPat pats)
-getIdentifiersPat (S.PParen _ pat)                = getIdentifiersPat pat
-getIdentifiersPat (S.PList _ pats)                = Set.unions
-  (map getIdentifiersPat pats)
-getIdentifiersPat (S.PWildCard _)                 = Set.empty
+instance HasIdentifiers (S.Pat a) where
+  findIdentifiers (S.PVar _ name)                 = findIdentifiers name
+  findIdentifiers (S.PInfixApp _ pat1 qname pat2) = findIdentifiers qname
+    `Set.union` (findIdentifiers pat1 `Set.union` findIdentifiers pat2)
+  findIdentifiers (S.PApp _ qname pats)
+    = findIdentifiers qname `Set.union` findIdentifiers pats
+  findIdentifiers (S.PTuple _ _ pats)             = findIdentifiers pats
+  findIdentifiers (S.PParen _ pat)                = findIdentifiers pat
+  findIdentifiers (S.PList _ pats)                = findIdentifiers pats
+  findIdentifiers (S.PWildCard _)                 = Set.empty
 
 -- | Collects all identifiers in a right-hand side of a pattern matching rule.
-getIdentifiersRhs :: S.Rhs a -> Set String
-getIdentifiersRhs (S.UnGuardedRhs _ expr) = getIdentifiersExp expr
-getIdentifiersRhs (S.GuardedRhss _ grhss) = Set.unions
-  (map getIdentifiersGRhs grhss)
+instance HasIdentifiers (S.Rhs a) where
+  findIdentifiers (S.UnGuardedRhs _ expr) = findIdentifiers expr
+  findIdentifiers (S.GuardedRhss _ grhss) = findIdentifiers grhss
 
 -- | Collects all identifiers in a guarded right-hand side.
-getIdentifiersGRhs :: S.GuardedRhs a -> Set String
-getIdentifiersGRhs (S.GuardedRhs _ cond expr) = Set.union
-  (getIdentifiersExp cond) (getIdentifiersExp expr)
+instance HasIdentifiers (S.GuardedRhs a) where
+  findIdentifiers (S.GuardedRhs _ cond expr)
+    = findIdentifiers cond `Set.union` findIdentifiers expr
 
 -- | Collects all identifiers in an expression.
-getIdentifiersExp :: S.Exp a -> Set String
-getIdentifiersExp (S.Var _ qname)            = Set.singleton (prettyName qname)
-getIdentifiersExp (S.Con _ qname)            = Set.singleton (prettyName qname)
-getIdentifiersExp (S.Lit _ _)                = Set.empty
-getIdentifiersExp (S.InfixApp _ exp1 _ exp2) = Set.union
-  (getIdentifiersExp exp1) (getIdentifiersExp exp2)
-getIdentifiersExp (S.App _ exp1 exp2)        = Set.union
-  (getIdentifiersExp exp1) (getIdentifiersExp exp2)
-getIdentifiersExp (S.NegApp _ expr)          = getIdentifiersExp expr
-getIdentifiersExp (S.Lambda _ pats expr)     = Set.union
-  (Set.unions (map getIdentifiersPat pats)) (getIdentifiersExp expr)
-getIdentifiersExp (S.Let _ binds expr)       = Set.union
-  (getIdentifiersBinds binds) (getIdentifiersExp expr)
-getIdentifiersExp (S.If _ cond exp1 exp2)    = Set.union
-  (getIdentifiersExp cond)
-  (Set.union (getIdentifiersExp exp1) (getIdentifiersExp exp2))
-getIdentifiersExp (S.Case _ scrutinee alts)  = Set.union
-  (getIdentifiersExp scrutinee) (Set.unions (map getIdentifiersAlt alts))
-getIdentifiersExp (S.Tuple _ _ exps)         = Set.unions
-  (map getIdentifiersExp exps)
-getIdentifiersExp (S.List _ exps)            = Set.unions
-  (map getIdentifiersExp exps)
-getIdentifiersExp (S.Paren _ expr)           = getIdentifiersExp expr
-getIdentifiersExp (S.ExpTypeSig _ expr _)    = getIdentifiersExp expr
+instance HasIdentifiers (S.Exp a) where
+  findIdentifiers (S.Var _ qname)            = findIdentifiers qname
+  findIdentifiers (S.Con _ qname)            = findIdentifiers qname
+  findIdentifiers (S.Lit _ _)                = Set.empty
+  findIdentifiers (S.InfixApp _ exp1 _ exp2)
+    = findIdentifiers exp1 `Set.union` findIdentifiers exp2
+  findIdentifiers (S.App _ exp1 exp2)
+    = findIdentifiers exp1 `Set.union` findIdentifiers exp2
+  findIdentifiers (S.NegApp _ expr)          = findIdentifiers expr
+  findIdentifiers (S.Lambda _ pats expr)
+    = findIdentifiers pats `Set.union` findIdentifiers expr
+  findIdentifiers (S.Let _ binds expr)
+    = findIdentifiers binds `Set.union` findIdentifiers expr
+  findIdentifiers (S.If _ cond exp1 exp2)    = findIdentifiers cond
+    `Set.union` findIdentifiers exp1
+    `Set.union` findIdentifiers exp2
+  findIdentifiers (S.Case _ scrutinee alts)
+    = findIdentifiers scrutinee `Set.union` findIdentifiers alts
+  findIdentifiers (S.Tuple _ _ exps)         = findIdentifiers exps
+  findIdentifiers (S.List _ exps)            = findIdentifiers exps
+  findIdentifiers (S.Paren _ expr)           = findIdentifiers expr
+  findIdentifiers (S.ExpTypeSig _ expr _)    = findIdentifiers expr
 
 -- | Collects all identifiers in a @case@ alternative.
-getIdentifiersAlt :: S.Alt a -> Set String
-getIdentifiersAlt (S.Alt _ pat rhs binds) = Set.union (getIdentifiersPat pat)
-  (Set.union (getIdentifiersRhs rhs) (maybe Set.empty getIdentifiersBinds binds))
+instance HasIdentifiers (S.Alt a) where
+  findIdentifiers (S.Alt _ pat rhs binds) = findIdentifiers pat
+    `Set.union` findIdentifiers rhs
+    `Set.union` findIdentifiers binds
 
 -- | Collects all identifiers in @let@ and @where@ bindings.
-getIdentifiersBinds :: S.Binds a -> Set String
-getIdentifiersBinds (S.BDecls _ decls) = Set.unions
-  (map getIdentifiersDecl decls)
+instance HasIdentifiers (S.Binds a) where
+  findIdentifiers (S.BDecls _ decls) = findIdentifiers decls
+
+instance HasIdentifiers (S.QName a) where
+  findIdentifiers (S.Qual _ _ name) = findIdentifiers name
+  findIdentifiers (S.UnQual _ name) = findIdentifiers name
+  findIdentifiers (S.Special _ _)   = Set.empty
+
+instance HasIdentifiers (S.Name a) where
+  findIdentifiers (S.Ident _ s)  = Set.singleton s
+  findIdentifiers (S.Symbol _ _) = Set.empty
