@@ -2,6 +2,7 @@
 --   transformation of ASTs.
 module HST.Frontend.Transformer.Messages where
 
+import           Data.Char            ( isSpace )
 import           Polysemy             ( Member, Members, Sem )
 
 import           HST.Effect.InputFile ( InputFile, getInputFile )
@@ -137,7 +138,8 @@ displayCodeExcerpt src@S.SrcSpan {} = do
                    (S.srcSpanEndColumn src - 1 : map length (init lsShort))
                  minPadding    = minimum
                    (S.srcSpanStartColumn src - 1
-                    : map (length . takeWhile (== ' ')) (tail lsShort))
+                    : map (length . takeWhile isSpace)
+                    (filter (not . all isSpace) (tail lsShort)))
                  firstLine     = replicate
                    (maxLineNumLength + 2 + S.srcSpanStartColumn src) ' '
                    ++ replicate (maxLineLength - S.srcSpanStartColumn src + 1)
