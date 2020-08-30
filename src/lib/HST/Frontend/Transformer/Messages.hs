@@ -60,12 +60,11 @@ skipNotSupportedWithExcerpt feature srcSpan = do
 --   partially contained in the given source span, including their line
 --   numbers, and marks showing the start and end of the spanned code.
 displayCodeExcerpt :: Member InputFile r => S.SrcSpan a -> Sem r String
-displayCodeExcerpt S.NoSrcSpan = return "No source span information available!"
+displayCodeExcerpt S.NoSrcSpan = return ""
 displayCodeExcerpt src@S.SrcSpan {} = do
   maybeContent <- getInputFile (S.srcSpanFilePath src)
   return $ case maybeContent of
-    Nothing      ->
-      "No content was found for the file `" ++ S.srcSpanFilePath src ++ "`!"
+    Nothing      -> ""
     Just content ->
       let ls = getLines (S.srcSpanStartLine src - 1) (S.srcSpanEndLine src)
             (lines content)
@@ -168,17 +167,3 @@ displayCodeExcerpt src@S.SrcSpan {} = do
   --   maximum length is reached.
   padLeft :: Int -> String -> String
   padLeft maxLength s = replicate (maxLength - length s) ' ' ++ s
-{- TODO Unfinished. Could be used to colorize the spanned code.
-  insertColor :: Int -> Int -> [String] -> Maybe [String]
-  insertColor i1 i2 ls = reverse (insertColor i2 (reverse insertColor' i1 ls)))
-
-  insertColor' :: Int -> [String] -> Maybe [String]
-  insertColor' c (h:ls') = 
-  insertColor' _ [] = Nothing
-
-  insertAt :: Int -> a -> [a] -> Maybe [a]
-  insertAt 0 e list = Just (e : list)
-  insertAt i e [] = Nothing
-  insertAt i e (h:list') | i < 0 = Nothing
-                         | otherwise = fmap (h :) (insertAt (i - 1) e list')
-  -}
