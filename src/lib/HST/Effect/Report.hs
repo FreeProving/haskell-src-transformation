@@ -33,19 +33,22 @@ module HST.Effect.Report
   , failToReport
   ) where
 
-import           Control.Exception ( Exception )
-import           Control.Monad     ( (>=>), when )
+import           Control.Exception    ( Exception )
+import           Control.Monad        ( (>=>), when )
+import           Data.Char            ( isSpace )
 import           Polysemy
   ( Member, Members, Sem, intercept, interpret, makeSem, raise, raiseUnder2 )
-import           Polysemy.Embed    ( Embed, embed )
-import           Polysemy.Error    ( Error, fromExceptionSem, runError )
-import           Polysemy.Fail     ( Fail, runFail )
-import           Polysemy.Final    ( Final )
+import           Polysemy.Embed       ( Embed, embed )
+import           Polysemy.Error       ( Error, fromExceptionSem, runError )
+import           Polysemy.Fail        ( Fail, runFail )
+import           Polysemy.Final       ( Final )
 import           Polysemy.Output
   ( Output, ignoreOutput, output, runOutputList )
-import           System.IO         ( Handle, hPutStrLn )
+import           System.IO            ( Handle, hPutStrLn )
 
-import           HST.Effect.Cancel ( Cancel, cancel, runCancel )
+import           HST.Effect.Cancel    ( Cancel, cancel, runCancel )
+import           HST.Effect.InputFile ( InputFile, getInputFile )
+import           HST.Frontend.Syntax  as S
 
 -------------------------------------------------------------------------------
 -- Messages                                                                  --
@@ -55,12 +58,136 @@ data Severity = Internal | Error | Warning | Info | Debug
  deriving ( Show, Eq )
 
 -- | A messages that can be 'report'ed.
-data Message = Message { msgSeverity :: Severity, msgText :: String }
+data Message a = Message { msgSeverity :: Severity
+                         , msgSrcSpan  :: S.SrcSpan a
+                         , msgText     :: String
+                         }
  deriving ( Show, Eq )
 
 -- TODO Add @Pretty@ instance for messages.
-showPrettyMessage :: Message -> String
-showPrettyMessage (Message severity msg) = show severity ++ ": " ++ msg
+showPrettyMessage :: Member InputFile r => Message a -> Sem r String
+showPrettyMessage (Message severity srcSpan msg) = do
+  excerpt <- displayCodeExcerpt srcSpan
+  return
+    $ show severity
+    ++ ": "
+    ++ msg
+    ++ if null excerpt then "" else '\n' : excerpt
+
+-- | Displays an excerpt of the input code specified by the given source span.
+--
+--   The excerpt consists of an introductory line with the file path and the
+--   source span numbers, all lines of the input program that are at least
+--   partially contained in the given source span, including their line
+--   numbers, and marks showing the start and end of the spanned code.
+displayCodeExcerpt :: Member InputFile r => S.SrcSpan a -> Sem r String
+displayCodeExcerpt S.NoSrcSpan = return ""
+displayCodeExcerpt src@S.SrcSpan {} = do
+  maybeContent <- getInputFile (S.srcSpanFilePath src)
+  return $ case maybeContent of
+    Nothing      -> ""
+    Just content ->
+      let ls = getLines (S.srcSpanStartLine src - 1) (S.srcSpanEndLine src)
+            (lines content)
+      in if not (isValidSrcSpan ls)
+           then "The source span "
+             ++ srcString
+             ++ " of `"
+             ++ S.srcSpanFilePath src
+             ++ "` cannot be fully displayed!"
+           else S.srcSpanFilePath src
+             ++ ':' : srcString ++ ":\n" ++ unlines (prettyLines ls)
+ where
+  -- | Returns a sublist of the given list specified by the given indices.
+  --
+  --   The first of the zero-based indices is inclusive, the second is
+  --   exclusive. Invalid indices do not cause runtime errors.
+  --   Example: getLines 1 3 [1, 2, 3, 4, 5] = [2, 3]
+  getLines :: Int -> Int -> [a] -> [a]
+  getLines i1 i2 = take (i2 - i1) . drop i1
+
+  -- | Tests if a source span is valid by checking if the locations specified
+  --   in the source span do exist in the given lines.
+  isValidSrcSpan :: [String] -> Bool
+  isValidSrcSpan [] = False
+  isValidSrcSpan ls
+    = (length ls == S.srcSpanEndLine src - S.srcSpanStartLine src + 1)
+    && (length (head ls) >= S.srcSpanStartColumn src)
+    && (length (last ls) >= S.srcSpanEndColumn src - 1)
+
+  -- | Builds a string displaying the line and column of the source span start
+  --   and end.
+  srcString :: String
+  srcString = show (S.srcSpanStartLine src)
+    ++ ':'
+    : show (S.srcSpanStartColumn src)
+    ++ '-' : show (S.srcSpanEndLine src) ++ ':' : show (S.srcSpanEndColumn src)
+
+  -- | Adds line numbers to each given line and adds marks showing the start
+  --   and end of the spanned code.
+  prettyLines :: [String] -> [String]
+  prettyLines ls
+    = let (numbers, maxLineNumLength) = alignedLineNumbers
+            (S.srcSpanStartLine src) (S.srcSpanEndLine src)
+          lsWithNum                   = zipWith
+            (\lNum code -> lNum ++ " | " ++ code) numbers ls
+      in case ls of
+           -- Excerpts consisting of no lines should be exfiltrated by
+           -- 'isValidSrcSpan'.
+           []        -> []
+           -- For single-line excerpts, an additional line below the excerpt
+           -- marking the entire spanned code is added.
+           [_]       ->
+             let lastLine = replicate
+                   (maxLineNumLength + 2 + S.srcSpanStartColumn src) ' '
+                   ++ replicate
+                   (S.srcSpanEndColumn src - S.srcSpanStartColumn src) '^'
+             in lsWithNum ++ [lastLine]
+           -- For multi-line excerpts, there are two lines added:
+           -- A line above the excerpt marking the start of the spanned code.
+           -- A line below the excerpt marking the end of the spanned code.
+           -- For excerpts containing more than five lines, only the first two
+           -- and last two lines are shown and an additional line marking the
+           -- abbreviation is added between them.
+           _ : _ : _ ->
+             let lsLength      = length ls
+                 lsShort       = if lsLength <= 5
+                   then ls
+                   else take 2 ls ++ drop (lsLength - 2) ls
+                 maxLineLength = maximum
+                   (S.srcSpanEndColumn src - 1 : map length (init lsShort))
+                 minPadding    = minimum
+                   (S.srcSpanStartColumn src - 1
+                    : map (length . takeWhile isSpace)
+                    (filter (not . all isSpace) (tail lsShort)))
+                 firstLine     = replicate
+                   (maxLineNumLength + 2 + S.srcSpanStartColumn src) ' '
+                   ++ replicate (maxLineLength - S.srcSpanStartColumn src + 1)
+                   'v'
+                 lastLine      = replicate (maxLineNumLength + 3 + minPadding)
+                   ' '
+                   ++ replicate (S.srcSpanEndColumn src - minPadding - 1) '^'
+             in if lsLength <= 5
+                  then firstLine : lsWithNum ++ [lastLine]
+                  else let abbrLine = replicate (maxLineNumLength - 1) ' '
+                             ++ ":"
+                       in firstLine
+                          : take 2 lsWithNum
+                          ++ abbrLine
+                          : drop (lsLength - 2) lsWithNum ++ [lastLine]
+
+  -- | Produces a list of right-aligned line numbers going from the first to
+  --   the second given line number (both are inclusive). Also returns the
+  --   maximum length of these numbers (the length of the second given number).
+  alignedLineNumbers :: Int -> Int -> ([String], Int)
+  alignedLineNumbers l1 l2
+    = let maxLineNumLength = length (show l2)
+      in (map (padLeft maxLineNumLength . show) [l1 .. l2], maxLineNumLength)
+
+  -- | Adds spaces to the left side of the given string so that the given
+  --   maximum length is reached.
+  padLeft :: Int -> String -> String
+  padLeft maxLength s = replicate (maxLength - length s) ' ' ++ s
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
@@ -70,8 +197,8 @@ showPrettyMessage (Message severity msg) = show severity ++ ": " ++ msg
 --   It is distinguished between fatal and non-fatal messages. A fatal message
 --   is usually an error that cannot be recovered from.
 data Report m a where
-  Report :: Message -> Report m ()
-  ReportFatal :: Message -> Report m a
+  Report :: Message b -> Report m ()
+  ReportFatal :: Message b -> Report m a
 
 makeSem ''Report
 
@@ -83,7 +210,7 @@ makeSem ''Report
 --   The return value of the handled computation is wrapped in @Maybe@.
 --   If a fatal message is reported, @Nothing@ is returned and only the
 --   messages up to the fatal message are collected.
-runReport :: Sem (Report ': r) a -> Sem r ([Message], Maybe a)
+runReport :: Sem (Report ': r) a -> Sem r ([Message b], Maybe a)
 runReport = runOutputList . runCancel . reportToOutputOrCancel . raiseUnder2
 
 -- | Handles the 'Report' effect by discarding all reported messages.
@@ -98,7 +225,7 @@ evalReport = ignoreOutput . runCancel . reportToOutputOrCancel . raiseUnder2
 --   If a fatal message is reported, the computation is 'cancel'ed
 --   prematurely.
 reportToOutputOrCancel
-  :: Members '[Output Message, Cancel] r => Sem (Report ': r) a -> Sem r a
+  :: Members '[Output (Message b), Cancel] r => Sem (Report ': r) a -> Sem r a
 reportToOutputOrCancel = interpret \case
   Report msg      -> output msg
   ReportFatal msg -> output msg >> cancel
@@ -108,20 +235,24 @@ reportToOutputOrCancel = interpret \case
 --
 --   If a fatal message is reported, the computation is 'cancel'ed
 --   prematurely.
-reportToHandleOrCancel
-  :: Members '[Embed IO, Cancel] r => Handle -> Sem (Report ': r) a -> Sem r a
+reportToHandleOrCancel :: Members '[Embed IO, Cancel, InputFile] r
+                       => Handle
+                       -> Sem (Report ': r) a
+                       -> Sem r a
 reportToHandleOrCancel h = interpret \case
-  Report msg      -> embed (hPutMessage msg)
-  ReportFatal msg -> embed (hPutMessage msg) >> cancel
+  Report msg      -> hPutMessage msg
+  ReportFatal msg -> hPutMessage msg >> cancel
  where
   -- | Prints the given message to the file handle given to the effect handler.
-  hPutMessage :: Message -> IO ()
-  hPutMessage = hPutStrLn h . showPrettyMessage
+  hPutMessage :: Members '[Embed IO, InputFile] r => Message a -> Sem r ()
+  hPutMessage message = do
+    message <- showPrettyMessage message
+    embed (hPutStrLn h message)
 
 -- | Intercepts all non-fatal messages reported by the given computation and
 --   forwards them only if they satisfy the given predicate.
 filterReportedMessages
-  :: Member Report r => (Message -> Bool) -> Sem r a -> Sem r a
+  :: Member Report r => (Message b -> Bool) -> Sem r a -> Sem r a
 filterReportedMessages p = intercept \case
   Report msg      -> when (p msg) (report msg)
   ReportFatal msg -> reportFatal msg
@@ -131,14 +262,15 @@ filterReportedMessages p = intercept \case
 -------------------------------------------------------------------------------
 -- | Handles the 'Cancel' effect by reporting the given fatal error message
 --   when the computation was canceled.
-cancelToReport :: Member Report r => Message -> Sem (Cancel ': r) a -> Sem r a
+cancelToReport
+  :: Member Report r => Message b -> Sem (Cancel ': r) a -> Sem r a
 cancelToReport cancelMessage = runCancel
   >=> maybe (reportFatal cancelMessage) return
 
 -- | Handles the 'Error' effect by reporting thrown errors as the message
 --   returned by the given function for the error.
 errorToReport
-  :: Member Report r => (e -> Message) -> Sem (Error e ': r) a -> Sem r a
+  :: Member Report r => (e -> Message b) -> Sem (Error e ': r) a -> Sem r a
 errorToReport errorToMessage = runError
   >=> either (reportFatal . errorToMessage) return
 
@@ -146,7 +278,7 @@ errorToReport errorToMessage = runError
 --   by reporting the message returned by the given function for the thrown
 --   exception.
 exceptionToReport :: (Exception e, Members '[Final IO, Report] r)
-                  => (e -> Message)
+                  => (e -> Message b)
                   -> Sem r a
                   -> Sem r a
 exceptionToReport exceptionToMessage
@@ -164,4 +296,5 @@ exceptionToReport exceptionToMessage
 --   >   (x, y) <- bar
 --   >   …
 failToReport :: Member Report r => Sem (Fail ': r) a -> Sem r a
-failToReport = runFail >=> either (reportFatal . Message Internal) return
+failToReport = runFail
+  >=> either (reportFatal . Message Internal S.NoSrcSpan) return
