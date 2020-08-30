@@ -108,7 +108,8 @@ displayCodeExcerpt src@S.SrcSpan {} = do
   prettyLines ls
     = let (numbers, maxLineNumLength) = alignedLineNumbers
             (S.srcSpanStartLine src) (S.srcSpanEndLine src)
-          ls' = zipWith (\lNum code -> lNum ++ " | " ++ code) numbers ls
+          lsWithNum                   = zipWith
+            (\lNum code -> lNum ++ " | " ++ code) numbers ls
       in case ls of
            -- Excerpts consisting of no lines should be exfiltrated by
            -- 'isValidSrcSpan'.
@@ -120,16 +121,23 @@ displayCodeExcerpt src@S.SrcSpan {} = do
                    (maxLineNumLength + 2 + S.srcSpanStartColumn src) ' '
                    ++ replicate
                    (S.srcSpanEndColumn src - S.srcSpanStartColumn src) '^'
-             in ls' ++ [lastLine]
+             in lsWithNum ++ [lastLine]
            -- For multi-line excerpts, there are two lines added:
            -- A line above the excerpt marking the start of the spanned code.
            -- A line below the excerpt marking the end of the spanned code.
+           -- For excerpts containing more than five lines, only the first two
+           -- and last two lines are shown and an additional line marking the
+           -- abbreviation is added between them.
            _ : _ : _ ->
-             let maxLineLength = maximum
-                   (S.srcSpanEndColumn src - 1 : map length (init ls))
+             let lsLength      = length ls
+                 lsShort       = if lsLength <= 5
+                   then ls
+                   else take 2 ls ++ drop (lsLength - 2) ls
+                 maxLineLength = maximum
+                   (S.srcSpanEndColumn src - 1 : map length (init lsShort))
                  minPadding    = minimum
                    (S.srcSpanStartColumn src - 1
-                    : map (length . takeWhile (== ' ')) (tail ls))
+                    : map (length . takeWhile (== ' ')) (tail lsShort))
                  firstLine     = replicate
                    (maxLineNumLength + 2 + S.srcSpanStartColumn src) ' '
                    ++ replicate (maxLineLength - S.srcSpanStartColumn src + 1)
@@ -137,7 +145,14 @@ displayCodeExcerpt src@S.SrcSpan {} = do
                  lastLine      = replicate (maxLineNumLength + 3 + minPadding)
                    ' '
                    ++ replicate (S.srcSpanEndColumn src - minPadding - 1) '^'
-             in firstLine : ls' ++ [lastLine]
+             in if lsLength <= 5
+                  then firstLine : lsWithNum ++ [lastLine]
+                  else let abbrLine = replicate (maxLineNumLength - 1) ' '
+                             ++ ":"
+                       in firstLine
+                          : take 2 lsWithNum
+                          ++ abbrLine
+                          : drop (lsLength - 2) lsWithNum ++ [lastLine]
 
   -- | Produces a list of right-aligned line numbers going from the first to
   --   the second given line number (both are inclusive). Also returns the
