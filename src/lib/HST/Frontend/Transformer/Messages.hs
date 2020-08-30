@@ -67,7 +67,7 @@ displayCodeExcerpt src@S.SrcSpan {} = do
       "No content was found for the file `" ++ S.srcSpanFilePath src ++ "`!"
     Just content ->
       let ls = getLines (S.srcSpanStartLine src - 1) (S.srcSpanEndLine src)
-            content
+            (lines content)
       in if not (isValidSrcSpan ls)
            then "The source span "
              ++ srcString

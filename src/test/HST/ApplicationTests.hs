@@ -44,7 +44,7 @@ runTest comp = runM
   $ setExpectationToIO
   $ reportToSetExpectation
   $ cancelToReport (Message Info "The computation was canceled.")
-  $ runInputFile
+  $ runInputFile []
   $ runWithArgs []
   $ runWithAllFrontends comp
 

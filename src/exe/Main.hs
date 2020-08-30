@@ -20,7 +20,7 @@ import           HST.Effect.Env          ( runEnv )
 import           HST.Effect.Fresh        ( runFresh )
 import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
 import           HST.Effect.InputFile
-  ( InputFile, addInputFile, runInputFile )
+  ( InputFile, getInputFile, runInputFile )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
   , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
@@ -88,7 +88,7 @@ application = do
       inputFiles <- getOpt optInputFiles
       if showHelp || null inputFiles
         then embed putUsageInfo
-        else runInputFile $ mapM_ processInputFile inputFiles
+        else runInputFile inputFiles $ mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -105,18 +105,20 @@ processInputFile :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r
                  => FilePath
                  -> Sem r ()
 processInputFile inputFilename = do
-  input <- embed $ readFile inputFilename
-  frontend <- parseFrontend =<< getOpt optFrontend
-  addInputFile inputFilename input
-  (output, moduleName) <- processInput frontend inputFilename input
-  maybeOutputDir <- getOpt optOutputDir
-  case maybeOutputDir of
-    Just outputDir -> do
-      let outputFilename
-            = outputDir </> makeOutputFileName inputFilename moduleName
-      embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
-      embed $ writeFile outputFilename output
-    Nothing        -> embed $ putStrLn output
+  maybeInput <- getInputFile inputFilename
+  case maybeInput of
+    Nothing    -> return ()
+    Just input -> do
+      frontend <- parseFrontend =<< getOpt optFrontend
+      (output, moduleName) <- processInput frontend inputFilename input
+      maybeOutputDir <- getOpt optOutputDir
+      case maybeOutputDir of
+        Just outputDir -> do
+          let outputFilename
+                = outputDir </> makeOutputFileName inputFilename moduleName
+          embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
+          embed $ writeFile outputFilename output
+        Nothing        -> embed $ putStrLn output
 
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
