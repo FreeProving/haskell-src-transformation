@@ -5,7 +5,7 @@ import           Control.Exception    ( finally )
 import           Polysemy             ( Member, Sem, run, runM )
 import           Polysemy.Output      ( runOutputList )
 import           System.Directory     ( getTemporaryDirectory, removeFile )
-import           System.IO
+import           System.IO            ( SeekMode(AbsoluteSeek), Handle, hClose, hGetContents, hSeek, openTempFile )
 import           System.IO.Error      ( catchIOError )
 import           Test.Hspec
   ( Spec, context, describe, it, shouldBe, shouldReturn )
@@ -13,9 +13,8 @@ import           Test.Hspec
 import           HST.Effect.Cancel    ( runCancel )
 import           HST.Effect.InputFile ( runInputFile )
 import           HST.Effect.Report
-  ( Message(..), Report, Severity(..), filterReportedMessages, message, report
+  ( Message(Message), Report, Severity(Error, Info, Warning), filterReportedMessages, msgSeverity, report
   , reportFatal, reportToHandleOrCancel, reportToOutputOrCancel, runReport )
-import qualified HST.Frontend.Syntax  as S
 
 -- | Test group for interpreters of the 'HST.Effect.Report.Report' effect.
 testReportEffect :: Spec
@@ -94,7 +93,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
       ++ "if a fatal message was reported")
     $ do
       processCompHandle "tempFile" $ \h -> do
-        let msg = message Error S.NoSrcSpan "Some Error"
+        let msg = Message Error Nothing "Some Error"
             comp :: Member Report r => Sem r Int
             comp = reportFatal msg >> return 42
         val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
@@ -107,7 +106,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
       ++ "if a single message was reported")
     $ do
       processCompHandle "tempFile" $ \h -> do
-        let msg = message Warning S.NoSrcSpan "Some Warning"
+        let msg = Message Warning Nothing "Some Warning"
             comp :: Member Report r => Sem r Int
             comp = report msg >> return 42
         val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
@@ -119,8 +118,8 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
   it "should write reported messages to the handle in the right order"
     $ processCompHandle "tempFile"
     $ \h -> do
-      let msg1 = message Info S.NoSrcSpan "Some Info"
-      let msg2 = message Warning S.NoSrcSpan "Some Warning"
+      let msg1 = Message Info Nothing "Some Info"
+      let msg2 = Message Warning Nothing "Some Warning"
           comp :: Member Report r => Sem r Int
           comp = report msg1 >> report msg2 >> return 42
       val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
