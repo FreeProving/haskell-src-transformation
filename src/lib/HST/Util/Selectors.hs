@@ -14,7 +14,7 @@ import           Polysemy            ( Member, Members, Sem, run )
 
 import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
 import           HST.Effect.Report
-  ( Message(..), Report, Severity(Error, Internal), evalReport, reportFatal )
+  ( Report, Severity(Error, Internal), message, evalReport, reportFatal )
 import qualified HST.Frontend.Syntax as S
 
 -------------------------------------------------------------------------------
@@ -26,7 +26,7 @@ import qualified HST.Frontend.Syntax as S
 expFromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
 expFromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
 expFromUnguardedRhs (S.GuardedRhss _ _)
-  = reportFatal $ Message Internal $ "Expected unguarded right-hand side."
+  = reportFatal $ message Internal S.NoSrcSpan $ "Expected unguarded right-hand side."
 
 -------------------------------------------------------------------------------
 -- Pattern Names                                                             --
@@ -52,10 +52,10 @@ getPatConName (S.PTuple _ boxed pats)     = return
 getPatConName (S.PParen _ pat)            = getPatConName pat
 -- All other patterns are not constructor patterns.
 getPatConName (S.PVar _ _)                = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected constructor pattern, got variable pattern."
 getPatConName (S.PWildCard _)             = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected constructor pattern, got wildcard pattern."
 
 -- | Like 'getPatConName' but returns @Nothing@ if the given pattern is not
@@ -78,14 +78,14 @@ getPatVarName (S.PWildCard _) = freshIdent genericFreshPrefix
 getPatVarName (S.PParen _ pat) = getPatVarName pat
 -- All other patterns are not variable patterns.
 getPatVarName (S.PApp _ _ _) = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got constructor pattern."
 getPatVarName (S.PInfixApp _ _ _ _) = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got infix constructor pattern."
 getPatVarName (S.PTuple _ _ _) = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got tuple pattern."
 getPatVarName (S.PList _ _) = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got list pattern."

@@ -9,7 +9,7 @@ import           HST.Effect.Fresh         ( Fresh )
 import           HST.Effect.PatternStack
   ( PatternStack, peekPattern, popPattern, pushPattern, runPatternStack )
 import           HST.Effect.Report
-  ( Message(..), Report, Severity(Error), reportFatal )
+  ( Report, Severity(Error), message, reportFatal )
 import           HST.Environment.Renaming ( rename, subst )
 import qualified HST.Frontend.Syntax      as S
 import           HST.Util.Selectors
@@ -99,7 +99,7 @@ renameAndOpt pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
     Nothing                   ->
-      reportFatal $ Message Error $ "Found no possible alternative."
+      reportFatal $ message Error S.NoSrcSpan $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
       pats <- selectPats pat
@@ -127,7 +127,7 @@ selectPats :: Member Report r => S.Pat a -> Sem r [S.Pat a]
 selectPats (S.PApp _ _ pats) = return pats
 selectPats (S.PInfixApp _ p1 _ p2) = return [p1, p2]
 selectPats _ = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected prefix or infix constructor pattern."
 
 -- | Renames the corresponding pairs of variable patterns in the given

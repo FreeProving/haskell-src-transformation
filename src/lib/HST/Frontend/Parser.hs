@@ -24,10 +24,11 @@ import qualified SrcLoc                                     as GHC
 
 import           HST.Effect.Cancel                          ( Cancel, cancel )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error, Warning), report, reportFatal )
+  ( Report, Severity(Error, Warning), message, report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config                    ( HSE )
+import qualified HST.Frontend.Syntax as S
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   can be parsed.
@@ -53,7 +54,7 @@ instance Parsable HSE where
     = case HSE.parseModuleWithMode parseMode input of
       HSE.ParseOk inputModule    -> return (ParsedModuleHSE inputModule)
       HSE.ParseFailed srcLoc msg -> reportFatal
-        $ Message Error
+        $ message Error S.NoSrcSpan
         $ msg
         ++ " in "
         ++ HSE.srcFilename srcLoc
@@ -99,7 +100,7 @@ instance Parsable GHC where
     -- | Reports an error message or warning from @ghc-lib-parser@.
     reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
     reportErrMsg severity msg = report
-      $ Message severity
+      $ message severity S.NoSrcSpan
       $ intercalate "\n • "
       $ map (GHC.showSDoc defaultDynFlags)
       $ GHC.errDocImportant
