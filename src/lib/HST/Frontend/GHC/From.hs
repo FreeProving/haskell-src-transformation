@@ -240,6 +240,10 @@ transformMatch (GHC.L s match@GHC.Match {}) = do
     ctxt@GHC.FunRhs {} -> do
       name <- transformRdrNameUnqual (GHC.mc_fun ctxt)
       return (name, GHC.mc_fixity ctxt)
+    -- TODO we should change the return type of this function such that the
+    -- function name is optional. We could also remove the name from the
+    -- `S.Match` and `S.InfixMatch` constructors of the AST and move it to
+    -- `S.FunBind` instead.
     _                  -> return $ (S.Ident S.NoSrcSpan "", GHC.Prefix)
   pats <- mapM transformPat (GHC.m_pats match)
   (rhs, mBinds) <- transformGRHSs (GHC.m_grhss match)
@@ -261,6 +265,7 @@ transformGRHSs grhss@GHC.GRHSs {} = do
       return (S.UnGuardedRhs (transformSrcSpan s) body', binds)
     grhss' -> do
       grhss'' <- mapM transformGRHS grhss'
+      -- TODO Can we merge the source spans of multiple right-hand sides?
       return (S.GuardedRhss S.NoSrcSpan grhss'', binds)
         -- The source span here seems to be missing in the GHC AST
 transformGRHSs (GHC.XGRHSs x)     = GHC.noExtCon x

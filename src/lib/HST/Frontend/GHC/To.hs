@@ -277,6 +277,9 @@ transformAlts :: Member Report r
 -- of the entire case construct is inserted instead
 transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
  where
+  -- TODO can we have an helper function for the conversion of matches, @case@
+  -- alternatives and lambdas that takes an optional name such that no empty
+  -- identifier with 'S.NoSrcSpan' has to be created?
   altToMatch :: S.Alt GHC -> S.Match GHC
   altToMatch (S.Alt s' pat rhs mBinds) = S.Match s' (S.Ident S.NoSrcSpan "")
     [pat] rhs mBinds

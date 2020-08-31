@@ -118,7 +118,7 @@ collectDataInfo (S.Module _ _ _ decls) = mapM_ collectDataDecl decls
 --   data type declaration.
 collectDataDecl :: Member (Env a) r => S.Decl a -> Sem r ()
 collectDataDecl (S.DataDecl _ _ dataName conDecls) = do
-  let dataQName  = S.UnQual S.NoSrcSpan dataName
+  let dataQName  = S.unQual dataName
       conEntries = map (makeConEntry dataQName) conDecls
   modifyEnv
     $ insertDataEntry DataEntry { dataEntryName = dataQName
@@ -130,7 +130,7 @@ collectDataDecl _ = return ()
 -- | Creates an environment entry for a constructor declaration.
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
 makeConEntry dataQName conDecl = ConEntry
-  { conEntryName    = S.UnQual S.NoSrcSpan (S.conDeclName conDecl)
+  { conEntryName    = S.unQual (S.conDeclName conDecl)
   , conEntryArity   = S.conDeclArity conDecl
   , conEntryIsInfix = S.conDeclIsInfix conDecl
   , conEntryType    = dataQName
