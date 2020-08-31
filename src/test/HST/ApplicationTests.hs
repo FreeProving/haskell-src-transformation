@@ -13,9 +13,8 @@ import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Env            ( runEnv )
 import           HST.Effect.Fresh          ( runFresh )
 import           HST.Effect.GetOpt         ( GetOpt, runWithArgs )
-import           HST.Effect.InputFile      ( InputFile, runInputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Info), cancelToReport )
+  ( Report, Severity(Info), cancelToReport, message )
 import           HST.Effect.SetExpectation
   ( SetExpectation, reportToSetExpectation, setExpectation, setExpectationToIO )
 import           HST.Effect.WithFrontend
@@ -28,23 +27,23 @@ import qualified HST.Frontend.Syntax       as S
 -- Utility Functions                                                         --
 -------------------------------------------------------------------------------
 -- | Parses a module for testing purposes.
-parseTestModule :: Members '[Cancel, InputFile, Report, WithFrontend f] r
+parseTestModule :: Members '[Cancel, Report, WithFrontend f] r
                 => [String]
                 -> Sem r (ParsedModule f)
 parseTestModule = parseModule "<test-input>" . unlines
 
 -- | Runs the given computation with an empty environment and no additional
 --   command line arguments.
-runTest :: (forall f.
-            S.EqAST f
-            => Sem '[WithFrontend f, GetOpt, InputFile, Cancel, Report,
-  SetExpectation, Embed IO] ())
-        -> IO ()
+runTest
+  :: (forall f.
+      S.EqAST f
+      => Sem '[WithFrontend f, GetOpt, Cancel, Report, SetExpectation, Embed IO]
+      ())
+  -> IO ()
 runTest comp = runM
   $ setExpectationToIO
   $ reportToSetExpectation
-  $ cancelToReport (Message Info "The computation was canceled.")
-  $ runInputFile []
+  $ cancelToReport (message Info S.NoSrcSpan "The computation was canceled.")
   $ runWithArgs []
   $ runWithAllFrontends comp
 
@@ -55,10 +54,7 @@ runTest comp = runM
 --   and sets the expectation that the given output module is produced.
 shouldTransformTo
   :: ( S.EqAST f
-     , Members
-         '[GetOpt, Cancel, InputFile, Report, SetExpectation,
-  WithFrontend f]
-         r
+     , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
      )
   => [String]
   -> [String]
