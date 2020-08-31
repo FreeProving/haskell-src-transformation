@@ -274,8 +274,8 @@ transformGRHS :: Member Report r
 transformGRHS (GHC.L s (GHC.GRHS _ [gStmt] body))
   = S.GuardedRhs (transformSrcSpan s) <$> transformStmtExpr gStmt
   <*> transformExpr body
-transformGRHS (GHC.L s (GHC.GRHS _ _ _))          = notSupported
-  "Guarded right-hand sides without exactly one guard statement"
+transformGRHS (GHC.L s (GHC.GRHS _ _ _))
+  = notSupported "Guarded right-hand sides without exactly one guard statement"
   (transformSrcSpan s)
 transformGRHS (GHC.L _ (GHC.XGRHS x))             = GHC.noExtCon x
 
@@ -286,24 +286,20 @@ transformStmtExpr :: Member Report r
                   -> Sem r (S.Exp GHC)
 transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _))   = transformExpr body
 -- TODO Are there more statements that can be safely converted to boolean expressions?
-transformStmtExpr (GHC.L s (GHC.LastStmt _ _ _ _))
-  = notSupported "Last statements in guards" (transformSrcSpan s)
-transformStmtExpr (GHC.L s (GHC.BindStmt _ _ _ _ _))
-  = notSupported "Bind statements in guards" (transformSrcSpan s)
-transformStmtExpr (GHC.L s (GHC.ApplicativeStmt _ _ _))
-  = notSupported "Applicative statements in guards"
-  (transformSrcSpan s)
-transformStmtExpr (GHC.L s (GHC.LetStmt _ _))
-  = notSupported "Let statements in guards" (transformSrcSpan s)
-transformStmtExpr (GHC.L s (GHC.ParStmt _ _ _ _))
-  = notSupported "Parenthesised statements in guards"
-  (transformSrcSpan s)
-transformStmtExpr (GHC.L s GHC.TransStmt {})
-  = notSupported "Transform statements in guards"
-  (transformSrcSpan s)
-transformStmtExpr (GHC.L s GHC.RecStmt {})
-  = notSupported "Recursive statements in guards"
-  (transformSrcSpan s)
+transformStmtExpr (GHC.L s (GHC.LastStmt _ _ _ _))      = notSupported
+  "Last statements in guards" (transformSrcSpan s)
+transformStmtExpr (GHC.L s (GHC.BindStmt _ _ _ _ _))    = notSupported
+  "Bind statements in guards" (transformSrcSpan s)
+transformStmtExpr (GHC.L s (GHC.ApplicativeStmt _ _ _)) = notSupported
+  "Applicative statements in guards" (transformSrcSpan s)
+transformStmtExpr (GHC.L s (GHC.LetStmt _ _))           = notSupported
+  "Let statements in guards" (transformSrcSpan s)
+transformStmtExpr (GHC.L s (GHC.ParStmt _ _ _ _))       = notSupported
+  "Parenthesised statements in guards" (transformSrcSpan s)
+transformStmtExpr (GHC.L s GHC.TransStmt {})            = notSupported
+  "Transform statements in guards" (transformSrcSpan s)
+transformStmtExpr (GHC.L s GHC.RecStmt {})              = notSupported
+  "Recursive statements in guards" (transformSrcSpan s)
 transformStmtExpr (GHC.L _ (GHC.XStmtLR x))             = GHC.noExtCon x
 
 -------------------------------------------------------------------------------
@@ -336,8 +332,8 @@ transformExpr (GHC.L s (GHC.OpApp _ e1 op e2)) = do
   op'' <- case op' of
     (S.Var s' name) -> return $ S.QVarOp s' name
     (S.Con s' name) -> return $ S.QConOp s' name
-    opExp           -> notSupported
-      "Infix operators that aren't variables or constructors"
+    opExp           ->
+      notSupported "Infix operators that aren't variables or constructors"
       (S.getSrcSpan opExp)
   return $ S.InfixApp (transformSrcSpan s) e1' op'' e2'
 transformExpr (GHC.L s (GHC.HsApp _ e1 e2))
@@ -353,12 +349,11 @@ transformExpr (GHC.L s (GHC.HsLam _ mg)) = do
       "Lambda abstractions with bindings" (transformSrcSpan s)
     [S.Match _ _ _ (S.GuardedRhss _ _) _] -> notSupported
       "Lambda abstractions with guards" (transformSrcSpan s)
-    [S.InfixMatch _ _ _ _ _ _] -> notSupported
-      "Infix lambda abstractions" (transformSrcSpan s)
-    [] -> notSupported "Empty lambda abstractions"
+    [S.InfixMatch _ _ _ _ _ _] -> notSupported "Infix lambda abstractions"
       (transformSrcSpan s)
-    (_ : _ : _) -> notSupported
-      "Lambda abstractions with multiple matches" (transformSrcSpan s)
+    [] -> notSupported "Empty lambda abstractions" (transformSrcSpan s)
+    (_ : _ : _) -> notSupported "Lambda abstractions with multiple matches"
+      (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsLet _ binds e)) = do
   mBinds <- transformLocalBinds binds
   case mBinds of
@@ -398,22 +393,22 @@ transformExpr (GHC.L s (GHC.HsRecFld _ _)) = notSupported "Records"
   (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsOverLabel _ _ _)) = notSupported
   "Overloaded labels" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsIPVar _ _)) = notSupported
-  "Implicit parameters" (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.HsIPVar _ _)) = notSupported "Implicit parameters"
+  (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsLamCase _ _)) = notSupported
   "Lambda-case-expressions" (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsAppType _ _ _)) = notSupported
   "Visible type applications" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.SectionL _ _ _)) = notSupported
-  "Sections" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.SectionR _ _ _)) = notSupported
-  "Sections" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.ExplicitSum _ _ _ _)) = notSupported
-  "Unboxed sums" (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.SectionL _ _ _)) = notSupported "Sections"
+  (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.SectionR _ _ _)) = notSupported "Sections"
+  (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.ExplicitSum _ _ _ _)) = notSupported "Unboxed sums"
+  (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsMultiIf _ _)) = notSupported
   "Multi-way if-expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsDo _ _ _)) = notSupported
-  "do-expressions" (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.HsDo _ _ _)) = notSupported "do-expressions"
+  (transformSrcSpan s)
 transformExpr (GHC.L s GHC.RecordCon {}) = notSupported "Records"
   (transformSrcSpan s)
 transformExpr (GHC.L s GHC.RecordUpd {}) = notSupported "Records"
@@ -432,10 +427,10 @@ transformExpr (GHC.L s (GHC.HsTcBracketOut _ _ _)) = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsSpliceE _ _)) = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsProc _ _ _)) = notSupported
-  "Arrow expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsStatic _ _)) = notSupported
-  "Static pointers" (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.HsProc _ _ _)) = notSupported "Arrow expressions"
+  (transformSrcSpan s)
+transformExpr (GHC.L s (GHC.HsStatic _ _)) = notSupported "Static pointers"
+  (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsTick _ _ _)) = notSupported
   "Haskell program coverage" (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsBinTick _ _ _ _)) = notSupported
@@ -486,8 +481,8 @@ transformPat (GHC.L s (GHC.WildPat _))              = return
 -- All other patterns are not supported.
 transformPat (GHC.L s (GHC.LazyPat _ _))            = notSupported
   "Lazy patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.AsPat _ _ _))            = notSupported
-  "as-patterns" (transformSrcSpan s)
+transformPat (GHC.L s (GHC.AsPat _ _ _))            = notSupported "as-patterns"
+  (transformSrcSpan s)
 transformPat (GHC.L s (GHC.BangPat _ _))            = notSupported
   "Bang patterns" (transformSrcSpan s)
 transformPat (GHC.L s (GHC.SumPat _ _ _ _))         = notSupported

@@ -5,7 +5,8 @@ import           Control.Exception    ( finally )
 import           Polysemy             ( Member, Sem, run, runM )
 import           Polysemy.Output      ( runOutputList )
 import           System.Directory     ( getTemporaryDirectory, removeFile )
-import           System.IO            ( SeekMode(AbsoluteSeek), Handle, hClose, hGetContents, hSeek, openTempFile )
+import           System.IO
+  ( Handle, SeekMode(AbsoluteSeek), hClose, hGetContents, hSeek, openTempFile )
 import           System.IO.Error      ( catchIOError )
 import           Test.Hspec
   ( Spec, context, describe, it, shouldBe, shouldReturn )
@@ -13,8 +14,9 @@ import           Test.Hspec
 import           HST.Effect.Cancel    ( runCancel )
 import           HST.Effect.InputFile ( runInputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error, Info, Warning), filterReportedMessages, msgSeverity, report
-  , reportFatal, reportToHandleOrCancel, reportToOutputOrCancel, runReport )
+  ( Message(Message), Report, Severity(Error, Info, Warning)
+  , filterReportedMessages, msgSeverity, report, reportFatal
+  , reportToHandleOrCancel, reportToOutputOrCancel, runReport )
 
 -- | Test group for interpreters of the 'HST.Effect.Report.Report' effect.
 testReportEffect :: Spec

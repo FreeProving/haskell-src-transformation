@@ -76,8 +76,10 @@ message severity srcSpan = Message severity (S.toMsgSrcSpan srcSpan)
 --   Only used for testing purposes where the 'HST.Effect.InputFile' effect is
 --   not always handled.
 showPrettyMessage :: Message -> String
-showPrettyMessage (Message severity Nothing msg) = show severity ++ ": " ++ msg
-showPrettyMessage (Message severity (Just src) msg) = show severity ++ ": " ++ msg ++ "\n  In " ++ prettyMsgSrcSpan src ++ "."
+showPrettyMessage (Message severity Nothing msg)
+  = show severity ++ ": " ++ msg
+showPrettyMessage (Message severity (Just src) msg)
+  = show severity ++ ": " ++ msg ++ "\n  In " ++ prettyMsgSrcSpan src ++ "."
 
 -- | Pretty-prints a message with a code excerpt.
 showPrettyMessageWithExcerpt :: Member InputFile r => Message -> Sem r String
@@ -92,7 +94,8 @@ showPrettyMessageWithExcerpt (Message severity srcSpan msg) = do
 -- | Builds a string displaying the file path and the line and column of the
 --   start and end of the given message source span.
 prettyMsgSrcSpan :: S.MsgSrcSpan -> String
-prettyMsgSrcSpan src = S.msgSrcSpanFilePath src ++ ':' : prettyMsgSrcSpanNumbers src
+prettyMsgSrcSpan src
+  = S.msgSrcSpanFilePath src ++ ':' : prettyMsgSrcSpanNumbers src
 
 -- | Builds a string displaying the line and column of the given message source
 --   span start and end.

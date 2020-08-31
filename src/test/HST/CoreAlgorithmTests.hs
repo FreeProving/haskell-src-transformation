@@ -9,7 +9,7 @@ import           Test.Hspec
 
 import           HST.CoreAlgorithm       ( compareCons )
 import           HST.Effect.Report
-  ( Report , runReport, showPrettyMessage )
+  ( Report, runReport, showPrettyMessage )
 import           HST.Frontend.HSE.Config ( HSE )
 import qualified HST.Frontend.HSE.From   as FromHSE
 import qualified HST.Frontend.HSE.To     as ToHSE
