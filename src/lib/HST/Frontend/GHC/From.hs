@@ -28,7 +28,7 @@ import           HST.Frontend.GHC.Config
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupported, notSupportedWithExcerpt, skipNotSupported )
+  ( notSupportedWithExcerpt, skipNotSupportedWithExcerpt )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -75,7 +75,7 @@ transformDecl decl@(GHC.L s (GHC.TyClD _ GHC.FamDecl {})) = return
 transformDecl decl@(GHC.L s (GHC.TyClD _ GHC.SynDecl {})) = return
   $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.TyClD _ GHC.ClassDecl {})) = do
-  skipNotSupported "Type classes"
+  skipNotSupportedWithExcerpt "Type classes" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl (GHC.L _ (GHC.TyClD _ (GHC.XTyClDecl x))) = GHC.noExtCon x
 -- Type class instances, data family instances, type family instances and
@@ -83,10 +83,10 @@ transformDecl (GHC.L _ (GHC.TyClD _ (GHC.XTyClDecl x))) = GHC.noExtCon x
 -- explicitly informed about the first two since they might contain pattern
 -- matching.
 transformDecl decl@(GHC.L s (GHC.InstD _ GHC.ClsInstD {})) = do
-  skipNotSupported "Type class instances"
+  skipNotSupportedWithExcerpt "Type class instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.InstD _ GHC.DataFamInstD {})) = do
-  skipNotSupported "Data family instances"
+  skipNotSupportedWithExcerpt "Data family instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.InstD _ GHC.TyFamInstD {})) = return
   $ S.OtherDecl (transformSrcSpan s) (Decl decl)
@@ -96,13 +96,13 @@ transformDecl (GHC.L _ (GHC.InstD _ (GHC.XInstDecl x))) = GHC.noExtCon x
 -- therefore skipped. The user is explicitly informed about this since there
 -- may be errors due to this.
 transformDecl decl@(GHC.L s (GHC.ValD _ GHC.PatBind {})) = do
-  skipNotSupported "Non-variable pattern bindings"
+  skipNotSupportedWithExcerpt "Non-variable pattern bindings" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.ValD _ GHC.AbsBinds {})) = do
-  skipNotSupported "Abstraction bindings"
+  skipNotSupportedWithExcerpt "Abstraction bindings" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.ValD _ (GHC.PatSynBind _ _))) = do
-  skipNotSupported "Pattern synonyms"
+  skipNotSupportedWithExcerpt "Pattern synonyms" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 --  Variable bindings and extensions shouldn't occur in the AST after parsing.
 transformDecl decl@(GHC.L s (GHC.ValD _ GHC.VarBind {})) = return
@@ -112,7 +112,7 @@ transformDecl (GHC.L _ (GHC.ValD _ (GHC.XHsBindsLR x))) = GHC.noExtCon x
 -- splices are skipped since they contain expressions that are
 -- not transformed.
 transformDecl decl@(GHC.L s (GHC.SpliceD _ _)) = do
-  skipNotSupported "Template Haskell splicing declarations"
+  skipNotSupportedWithExcerpt "Template Haskell splicing declarations" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 -- All other declarations are skipped silently.
 transformDecl decl@(GHC.L s (GHC.DerivD _ _)) = return
@@ -165,8 +165,8 @@ transformConDecl
 transformConDecl (GHC.L s conDecl@GHC.ConDeclH98 {}) = do
   name <- transformRdrNameUnqual (GHC.con_name conDecl)
   transformConDetails (transformSrcSpan s) name (GHC.con_args conDecl)
-transformConDecl (GHC.L _ GHC.ConDeclGADT {})        = do
-  skipNotSupported "GADT constructors"
+transformConDecl (GHC.L s GHC.ConDeclGADT {})        = do
+  skipNotSupportedWithExcerpt "GADT constructors" (transformSrcSpan s)
   return Nothing
 transformConDecl (GHC.L _ (GHC.XConDecl x))          = GHC.noExtCon x
 
@@ -194,8 +194,8 @@ transformConDetails s name (GHC.InfixCon _ _)   = return
                    , S.conDeclIsInfix = True
                    }
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
-transformConDetails _ _ (GHC.RecCon _)          = do
-  skipNotSupported "Record constructors"
+transformConDetails s _ (GHC.RecCon _)          = do
+  skipNotSupportedWithExcerpt "Record constructors" s
   return Nothing
 
 -------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ transformValBinds (GHC.ValBinds _ binds sigs) = mapM transformDecl
    (GHC.bagToList binds)
    ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs)
 transformValBinds (GHC.XValBindsLR _)
-  = notSupported "Value bindings extensions"
+  = notSupportedWithExcerpt "Value bindings extensions" S.NoSrcSpan
 
 -- | Transforms a GHC match group into HST matches.
 transformMatchGroup :: Member Report r

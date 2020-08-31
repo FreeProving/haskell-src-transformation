@@ -13,7 +13,7 @@ import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(OriginalModuleHead) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupported, notSupportedWithExcerpt, skipNotSupported )
+  ( notSupportedWithExcerpt, skipNotSupportedWithExcerpt )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -27,9 +27,9 @@ transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   <$> mapM transformModuleHead moduleHead
   <*> mapM transformDecl decls
 transformModule (HSE.XmlPage _ _ _ _ _ _ _)
-  = notSupported "XML Modules"
+  = notSupportedWithExcerpt "XML Modules" S.NoSrcSpan
 transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _)
-  = notSupported "XML Modules"
+  = notSupportedWithExcerpt "XML Modules" S.NoSrcSpan
 
 -- | Extracts the name of a module from a module head.
 transformModuleHead :: Member Report r
@@ -63,25 +63,25 @@ transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = do
   match' <- transformMatch (HSE.Match s name [] rhs mBinds)
   return $ S.FunBind (transformSrcSpan s) [match']
 transformDecl decl@(HSE.PatBind s _ _ _) = do
-  skipNotSupported "Non-variable pattern bindings"
+  skipNotSupportedWithExcerpt "Non-variable pattern bindings" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Type classes and type class instances are not supported. The user is
 -- explicitly informed that the declaration is skipped since they might
 -- contain pattern matching.
 transformDecl decl@(HSE.ClassDecl s _ _ _ _) = do
-  skipNotSupported "Type classes"
+  skipNotSupportedWithExcerpt "Type classes" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.InstDecl s _ _ _) = do
-  skipNotSupported "Type class instances"
+  skipNotSupportedWithExcerpt "Type class instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- GADTs and pattern synonyms are not supported. The user is explicitly
 -- informed that the declaration is skipped since there may be errors due
 -- to the skipped constructor or pattern declarations.
 transformDecl decl@(HSE.GDataDecl s _ _ _ _ _ _) = do
-  skipNotSupported "GADTs"
+  skipNotSupportedWithExcerpt "GADTs" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.PatSyn s _ _ _) = do
-  skipNotSupported "Pattern synonyms"
+  skipNotSupportedWithExcerpt "Pattern synonyms" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Type and data families are not supported. The user is informed of skipped
 -- data instances only since all type family declarations and instances as well
@@ -95,19 +95,19 @@ transformDecl decl@(HSE.DataFamDecl s _ _ _) = do
 transformDecl decl@(HSE.TypeInsDecl s _ _) = do
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.DataInsDecl s _ _ _ _) = do
-  skipNotSupported "Data family instances"
+  skipNotSupportedWithExcerpt "Data family instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.GDataInsDecl s _ _ _ _ _) = do
-  skipNotSupported "GADT-style data family instances"
+  skipNotSupportedWithExcerpt "GADT-style data family instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Template Haskell is not supported. The user is informed when
 -- splices are skipped since they contain expressions that are
 -- not transformed.
 transformDecl decl@(HSE.SpliceDecl s _) = do
-  skipNotSupported "Template Haskell splicing declarations"
+  skipNotSupportedWithExcerpt "Template Haskell splicing declarations" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.TSpliceDecl s _) = do
-  skipNotSupported "Template Haskell splicing declarations"
+  skipNotSupportedWithExcerpt "Template Haskell splicing declarations" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Type signatures, fixity declarations and pragmas are skipped silently.
 transformDecl decl@(HSE.TypeSig s _ _) = return
