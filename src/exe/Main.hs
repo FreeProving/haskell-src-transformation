@@ -22,8 +22,8 @@ import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
 import           HST.Effect.InputFile
   ( InputFile, getInputFile, runInputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
-  , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
+  ( Message, Report, Severity(Debug, Internal), exceptionToReport
+  , filterReportedMessages, message, msgSeverity, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
   ( parseModule, prettyPrintModule, runWithFrontend, transformModule
   , unTransformModule )
@@ -62,13 +62,14 @@ main :: IO ()
 main = runFinal
   . embedToFinal
   . cancelToExit
+  . runInputFile []
   . reportToHandleOrCancel stderr
   . exceptionToReport exceptionToMessage
   . runWithArgsIO
   $ application
  where
   exceptionToMessage :: SomeException -> Message
-  exceptionToMessage e = Message Internal (displayException e)
+  exceptionToMessage e = message Internal S.NoSrcSpan (displayException e)
 
 -- | The main computation of the command line interface.
 --
@@ -88,7 +89,9 @@ application = do
       inputFiles <- getOpt optInputFiles
       if showHelp || null inputFiles
         then embed putUsageInfo
-        else runInputFile inputFiles $ mapM_ processInputFile inputFiles
+        -- TODO There probably is a better way to add actual input files to the
+        -- Report effect
+        else runInputFile inputFiles . reportToHandleOrCancel stderr $ mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
