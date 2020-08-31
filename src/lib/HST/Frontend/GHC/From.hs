@@ -28,7 +28,7 @@ import           HST.Frontend.GHC.Config
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupportedWithExcerpt, skipNotSupportedWithExcerpt )
+  ( notSupported, skipNotSupported )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -75,7 +75,7 @@ transformDecl decl@(GHC.L s (GHC.TyClD _ GHC.FamDecl {})) = return
 transformDecl decl@(GHC.L s (GHC.TyClD _ GHC.SynDecl {})) = return
   $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.TyClD _ GHC.ClassDecl {})) = do
-  skipNotSupportedWithExcerpt "Type classes" (transformSrcSpan s)
+  skipNotSupported "Type classes" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl (GHC.L _ (GHC.TyClD _ (GHC.XTyClDecl x))) = GHC.noExtCon x
 -- Type class instances, data family instances, type family instances and
@@ -83,10 +83,10 @@ transformDecl (GHC.L _ (GHC.TyClD _ (GHC.XTyClDecl x))) = GHC.noExtCon x
 -- explicitly informed about the first two since they might contain pattern
 -- matching.
 transformDecl decl@(GHC.L s (GHC.InstD _ GHC.ClsInstD {})) = do
-  skipNotSupportedWithExcerpt "Type class instances" (transformSrcSpan s)
+  skipNotSupported "Type class instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.InstD _ GHC.DataFamInstD {})) = do
-  skipNotSupportedWithExcerpt "Data family instances" (transformSrcSpan s)
+  skipNotSupported "Data family instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.InstD _ GHC.TyFamInstD {})) = return
   $ S.OtherDecl (transformSrcSpan s) (Decl decl)
@@ -96,13 +96,13 @@ transformDecl (GHC.L _ (GHC.InstD _ (GHC.XInstDecl x))) = GHC.noExtCon x
 -- therefore skipped. The user is explicitly informed about this since there
 -- may be errors due to this.
 transformDecl decl@(GHC.L s (GHC.ValD _ GHC.PatBind {})) = do
-  skipNotSupportedWithExcerpt "Non-variable pattern bindings" (transformSrcSpan s)
+  skipNotSupported "Non-variable pattern bindings" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.ValD _ GHC.AbsBinds {})) = do
-  skipNotSupportedWithExcerpt "Abstraction bindings" (transformSrcSpan s)
+  skipNotSupported "Abstraction bindings" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl decl@(GHC.L s (GHC.ValD _ (GHC.PatSynBind _ _))) = do
-  skipNotSupportedWithExcerpt "Pattern synonyms" (transformSrcSpan s)
+  skipNotSupported "Pattern synonyms" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 --  Variable bindings and extensions shouldn't occur in the AST after parsing.
 transformDecl decl@(GHC.L s (GHC.ValD _ GHC.VarBind {})) = return
@@ -112,7 +112,7 @@ transformDecl (GHC.L _ (GHC.ValD _ (GHC.XHsBindsLR x))) = GHC.noExtCon x
 -- splices are skipped since they contain expressions that are
 -- not transformed.
 transformDecl decl@(GHC.L s (GHC.SpliceD _ _)) = do
-  skipNotSupportedWithExcerpt "Template Haskell splicing declarations" (transformSrcSpan s)
+  skipNotSupported "Template Haskell splicing declarations" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 -- All other declarations are skipped silently.
 transformDecl decl@(GHC.L s (GHC.DerivD _ _)) = return
@@ -166,7 +166,7 @@ transformConDecl (GHC.L s conDecl@GHC.ConDeclH98 {}) = do
   name <- transformRdrNameUnqual (GHC.con_name conDecl)
   transformConDetails (transformSrcSpan s) name (GHC.con_args conDecl)
 transformConDecl (GHC.L s GHC.ConDeclGADT {})        = do
-  skipNotSupportedWithExcerpt "GADT constructors" (transformSrcSpan s)
+  skipNotSupported "GADT constructors" (transformSrcSpan s)
   return Nothing
 transformConDecl (GHC.L _ (GHC.XConDecl x))          = GHC.noExtCon x
 
@@ -195,7 +195,7 @@ transformConDetails s name (GHC.InfixCon _ _)   = return
                    }
 -- TODO Maybe use a Symbol instead of an Ident name for InfixCon (does that make a difference?)
 transformConDetails s _ (GHC.RecCon _)          = do
-  skipNotSupportedWithExcerpt "Record constructors" s
+  skipNotSupported "Record constructors" s
   return Nothing
 
 -------------------------------------------------------------------------------
@@ -209,7 +209,7 @@ transformLocalBinds (GHC.L s (GHC.HsValBinds _ binds)) = do
   binds' <- transformValBinds binds
   return $ Just (S.BDecls (transformSrcSpan s) binds')
 transformLocalBinds (GHC.L _ (GHC.EmptyLocalBinds _))  = return Nothing
-transformLocalBinds (GHC.L s (GHC.HsIPBinds _ _))      = notSupportedWithExcerpt
+transformLocalBinds (GHC.L s (GHC.HsIPBinds _ _))      = notSupported
   "Implicit-parameters" (transformSrcSpan s)
 transformLocalBinds (GHC.L _ (GHC.XHsLocalBindsLR x))  = GHC.noExtCon x
 
@@ -221,7 +221,7 @@ transformValBinds (GHC.ValBinds _ binds sigs) = mapM transformDecl
    (GHC.bagToList binds)
    ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs)
 transformValBinds (GHC.XValBindsLR _)
-  = notSupportedWithExcerpt "Value bindings extensions" S.NoSrcSpan
+  = notSupported "Value bindings extensions" S.NoSrcSpan
 
 -- | Transforms a GHC match group into HST matches.
 transformMatchGroup :: Member Report r
@@ -274,7 +274,7 @@ transformGRHS :: Member Report r
 transformGRHS (GHC.L s (GHC.GRHS _ [gStmt] body))
   = S.GuardedRhs (transformSrcSpan s) <$> transformStmtExpr gStmt
   <*> transformExpr body
-transformGRHS (GHC.L s (GHC.GRHS _ _ _))          = notSupportedWithExcerpt
+transformGRHS (GHC.L s (GHC.GRHS _ _ _))          = notSupported
   "Guarded right-hand sides without exactly one guard statement"
   (transformSrcSpan s)
 transformGRHS (GHC.L _ (GHC.XGRHS x))             = GHC.noExtCon x
@@ -287,22 +287,22 @@ transformStmtExpr :: Member Report r
 transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _))   = transformExpr body
 -- TODO Are there more statements that can be safely converted to boolean expressions?
 transformStmtExpr (GHC.L s (GHC.LastStmt _ _ _ _))
-  = notSupportedWithExcerpt "Last statements in guards" (transformSrcSpan s)
+  = notSupported "Last statements in guards" (transformSrcSpan s)
 transformStmtExpr (GHC.L s (GHC.BindStmt _ _ _ _ _))
-  = notSupportedWithExcerpt "Bind statements in guards" (transformSrcSpan s)
+  = notSupported "Bind statements in guards" (transformSrcSpan s)
 transformStmtExpr (GHC.L s (GHC.ApplicativeStmt _ _ _))
-  = notSupportedWithExcerpt "Applicative statements in guards"
+  = notSupported "Applicative statements in guards"
   (transformSrcSpan s)
 transformStmtExpr (GHC.L s (GHC.LetStmt _ _))
-  = notSupportedWithExcerpt "Let statements in guards" (transformSrcSpan s)
+  = notSupported "Let statements in guards" (transformSrcSpan s)
 transformStmtExpr (GHC.L s (GHC.ParStmt _ _ _ _))
-  = notSupportedWithExcerpt "Parenthesised statements in guards"
+  = notSupported "Parenthesised statements in guards"
   (transformSrcSpan s)
 transformStmtExpr (GHC.L s GHC.TransStmt {})
-  = notSupportedWithExcerpt "Transform statements in guards"
+  = notSupported "Transform statements in guards"
   (transformSrcSpan s)
 transformStmtExpr (GHC.L s GHC.RecStmt {})
-  = notSupportedWithExcerpt "Recursive statements in guards"
+  = notSupported "Recursive statements in guards"
   (transformSrcSpan s)
 transformStmtExpr (GHC.L _ (GHC.XStmtLR x))             = GHC.noExtCon x
 
@@ -336,7 +336,7 @@ transformExpr (GHC.L s (GHC.OpApp _ e1 op e2)) = do
   op'' <- case op' of
     (S.Var s' name) -> return $ S.QVarOp s' name
     (S.Con s' name) -> return $ S.QConOp s' name
-    opExp           -> notSupportedWithExcerpt
+    opExp           -> notSupported
       "Infix operators that aren't variables or constructors"
       (S.getSrcSpan opExp)
   return $ S.InfixApp (transformSrcSpan s) e1' op'' e2'
@@ -349,20 +349,20 @@ transformExpr (GHC.L s (GHC.HsLam _ mg)) = do
   case mg' of
     [S.Match _ _ pats (S.UnGuardedRhs _ e) Nothing] -> return
       $ S.Lambda (transformSrcSpan s) pats e
-    [S.Match _ _ _ _ (Just _)] -> notSupportedWithExcerpt
+    [S.Match _ _ _ _ (Just _)] -> notSupported
       "Lambda abstractions with bindings" (transformSrcSpan s)
-    [S.Match _ _ _ (S.GuardedRhss _ _) _] -> notSupportedWithExcerpt
+    [S.Match _ _ _ (S.GuardedRhss _ _) _] -> notSupported
       "Lambda abstractions with guards" (transformSrcSpan s)
-    [S.InfixMatch _ _ _ _ _ _] -> notSupportedWithExcerpt
+    [S.InfixMatch _ _ _ _ _ _] -> notSupported
       "Infix lambda abstractions" (transformSrcSpan s)
-    [] -> notSupportedWithExcerpt "Empty lambda abstractions"
+    [] -> notSupported "Empty lambda abstractions"
       (transformSrcSpan s)
-    (_ : _ : _) -> notSupportedWithExcerpt
+    (_ : _ : _) -> notSupported
       "Lambda abstractions with multiple matches" (transformSrcSpan s)
 transformExpr (GHC.L s (GHC.HsLet _ binds e)) = do
   mBinds <- transformLocalBinds binds
   case mBinds of
-    Nothing     -> notSupportedWithExcerpt "Let expressions with empty bindings"
+    Nothing     -> notSupported "Let expressions with empty bindings"
       (transformSrcSpan s)
     Just binds' -> S.Let (transformSrcSpan s) binds' <$> transformExpr e
 transformExpr (GHC.L s (GHC.HsIf _ _ e1 e2 e3)) = S.If (transformSrcSpan s)
@@ -378,9 +378,9 @@ transformExpr (GHC.L s (GHC.HsCase _ e mg)) = do
   matchToAlt :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
   matchToAlt (S.Match s' _ [pat] rhs mBinds) = return $ S.Alt s' pat rhs mBinds
   matchToAlt (S.Match s' _ _ _ _)
-    = notSupportedWithExcerpt "Case alternatives without exactly one pattern" s'
+    = notSupported "Case alternatives without exactly one pattern" s'
   matchToAlt (S.InfixMatch s' _ _ _ _ _)
-    = notSupportedWithExcerpt "Infix matches in case alternatives" s'
+    = notSupported "Infix matches in case alternatives" s'
 transformExpr (GHC.L s (GHC.ExplicitTuple _ tArgs boxity)) = S.Tuple
   (transformSrcSpan s) (transformBoxity boxity)
   <$> mapM transformTupleArg tArgs
@@ -392,57 +392,57 @@ transformExpr (GHC.L s (GHC.ExprWithTySig _ e typeSig)) = do
   e' <- transformExpr e
   return $ S.ExpTypeSig (transformSrcSpan s) e' (SigType typeSig)
 -- All other expressions are not supported.
-transformExpr (GHC.L s (GHC.HsConLikeOut _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsConLikeOut _ _)) = notSupported
   "Expressions introduced by the type checker" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsRecFld _ _)) = notSupportedWithExcerpt "Records"
+transformExpr (GHC.L s (GHC.HsRecFld _ _)) = notSupported "Records"
   (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsOverLabel _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsOverLabel _ _ _)) = notSupported
   "Overloaded labels" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsIPVar _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsIPVar _ _)) = notSupported
   "Implicit parameters" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsLamCase _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsLamCase _ _)) = notSupported
   "Lambda-case-expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsAppType _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsAppType _ _ _)) = notSupported
   "Visible type applications" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.SectionL _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.SectionL _ _ _)) = notSupported
   "Sections" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.SectionR _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.SectionR _ _ _)) = notSupported
   "Sections" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.ExplicitSum _ _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.ExplicitSum _ _ _ _)) = notSupported
   "Unboxed sums" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsMultiIf _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsMultiIf _ _)) = notSupported
   "Multi-way if-expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsDo _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsDo _ _ _)) = notSupported
   "do-expressions" (transformSrcSpan s)
-transformExpr (GHC.L s GHC.RecordCon {}) = notSupportedWithExcerpt "Records"
+transformExpr (GHC.L s GHC.RecordCon {}) = notSupported "Records"
   (transformSrcSpan s)
-transformExpr (GHC.L s GHC.RecordUpd {}) = notSupportedWithExcerpt "Records"
+transformExpr (GHC.L s GHC.RecordUpd {}) = notSupported "Records"
   (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.ArithSeq _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.ArithSeq _ _ _)) = notSupported
   "Arithmetic sequences" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsSCC _ _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsSCC _ _ _ _)) = notSupported
   "Set-cost-centre-expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsCoreAnn _ _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsCoreAnn _ _ _ _)) = notSupported
   "Core annotations" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsBracket _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsBracket _ _)) = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsRnBracketOut _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsRnBracketOut _ _ _)) = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsTcBracketOut _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsTcBracketOut _ _ _)) = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsSpliceE _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsSpliceE _ _)) = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsProc _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsProc _ _ _)) = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsStatic _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsStatic _ _)) = notSupported
   "Static pointers" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsTick _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsTick _ _ _)) = notSupported
   "Haskell program coverage" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsBinTick _ _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsBinTick _ _ _ _)) = notSupported
   "Haskell program coverage" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsTickPragma _ _ _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsTickPragma _ _ _ _ _)) = notSupported
   "Haskell program coverage" (transformSrcSpan s)
-transformExpr (GHC.L s (GHC.HsWrap _ _ _)) = notSupportedWithExcerpt
+transformExpr (GHC.L s (GHC.HsWrap _ _ _)) = notSupported
   "Expressions introduced by the type checker" (transformSrcSpan s)
 transformExpr (GHC.L _ (GHC.XExpr x)) = GHC.noExtCon x
 
@@ -451,7 +451,7 @@ transformExpr (GHC.L _ (GHC.XExpr x)) = GHC.noExtCon x
 transformTupleArg
   :: Member Report r => GHC.LHsTupArg GHC.GhcPs -> Sem r (S.Exp GHC)
 transformTupleArg (GHC.L _ (GHC.Present _ e)) = transformExpr e
-transformTupleArg (GHC.L s (GHC.Missing _))   = notSupportedWithExcerpt
+transformTupleArg (GHC.L s (GHC.Missing _))   = notSupported
   "Missing tuple arguments" (transformSrcSpan s)
 transformTupleArg (GHC.L _ (GHC.XTupArg x))   = GHC.noExtCon x
 
@@ -470,8 +470,8 @@ transformPat (GHC.L s (GHC.ConPatIn name cpds))     = do
       <*> return name'
       <*> transformPat pat2
     (GHC.PrefixCon pats, True) -> S.PApp s' name' <$> mapM transformPat pats
-    (_, True) -> notSupportedWithExcerpt "Record constructors" s'
-    _ -> notSupportedWithExcerpt "Non-constructor applications in patterns" s'
+    (_, True) -> notSupported "Record constructors" s'
+    _ -> notSupported "Non-constructor applications in patterns" s'
 -- TODO The documentation also mentions a more complicated ConPatOut.
 -- Do we need to consider that?
 transformPat (GHC.L s (GHC.TuplePat _ pats boxity)) = S.PTuple
@@ -484,29 +484,29 @@ transformPat (GHC.L s (GHC.ListPat _ pats))
 transformPat (GHC.L s (GHC.WildPat _))              = return
   $ S.PWildCard (transformSrcSpan s)
 -- All other patterns are not supported.
-transformPat (GHC.L s (GHC.LazyPat _ _))            = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.LazyPat _ _))            = notSupported
   "Lazy patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.AsPat _ _ _))            = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.AsPat _ _ _))            = notSupported
   "as-patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.BangPat _ _))            = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.BangPat _ _))            = notSupported
   "Bang patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.SumPat _ _ _ _))         = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.SumPat _ _ _ _))         = notSupported
   "Anonymous sum patterns" (transformSrcSpan s)
-transformPat (GHC.L s GHC.ConPatOut {})             = notSupportedWithExcerpt
+transformPat (GHC.L s GHC.ConPatOut {})             = notSupported
   "Constructor patterns out" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.ViewPat _ _ _))          = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.ViewPat _ _ _))          = notSupported
   "View patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.SplicePat _ _))          = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.SplicePat _ _))          = notSupported
   "Template Haskell" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.LitPat _ _))             = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.LitPat _ _))             = notSupported
   "Literal patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.NPat _ _ _ _))           = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.NPat _ _ _ _))           = notSupported
   "Natural patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.NPlusKPat _ _ _ _ _ _))  = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.NPlusKPat _ _ _ _ _ _))  = notSupported
   "n+k patterns" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.SigPat _ _ _))           = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.SigPat _ _ _))           = notSupported
   "Patterns with type signature" (transformSrcSpan s)
-transformPat (GHC.L s (GHC.CoPat _ _ _ _))          = notSupportedWithExcerpt
+transformPat (GHC.L s (GHC.CoPat _ _ _ _))          = notSupported
   "Coercion patterns" (transformSrcSpan s)
 transformPat (GHC.L _ (GHC.XPat x))                 = GHC.noExtCon x
 
@@ -538,7 +538,7 @@ transformRdrName (GHC.L s (GHC.Exact name))        = do
   let s' = transformSrcSpan s
   specialCon <- transformSpecialCon s' name
   return (S.Special s' specialCon, True)
-transformRdrName (GHC.L s (GHC.Orig _ _))          = notSupportedWithExcerpt
+transformRdrName (GHC.L s (GHC.Orig _ _))          = notSupported
   "Original names" (transformSrcSpan s)
 
 -- | Transforms a GHC located unqualified reader name into an HST name.
@@ -546,11 +546,11 @@ transformRdrNameUnqual
   :: Member Report r => GHC.Located GHC.RdrName -> Sem r (S.Name GHC)
 transformRdrNameUnqual (GHC.L s (GHC.Unqual occName)) = return
   $ S.Ident (transformSrcSpan s) (GHC.occNameString occName)
-transformRdrNameUnqual (GHC.L s (GHC.Qual _ _))       = notSupportedWithExcerpt
+transformRdrNameUnqual (GHC.L s (GHC.Qual _ _))       = notSupported
   "Qualified names where unqualified names are expected" (transformSrcSpan s)
-transformRdrNameUnqual (GHC.L s (GHC.Orig _ _))       = notSupportedWithExcerpt
+transformRdrNameUnqual (GHC.L s (GHC.Orig _ _))       = notSupported
   "Original names" (transformSrcSpan s)
-transformRdrNameUnqual (GHC.L s (GHC.Exact _))        = notSupportedWithExcerpt
+transformRdrNameUnqual (GHC.L s (GHC.Exact _))        = notSupported
   "Exact names where unqualified names are expected" (transformSrcSpan s)
 
 -- | Transforms a GHC name with an HST source span into an HST special

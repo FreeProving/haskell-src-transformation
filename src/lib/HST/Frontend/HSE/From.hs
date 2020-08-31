@@ -13,7 +13,7 @@ import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(OriginalModuleHead) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupportedWithExcerpt, skipNotSupportedWithExcerpt )
+  ( notSupported, skipNotSupported )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -27,9 +27,9 @@ transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   <$> mapM transformModuleHead moduleHead
   <*> mapM transformDecl decls
 transformModule (HSE.XmlPage _ _ _ _ _ _ _)
-  = notSupportedWithExcerpt "XML Modules" S.NoSrcSpan
+  = notSupported "XML Modules" S.NoSrcSpan
 transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _)
-  = notSupportedWithExcerpt "XML Modules" S.NoSrcSpan
+  = notSupported "XML Modules" S.NoSrcSpan
 
 -- | Extracts the name of a module from a module head.
 transformModuleHead :: Member Report r
@@ -63,25 +63,25 @@ transformDecl (HSE.PatBind s (HSE.PVar _ name) rhs mBinds) = do
   match' <- transformMatch (HSE.Match s name [] rhs mBinds)
   return $ S.FunBind (transformSrcSpan s) [match']
 transformDecl decl@(HSE.PatBind s _ _ _) = do
-  skipNotSupportedWithExcerpt "Non-variable pattern bindings" (transformSrcSpan s)
+  skipNotSupported "Non-variable pattern bindings" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Type classes and type class instances are not supported. The user is
 -- explicitly informed that the declaration is skipped since they might
 -- contain pattern matching.
 transformDecl decl@(HSE.ClassDecl s _ _ _ _) = do
-  skipNotSupportedWithExcerpt "Type classes" (transformSrcSpan s)
+  skipNotSupported "Type classes" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.InstDecl s _ _ _) = do
-  skipNotSupportedWithExcerpt "Type class instances" (transformSrcSpan s)
+  skipNotSupported "Type class instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- GADTs and pattern synonyms are not supported. The user is explicitly
 -- informed that the declaration is skipped since there may be errors due
 -- to the skipped constructor or pattern declarations.
 transformDecl decl@(HSE.GDataDecl s _ _ _ _ _ _) = do
-  skipNotSupportedWithExcerpt "GADTs" (transformSrcSpan s)
+  skipNotSupported "GADTs" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.PatSyn s _ _ _) = do
-  skipNotSupportedWithExcerpt "Pattern synonyms" (transformSrcSpan s)
+  skipNotSupported "Pattern synonyms" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Type and data families are not supported. The user is informed of skipped
 -- data instances only since all type family declarations and instances as well
@@ -95,19 +95,19 @@ transformDecl decl@(HSE.DataFamDecl s _ _ _) = do
 transformDecl decl@(HSE.TypeInsDecl s _ _) = do
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.DataInsDecl s _ _ _ _) = do
-  skipNotSupportedWithExcerpt "Data family instances" (transformSrcSpan s)
+  skipNotSupported "Data family instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.GDataInsDecl s _ _ _ _ _) = do
-  skipNotSupportedWithExcerpt "GADT-style data family instances" (transformSrcSpan s)
+  skipNotSupported "GADT-style data family instances" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Template Haskell is not supported. The user is informed when
 -- splices are skipped since they contain expressions that are
 -- not transformed.
 transformDecl decl@(HSE.SpliceDecl s _) = do
-  skipNotSupportedWithExcerpt "Template Haskell splicing declarations" (transformSrcSpan s)
+  skipNotSupported "Template Haskell splicing declarations" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 transformDecl decl@(HSE.TSpliceDecl s _) = do
-  skipNotSupportedWithExcerpt "Template Haskell splicing declarations" (transformSrcSpan s)
+  skipNotSupported "Template Haskell splicing declarations" (transformSrcSpan s)
   return $ S.OtherDecl (transformSrcSpan s) decl
 -- Type signatures, fixity declarations and pragmas are skipped silently.
 transformDecl decl@(HSE.TypeSig s _ _) = return
@@ -188,7 +188,7 @@ transformConDecl (HSE.InfixConDecl s _ cName _) = do
                    , S.conDeclArity   = 2
                    , S.conDeclIsInfix = True
                    }
-transformConDecl (HSE.RecDecl s _ _)            = notSupportedWithExcerpt
+transformConDecl (HSE.RecDecl s _ _)            = notSupported
   "Records" (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
@@ -199,7 +199,7 @@ transformBinds
   :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
 transformBinds (HSE.BDecls s decls) = S.BDecls (transformSrcSpan s)
   <$> mapM transformDecl decls
-transformBinds (HSE.IPBinds s _)    = notSupportedWithExcerpt
+transformBinds (HSE.IPBinds s _)    = notSupported
   "Implicit-parameters" (transformSrcSpan s)
 
 -- | Transforms an HSE match into an HST match.
@@ -232,7 +232,7 @@ transformGuardedRhs :: Member Report r
 transformGuardedRhs (HSE.GuardedRhs s [HSE.Qualifier _ ge] e)
   = S.GuardedRhs (transformSrcSpan s) <$> transformExp ge <*> transformExp e
 transformGuardedRhs (HSE.GuardedRhs s _ _)
-  = notSupportedWithExcerpt "Pattern guards" (transformSrcSpan s)
+  = notSupported "Pattern guards" (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
 -- Expressions                                                               --
@@ -278,89 +278,89 @@ transformExp (HSE.Paren s e)                  = S.Paren (transformSrcSpan s)
 transformExp (HSE.ExpTypeSig s e typ)
   = S.ExpTypeSig (transformSrcSpan s) <$> transformExp e <*> return typ
 -- All other expressions are not supported.
-transformExp (HSE.OverloadedLabel s _)        = notSupportedWithExcerpt
+transformExp (HSE.OverloadedLabel s _)        = notSupported
   "Overloaded labels" (transformSrcSpan s)
-transformExp (HSE.IPVar s _)                  = notSupportedWithExcerpt
+transformExp (HSE.IPVar s _)                  = notSupported
   "Implicit-parameters" (transformSrcSpan s)
-transformExp (HSE.MultiIf s _)                = notSupportedWithExcerpt
+transformExp (HSE.MultiIf s _)                = notSupported
   "Multi-Way if-expressions" (transformSrcSpan s)
-transformExp (HSE.Do s _)                     = notSupportedWithExcerpt
+transformExp (HSE.Do s _)                     = notSupported
   "do-expressions" (transformSrcSpan s)
-transformExp (HSE.MDo s _)                    = notSupportedWithExcerpt
+transformExp (HSE.MDo s _)                    = notSupported
   "mdo-expressions" (transformSrcSpan s)
-transformExp (HSE.UnboxedSum s _ _ _)         = notSupportedWithExcerpt
+transformExp (HSE.UnboxedSum s _ _ _)         = notSupported
   "Unboxed sums" (transformSrcSpan s)
-transformExp (HSE.TupleSection s _ _)         = notSupportedWithExcerpt
+transformExp (HSE.TupleSection s _ _)         = notSupported
   "Tuple sections" (transformSrcSpan s)
-transformExp (HSE.ParArray s _)               = notSupportedWithExcerpt
+transformExp (HSE.ParArray s _)               = notSupported
   "Parallel arrays" (transformSrcSpan s)
-transformExp (HSE.LeftSection s _ _)          = notSupportedWithExcerpt
+transformExp (HSE.LeftSection s _ _)          = notSupported
   "Sections" (transformSrcSpan s)
-transformExp (HSE.RightSection s _ _)         = notSupportedWithExcerpt
+transformExp (HSE.RightSection s _ _)         = notSupported
   "Sections" (transformSrcSpan s)
-transformExp (HSE.RecConstr s _ _)            = notSupportedWithExcerpt
+transformExp (HSE.RecConstr s _ _)            = notSupported
   "Records" (transformSrcSpan s)
-transformExp (HSE.RecUpdate s _ _)            = notSupportedWithExcerpt
+transformExp (HSE.RecUpdate s _ _)            = notSupported
   "Records" (transformSrcSpan s)
-transformExp (HSE.EnumFrom s _)               = notSupportedWithExcerpt
+transformExp (HSE.EnumFrom s _)               = notSupported
   "Enumerations" (transformSrcSpan s)
-transformExp (HSE.EnumFromTo s _ _)           = notSupportedWithExcerpt
+transformExp (HSE.EnumFromTo s _ _)           = notSupported
   "Enumerations" (transformSrcSpan s)
-transformExp (HSE.EnumFromThen s _ _)         = notSupportedWithExcerpt
+transformExp (HSE.EnumFromThen s _ _)         = notSupported
   "Enumerations" (transformSrcSpan s)
-transformExp (HSE.EnumFromThenTo s _ _ _)     = notSupportedWithExcerpt
+transformExp (HSE.EnumFromThenTo s _ _ _)     = notSupported
   "Enumerations" (transformSrcSpan s)
-transformExp (HSE.ParArrayFromTo s _ _)       = notSupportedWithExcerpt
+transformExp (HSE.ParArrayFromTo s _ _)       = notSupported
   "Parallel arrays" (transformSrcSpan s)
-transformExp (HSE.ParArrayFromThenTo s _ _ _) = notSupportedWithExcerpt
+transformExp (HSE.ParArrayFromThenTo s _ _ _) = notSupported
   "Parallel arrays" (transformSrcSpan s)
-transformExp (HSE.ListComp s _ _)             = notSupportedWithExcerpt
+transformExp (HSE.ListComp s _ _)             = notSupported
   "List comprehensions" (transformSrcSpan s)
-transformExp (HSE.ParComp s _ _)              = notSupportedWithExcerpt
+transformExp (HSE.ParComp s _ _)              = notSupported
   "List comprehensions" (transformSrcSpan s)
-transformExp (HSE.ParArrayComp s _ _)         = notSupportedWithExcerpt
+transformExp (HSE.ParArrayComp s _ _)         = notSupported
   "Parallel arrays" (transformSrcSpan s)
-transformExp (HSE.VarQuote s _)               = notSupportedWithExcerpt
+transformExp (HSE.VarQuote s _)               = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExp (HSE.TypQuote s _)               = notSupportedWithExcerpt
+transformExp (HSE.TypQuote s _)               = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExp (HSE.BracketExp s _)             = notSupportedWithExcerpt
+transformExp (HSE.BracketExp s _)             = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExp (HSE.SpliceExp s _)              = notSupportedWithExcerpt
+transformExp (HSE.SpliceExp s _)              = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExp (HSE.QuasiQuote s _ _)           = notSupportedWithExcerpt
+transformExp (HSE.QuasiQuote s _ _)           = notSupported
   "Template Haskell expressions" (transformSrcSpan s)
-transformExp (HSE.TypeApp s _)                = notSupportedWithExcerpt
+transformExp (HSE.TypeApp s _)                = notSupported
   "Visible type applications" (transformSrcSpan s)
-transformExp (HSE.XTag s _ _ _ _)             = notSupportedWithExcerpt
+transformExp (HSE.XTag s _ _ _ _)             = notSupported
   "XML expressions" (transformSrcSpan s)
-transformExp (HSE.XETag s _ _ _)              = notSupportedWithExcerpt
+transformExp (HSE.XETag s _ _ _)              = notSupported
   "XML expressions" (transformSrcSpan s)
-transformExp (HSE.XPcdata s _)                = notSupportedWithExcerpt
+transformExp (HSE.XPcdata s _)                = notSupported
   "XML expressions" (transformSrcSpan s)
-transformExp (HSE.XExpTag s _)                = notSupportedWithExcerpt
+transformExp (HSE.XExpTag s _)                = notSupported
   "XML expressions" (transformSrcSpan s)
-transformExp (HSE.XChildTag s _)              = notSupportedWithExcerpt
+transformExp (HSE.XChildTag s _)              = notSupported
   "XML expressions" (transformSrcSpan s)
-transformExp (HSE.CorePragma s _ _)           = notSupportedWithExcerpt
+transformExp (HSE.CorePragma s _ _)           = notSupported
   "CORE pragmas" (transformSrcSpan s)
-transformExp (HSE.SCCPragma s _ _)            = notSupportedWithExcerpt
+transformExp (HSE.SCCPragma s _ _)            = notSupported
   "SCC pragmas" (transformSrcSpan s)
-transformExp (HSE.GenPragma s _ _ _ _)        = notSupportedWithExcerpt
+transformExp (HSE.GenPragma s _ _ _ _)        = notSupported
   "GENERATED pragmas" (transformSrcSpan s)
-transformExp (HSE.Proc s _ _)                 = notSupportedWithExcerpt
+transformExp (HSE.Proc s _ _)                 = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExp (HSE.LeftArrApp s _ _)           = notSupportedWithExcerpt
+transformExp (HSE.LeftArrApp s _ _)           = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExp (HSE.RightArrApp s _ _)          = notSupportedWithExcerpt
+transformExp (HSE.RightArrApp s _ _)          = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExp (HSE.LeftArrHighApp s _ _)       = notSupportedWithExcerpt
+transformExp (HSE.LeftArrHighApp s _ _)       = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExp (HSE.RightArrHighApp s _ _)      = notSupportedWithExcerpt
+transformExp (HSE.RightArrHighApp s _ _)      = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExp (HSE.ArrOp s _)                  = notSupportedWithExcerpt
+transformExp (HSE.ArrOp s _)                  = notSupported
   "Arrow expressions" (transformSrcSpan s)
-transformExp (HSE.LCase s _)                  = notSupportedWithExcerpt
+transformExp (HSE.LCase s _)                  = notSupported
   "Lambda case expressions" (transformSrcSpan s)
 
 -- | Transforms an HSE case alternative into an HST case alternative.
@@ -394,39 +394,39 @@ transformPat (HSE.PList s pats)                = S.PList (transformSrcSpan s)
 transformPat (HSE.PWildCard s)                 = return
   (S.PWildCard (transformSrcSpan s))
 -- All other patterns are not supported.
-transformPat (HSE.PLit s _ _)                  = notSupportedWithExcerpt
+transformPat (HSE.PLit s _ _)                  = notSupported
   "Literal patterns" (transformSrcSpan s)
-transformPat (HSE.PNPlusK s _ _)               = notSupportedWithExcerpt
+transformPat (HSE.PNPlusK s _ _)               = notSupported
   "n+k patterns" (transformSrcSpan s)
-transformPat (HSE.PUnboxedSum s _ _ _)         = notSupportedWithExcerpt
+transformPat (HSE.PUnboxedSum s _ _ _)         = notSupported
   "Unboxed sums" (transformSrcSpan s)
-transformPat (HSE.PRec s _ _)                  = notSupportedWithExcerpt
+transformPat (HSE.PRec s _ _)                  = notSupported
   "Records" (transformSrcSpan s)
-transformPat (HSE.PAsPat s _ _)                = notSupportedWithExcerpt
+transformPat (HSE.PAsPat s _ _)                = notSupported
   "as-patterns" (transformSrcSpan s)
-transformPat (HSE.PIrrPat s _)                 = notSupportedWithExcerpt
+transformPat (HSE.PIrrPat s _)                 = notSupported
   "Irrefutable patterns" (transformSrcSpan s)
-transformPat (HSE.PatTypeSig s _ _)            = notSupportedWithExcerpt
+transformPat (HSE.PatTypeSig s _ _)            = notSupported
   "Patterns with type signatures" (transformSrcSpan s)
-transformPat (HSE.PViewPat s _ _)              = notSupportedWithExcerpt
+transformPat (HSE.PViewPat s _ _)              = notSupported
   "View patterns" (transformSrcSpan s)
-transformPat (HSE.PRPat s _)                   = notSupportedWithExcerpt
+transformPat (HSE.PRPat s _)                   = notSupported
   "Regular patterns" (transformSrcSpan s)
-transformPat (HSE.PXTag s _ _ _ _)             = notSupportedWithExcerpt
+transformPat (HSE.PXTag s _ _ _ _)             = notSupported
   "XML patterns" (transformSrcSpan s)
-transformPat (HSE.PXETag s _ _ _)              = notSupportedWithExcerpt
+transformPat (HSE.PXETag s _ _ _)              = notSupported
   "XML patterns" (transformSrcSpan s)
-transformPat (HSE.PXPcdata s _)                = notSupportedWithExcerpt
+transformPat (HSE.PXPcdata s _)                = notSupported
   "XML patterns" (transformSrcSpan s)
-transformPat (HSE.PXPatTag s _)                = notSupportedWithExcerpt
+transformPat (HSE.PXPatTag s _)                = notSupported
   "XML patterns" (transformSrcSpan s)
-transformPat (HSE.PXRPats s _)                 = notSupportedWithExcerpt
+transformPat (HSE.PXRPats s _)                 = notSupported
   "XML patterns" (transformSrcSpan s)
-transformPat (HSE.PSplice s _)                 = notSupportedWithExcerpt
+transformPat (HSE.PSplice s _)                 = notSupported
   "Template Haskell" (transformSrcSpan s)
-transformPat (HSE.PQuasiQuote s _ _)           = notSupportedWithExcerpt
+transformPat (HSE.PQuasiQuote s _ _)           = notSupported
   "Template Haskell" (transformSrcSpan s)
-transformPat (HSE.PBangPat s _)                = notSupportedWithExcerpt
+transformPat (HSE.PBangPat s _)                = notSupported
   "Bang patterns" (transformSrcSpan s)
 
 -------------------------------------------------------------------------------
