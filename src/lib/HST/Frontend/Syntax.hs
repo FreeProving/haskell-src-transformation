@@ -426,20 +426,13 @@ class HasSrcSpan node where
   getSrcSpan :: node a -> SrcSpan a
 
 -- | A wrapper for source span information with the option to not specify a
---   source span. Contains the file path and the line and column of the start
---   and end of the spanned source code in addition to the original source
---   span.
+--   source span. Good source spans contain a 'MsgSrcSpan' which stores basic
+--   data about the source span.
 --
 --   Only the original source span is used when transforming a source span
 --   back, all other data is used for displaying input code excerpts.
 data SrcSpan a
-  = SrcSpan { srcSpanFilePath    :: FilePath
-            , srcSpanStartLine   :: Int
-            , srcSpanStartColumn :: Int
-            , srcSpanEndLine     :: Int
-            , srcSpanEndColumn   :: Int
-            , originalSrcSpan    :: SrcSpanType a
-            }
+  = SrcSpan (SrcSpanType a) MsgSrcSpan
   | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
@@ -451,3 +444,27 @@ instance Eq (SrcSpan a) where
 -- | Custom order for 'SrcSpan' which treats all source spans as equal.
 instance Ord (SrcSpan a) where
   _ `compare` _ = EQ
+
+-- | Type for storing basic data of a source span, i. e. the file path and the
+--   line and column of the start and end of the spanned source code.
+--
+--   The data contained in this type is used for displaying input code
+--   excerpts. This additional type is necessary in order to have a type for
+--   source spans without type variables, which would cause problems in the
+--   "HST.Effect.Report" module.
+data MsgSrcSpan
+  = MsgSrcSpan { msgSrcSpanFilePath    :: FilePath
+               , msgSrcSpanStartLine   :: Int
+               , msgSrcSpanStartColumn :: Int
+               , msgSrcSpanEndLine     :: Int
+               , msgSrcSpanEndColumn   :: Int
+               }
+ deriving (Eq, Show)
+
+-- | Extracts the 'MsgSrcSpan' of a 'SrcSpan'.
+--
+--   The result is wrapped inside the @Maybe@ type, so that @Nothing@ can be
+--   returned for bad source spans.
+toMsgSrcSpan :: SrcSpan a -> Maybe MsgSrcSpan
+toMsgSrcSpan (SrcSpan _ msgSrcSpan) = Just msgSrcSpan
+toMsgSrcSpan NoSrcSpan = Nothing
