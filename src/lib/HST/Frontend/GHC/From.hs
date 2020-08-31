@@ -53,9 +53,7 @@ transformModule (GHC.L s modul)
 --
 --   Unsupported declarations are preserved by wrapping them in the
 --   'S.OtherDecl' constructor.
-transformDecl :: Member Report r
-              => GHC.LHsDecl GHC.GhcPs
-              -> Sem r (S.Decl GHC)
+transformDecl :: Member Report r => GHC.LHsDecl GHC.GhcPs -> Sem r (S.Decl GHC)
 
 -- Data type and newtype declarations are supported.
 transformDecl decl@(GHC.L s (GHC.TyClD _ dataDecl@GHC.DataDecl {})) = do
@@ -162,9 +160,8 @@ transformDataDefn (GHC.XHsDataDefn x)                   = GHC.noExtCon x
 --   The result is wrapped inside the @Maybe@ type since some kinds of
 --   constructors are not supported by the pattern matching compiler in which
 --   case the corresponding data definition is skipped.
-transformConDecl :: Member Report r
-                 => GHC.LConDecl GHC.GhcPs
-                 -> Sem r (Maybe (S.ConDecl GHC))
+transformConDecl
+  :: Member Report r => GHC.LConDecl GHC.GhcPs -> Sem r (Maybe (S.ConDecl GHC))
 transformConDecl (GHC.L s conDecl@GHC.ConDeclH98 {}) = do
   name <- transformRdrNameUnqual (GHC.con_name conDecl)
   transformConDetails (transformSrcSpan s) name (GHC.con_args conDecl)
@@ -217,9 +214,8 @@ transformLocalBinds (GHC.L s (GHC.HsIPBinds _ _))      = notSupportedWithExcerpt
 transformLocalBinds (GHC.L _ (GHC.XHsLocalBindsLR x))  = GHC.noExtCon x
 
 -- | Transforms GHC value bindings into HST declarations.
-transformValBinds :: Member Report r
-                  => GHC.HsValBinds GHC.GhcPs
-                  -> Sem r [S.Decl GHC]
+transformValBinds
+  :: Member Report r => GHC.HsValBinds GHC.GhcPs -> Sem r [S.Decl GHC]
 transformValBinds (GHC.ValBinds _ binds sigs) = mapM transformDecl
   (map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
    (GHC.bagToList binds)
@@ -319,9 +315,7 @@ transformBoxity GHC.Boxed   = S.Boxed
 transformBoxity GHC.Unboxed = S.Unboxed
 
 -- | Transforms a GHC located expression into an HST expression.
-transformExpr :: Member Report r
-              => GHC.LHsExpr GHC.GhcPs
-              -> Sem r (S.Exp GHC)
+transformExpr :: Member Report r => GHC.LHsExpr GHC.GhcPs -> Sem r (S.Exp GHC)
 transformExpr (GHC.L s (GHC.HsVar _ name)) = do
   let s' = transformSrcSpan s
   name' <- transformRdrName name
@@ -381,8 +375,7 @@ transformExpr (GHC.L s (GHC.HsCase _ e mg)) = do
   alts <- mapM matchToAlt mg'
   return $ S.Case (transformSrcSpan s) e' alts
  where
-  matchToAlt
-    :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
+  matchToAlt :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
   matchToAlt (S.Match s' _ [pat] rhs mBinds) = return $ S.Alt s' pat rhs mBinds
   matchToAlt (S.Match s' _ _ _ _)
     = notSupportedWithExcerpt "Case alternatives without exactly one pattern" s'
@@ -455,9 +448,8 @@ transformExpr (GHC.L _ (GHC.XExpr x)) = GHC.noExtCon x
 
 -- | Transforms a GHC located tuple argument consisting of an expression into
 --   an HST expression.
-transformTupleArg :: Member Report r
-                  => GHC.LHsTupArg GHC.GhcPs
-                  -> Sem r (S.Exp GHC)
+transformTupleArg
+  :: Member Report r => GHC.LHsTupArg GHC.GhcPs -> Sem r (S.Exp GHC)
 transformTupleArg (GHC.L _ (GHC.Present _ e)) = transformExpr e
 transformTupleArg (GHC.L s (GHC.Missing _))   = notSupportedWithExcerpt
   "Missing tuple arguments" (transformSrcSpan s)
@@ -467,8 +459,7 @@ transformTupleArg (GHC.L _ (GHC.XTupArg x))   = GHC.noExtCon x
 -- Patterns                                                                  --
 -------------------------------------------------------------------------------
 -- | Transforms a GHC located pattern into an HST pattern.
-transformPat
-  :: Member Report r => GHC.LPat GHC.GhcPs -> Sem r (S.Pat GHC)
+transformPat :: Member Report r => GHC.LPat GHC.GhcPs -> Sem r (S.Pat GHC)
 transformPat (GHC.L s (GHC.VarPat _ name))
   = S.PVar (transformSrcSpan s) <$> transformRdrNameUnqual name
 transformPat (GHC.L s (GHC.ConPatIn name cpds))     = do
@@ -531,9 +522,8 @@ transformModuleName (GHC.L s modName) = S.ModuleName (transformSrcSpan s)
 -- | Transforms a GHC located reader name into an HST qualified name and a
 --   @Bool@ which is @True@ if the name belongs to a data constructor and
 --   @False@ otherwise.
-transformRdrName :: Member Report r
-                 => GHC.Located GHC.RdrName
-                 -> Sem r (S.QName GHC, Bool)
+transformRdrName
+  :: Member Report r => GHC.Located GHC.RdrName -> Sem r (S.QName GHC, Bool)
 transformRdrName (GHC.L s (GHC.Unqual name))
   = let s' = transformSrcSpan s
     in return
@@ -552,9 +542,8 @@ transformRdrName (GHC.L s (GHC.Orig _ _))          = notSupportedWithExcerpt
   "Original names" (transformSrcSpan s)
 
 -- | Transforms a GHC located unqualified reader name into an HST name.
-transformRdrNameUnqual :: Member Report r
-                       => GHC.Located GHC.RdrName
-                       -> Sem r (S.Name GHC)
+transformRdrNameUnqual
+  :: Member Report r => GHC.Located GHC.RdrName -> Sem r (S.Name GHC)
 transformRdrNameUnqual (GHC.L s (GHC.Unqual occName)) = return
   $ S.Ident (transformSrcSpan s) (GHC.occNameString occName)
 transformRdrNameUnqual (GHC.L s (GHC.Qual _ _))       = notSupportedWithExcerpt
@@ -566,10 +555,8 @@ transformRdrNameUnqual (GHC.L s (GHC.Exact _))        = notSupportedWithExcerpt
 
 -- | Transforms a GHC name with an HST source span into an HST special
 --   constructor.
-transformSpecialCon :: Member Report r
-                    => S.SrcSpan GHC
-                    -> GHC.Name
-                    -> Sem r (S.SpecialCon GHC)
+transformSpecialCon
+  :: Member Report r => S.SrcSpan GHC -> GHC.Name -> Sem r (S.SpecialCon GHC)
 transformSpecialCon s name = case Map.lookup name specialDataConMap of
   Just mkSpecialCon -> return $ mkSpecialCon s
   Nothing           -> case GHC.wiredInNameTyThing_maybe name of
@@ -604,7 +591,7 @@ specialDataConMap = Map.fromList
 -- | Wraps a GHC source span into the HST type for source spans.
 transformSrcSpan :: GHC.SrcSpan -> S.SrcSpan GHC
 transformSrcSpan srcSpan@(GHC.RealSrcSpan realSrcSpan) = S.SrcSpan srcSpan
- S.MsgSrcSpan
+  S.MsgSrcSpan
   { S.msgSrcSpanFilePath    = GHC.unpackFS (GHC.srcSpanFile realSrcSpan)
   , S.msgSrcSpanStartLine   = GHC.srcSpanStartLine realSrcSpan
   , S.msgSrcSpanStartColumn = GHC.srcSpanStartCol realSrcSpan

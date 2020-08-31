@@ -89,9 +89,11 @@ application = do
       inputFiles <- getOpt optInputFiles
       if showHelp || null inputFiles
         then embed putUsageInfo
-        -- TODO There probably is a better way to add actual input files to the
-        -- Report effect
-        else runInputFile inputFiles . reportToHandleOrCancel stderr $ mapM_ processInputFile inputFiles
+        else 
+          -- TODO There probably is a better way to add actual input files to the
+          -- Report effect
+          runInputFile inputFiles . reportToHandleOrCancel stderr
+          $ mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --

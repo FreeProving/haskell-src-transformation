@@ -18,8 +18,7 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.Report
-  ( Report, Severity(Error, Internal), message, failToReport
-  , reportFatal )
+  ( Report, Severity(Error, Internal), failToReport, message, reportFatal )
 import           HST.Environment
   ( ConEntry, DataEntry, conEntryArity, conEntryIsInfix, conEntryName
   , conEntryType, dataEntryCons )
@@ -294,8 +293,9 @@ computeAlt pat pats er prps@(p : _) = do
   f (v : vs, r) = do
     (_, _, oldpats) <- decomposeConPat v
     return (oldpats ++ vs, r)
-computeAlt _ _ _ []
-  = reportFatal $ message Internal S.NoSrcSpan $ "Expected at least one pattern in group."
+computeAlt _ _ _ [] = reportFatal
+  $ message Internal S.NoSrcSpan
+  $ "Expected at least one pattern in group."
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
 --      oldpats

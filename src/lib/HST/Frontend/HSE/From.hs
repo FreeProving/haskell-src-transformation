@@ -20,9 +20,8 @@ import           HST.Frontend.Transformer.Messages
 -------------------------------------------------------------------------------
 -- | Transforms the @haskell-src-exts@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
-transformModule :: Member Report r
-                => HSE.Module HSE.SrcSpanInfo
-                -> Sem r (S.Module HSE)
+transformModule
+  :: Member Report r => HSE.Module HSE.SrcSpanInfo -> Sem r (S.Module HSE)
 transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
   <$> mapM transformModuleHead moduleHead
@@ -173,9 +172,8 @@ transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 
 -- | Transforms an HSE constructor declaration into an HST constructor
 --   declaration.
-transformConDecl :: Member Report r
-                 => HSE.ConDecl HSE.SrcSpanInfo
-                 -> Sem r (S.ConDecl HSE)
+transformConDecl
+  :: Member Report r => HSE.ConDecl HSE.SrcSpanInfo -> Sem r (S.ConDecl HSE)
 transformConDecl (HSE.ConDecl s cName types)    = do
   name' <- transformName cName
   return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
@@ -197,18 +195,16 @@ transformConDecl (HSE.RecDecl s _ _)            = notSupportedWithExcerpt
 -- Function Declarations                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE binding group into an HST binding group.
-transformBinds :: Member Report r
-               => HSE.Binds HSE.SrcSpanInfo
-               -> Sem r (S.Binds HSE)
+transformBinds
+  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
 transformBinds (HSE.BDecls s decls) = S.BDecls (transformSrcSpan s)
   <$> mapM transformDecl decls
 transformBinds (HSE.IPBinds s _)    = notSupportedWithExcerpt
   "Implicit-parameters" (transformSrcSpan s)
 
 -- | Transforms an HSE match into an HST match.
-transformMatch :: Member Report r
-               => HSE.Match HSE.SrcSpanInfo
-               -> Sem r (S.Match HSE)
+transformMatch
+  :: Member Report r => HSE.Match HSE.SrcSpanInfo -> Sem r (S.Match HSE)
 transformMatch (HSE.Match s name pats rhs mBinds)
   = S.Match (transformSrcSpan s) <$> transformName name
   <*> mapM transformPat pats
@@ -222,9 +218,7 @@ transformMatch (HSE.InfixMatch s pat name pats rhs mBinds)
   <*> mapM transformBinds mBinds
 
 -- | Transforms an HSE right hand side into an HST right hand side.
-transformRhs :: Member Report r
-             => HSE.Rhs HSE.SrcSpanInfo
-             -> Sem r (S.Rhs HSE)
+transformRhs :: Member Report r => HSE.Rhs HSE.SrcSpanInfo -> Sem r (S.Rhs HSE)
 transformRhs (HSE.UnGuardedRhs s e)    = S.UnGuardedRhs (transformSrcSpan s)
   <$> transformExp e
 transformRhs (HSE.GuardedRhss s grhss) = S.GuardedRhss (transformSrcSpan s)
@@ -249,9 +243,7 @@ transformBoxed HSE.Boxed   = return S.Boxed
 transformBoxed HSE.Unboxed = return S.Unboxed
 
 -- | Transforms an HSE expression into an HST expression.
-transformExp :: Member Report r
-             => HSE.Exp HSE.SrcSpanInfo
-             -> Sem r (S.Exp HSE)
+transformExp :: Member Report r => HSE.Exp HSE.SrcSpanInfo -> Sem r (S.Exp HSE)
 transformExp (HSE.Var s qName)                = S.Var (transformSrcSpan s)
   <$> transformQName qName
 transformExp (HSE.Con s qName)                = S.Con (transformSrcSpan s)
@@ -372,9 +364,7 @@ transformExp (HSE.LCase s _)                  = notSupportedWithExcerpt
   "Lambda case expressions" (transformSrcSpan s)
 
 -- | Transforms an HSE case alternative into an HST case alternative.
-transformAlt :: Member Report r
-             => HSE.Alt HSE.SrcSpanInfo
-             -> Sem r (S.Alt HSE)
+transformAlt :: Member Report r => HSE.Alt HSE.SrcSpanInfo -> Sem r (S.Alt HSE)
 transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
   <$> transformPat pat
   <*> transformRhs rhs
@@ -384,9 +374,7 @@ transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
 -- Patterns                                                                  --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE pattern into an HST pattern.
-transformPat :: Member Report r
-             => HSE.Pat HSE.SrcSpanInfo
-             -> Sem r (S.Pat HSE)
+transformPat :: Member Report r => HSE.Pat HSE.SrcSpanInfo -> Sem r (S.Pat HSE)
 transformPat (HSE.PVar s name)                 = S.PVar (transformSrcSpan s)
   <$> transformName name
 transformPat (HSE.PInfixApp s pat1 qName pat2)
@@ -451,9 +439,8 @@ transformModuleName (HSE.ModuleName s name) = return
   $ S.ModuleName (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified name into an HST qualified name.
-transformQName :: Member Report r
-               => HSE.QName HSE.SrcSpanInfo
-               -> Sem r (S.QName HSE)
+transformQName
+  :: Member Report r => HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
 transformQName (HSE.Qual s modName name) = S.Qual (transformSrcSpan s)
   <$> transformModuleName modName
   <*> transformName name
@@ -468,9 +455,7 @@ transformName (HSE.Ident s name)  = return $ S.Ident (transformSrcSpan s) name
 transformName (HSE.Symbol s name) = return $ S.Symbol (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified operator into an HST qualified operator.
-transformQOp :: Member Report r
-             => HSE.QOp HSE.SrcSpanInfo
-             -> Sem r (S.QOp HSE)
+transformQOp :: Member Report r => HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
 transformQOp (HSE.QVarOp s qName) = S.QVarOp (transformSrcSpan s)
   <$> transformQName qName
 transformQOp (HSE.QConOp s qName) = S.QConOp (transformSrcSpan s)
@@ -492,8 +477,8 @@ transformSpecialCon (HSE.Cons s)             = return
   $ S.ConsCon (transformSrcSpan s)
 transformSpecialCon (HSE.ExprHole s)         = return
   $ S.ExprHole (transformSrcSpan s)
-transformSpecialCon (HSE.FunCon s)
-  = reportFatal $ message Error (transformSrcSpan s) "Expected data constructor but got (->)."
+transformSpecialCon (HSE.FunCon s)           = reportFatal
+  $ message Error (transformSrcSpan s) "Expected data constructor but got (->)."
 
 -------------------------------------------------------------------------------
 -- Source Spans                                                              --
@@ -504,10 +489,10 @@ transformSrcSpan srcSpanInfo
   = let srcSpan = HSE.srcInfoSpan srcSpanInfo
     in if HSE.isNullSpan srcSpan
          then S.NoSrcSpan
-         else S.SrcSpan srcSpanInfo
-                S.MsgSrcSpan { S.msgSrcSpanFilePath    = HSE.srcSpanFilename srcSpan
-                        , S.msgSrcSpanStartLine   = HSE.srcSpanStartLine srcSpan
-                        , S.msgSrcSpanStartColumn = HSE.srcSpanStartColumn srcSpan
-                        , S.msgSrcSpanEndLine     = HSE.srcSpanEndLine srcSpan
-                        , S.msgSrcSpanEndColumn   = HSE.srcSpanEndColumn srcSpan
-                        }
+         else S.SrcSpan srcSpanInfo S.MsgSrcSpan
+           { S.msgSrcSpanFilePath    = HSE.srcSpanFilename srcSpan
+           , S.msgSrcSpanStartLine   = HSE.srcSpanStartLine srcSpan
+           , S.msgSrcSpanStartColumn = HSE.srcSpanStartColumn srcSpan
+           , S.msgSrcSpanEndLine     = HSE.srcSpanEndLine srcSpan
+           , S.msgSrcSpanEndColumn   = HSE.srcSpanEndColumn srcSpan
+           }

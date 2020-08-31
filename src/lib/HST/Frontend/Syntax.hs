@@ -431,9 +431,7 @@ class HasSrcSpan node where
 --
 --   Only the original source span is used when transforming a source span
 --   back, all other data is used for displaying input code excerpts.
-data SrcSpan a
-  = SrcSpan (SrcSpanType a) MsgSrcSpan
-  | NoSrcSpan
+data SrcSpan a = SrcSpan (SrcSpanType a) MsgSrcSpan | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 
@@ -452,14 +450,14 @@ instance Ord (SrcSpan a) where
 --   excerpts. This additional type is necessary in order to have a type for
 --   source spans without type variables, which would cause problems in the
 --   "HST.Effect.Report" module.
-data MsgSrcSpan
-  = MsgSrcSpan { msgSrcSpanFilePath    :: FilePath
-               , msgSrcSpanStartLine   :: Int
-               , msgSrcSpanStartColumn :: Int
-               , msgSrcSpanEndLine     :: Int
-               , msgSrcSpanEndColumn   :: Int
-               }
- deriving (Eq, Show)
+data MsgSrcSpan = MsgSrcSpan
+  { msgSrcSpanFilePath    :: FilePath
+  , msgSrcSpanStartLine   :: Int
+  , msgSrcSpanStartColumn :: Int
+  , msgSrcSpanEndLine     :: Int
+  , msgSrcSpanEndColumn   :: Int
+  }
+ deriving ( Eq, Show )
 
 -- | Extracts the 'MsgSrcSpan' of a 'SrcSpan'.
 --
@@ -467,4 +465,4 @@ data MsgSrcSpan
 --   returned for bad source spans.
 toMsgSrcSpan :: SrcSpan a -> Maybe MsgSrcSpan
 toMsgSrcSpan (SrcSpan _ msgSrcSpan) = Just msgSrcSpan
-toMsgSrcSpan NoSrcSpan = Nothing
+toMsgSrcSpan NoSrcSpan              = Nothing

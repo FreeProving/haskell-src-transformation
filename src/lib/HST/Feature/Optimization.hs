@@ -98,8 +98,9 @@ renameAndOpt
 renameAndOpt pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
-    Nothing                   ->
-      reportFatal $ message Error S.NoSrcSpan $ "Found no possible alternative."
+    Nothing                   -> reportFatal
+      $ message Error S.NoSrcSpan
+      $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
       pats <- selectPats pat

@@ -2,11 +2,11 @@
 --   transformation of ASTs.
 module HST.Frontend.Transformer.Messages where
 
-import           Polysemy             ( Member, Sem )
+import           Polysemy            ( Member, Sem )
 
 import           HST.Effect.Report
   ( Report, Severity(Error, Info), message, report, reportFatal )
-import qualified HST.Frontend.Syntax  as S
+import qualified HST.Frontend.Syntax as S
 
 -- | Reports a fatal error that the given feature is not supported.
 notSupported
@@ -33,8 +33,8 @@ notSupportedWithExcerpt
   => String      -- ^ The name of the feature (plural) that is not supported.
   -> S.SrcSpan a -- ^ The source span of the excerpt to display.
   -> Sem r b
-notSupportedWithExcerpt feature srcSpan =
-  reportFatal $ message Error srcSpan $ feature ++ " are not supported!"
+notSupportedWithExcerpt feature srcSpan
+  = reportFatal $ message Error srcSpan $ feature ++ " are not supported!"
 
 -- | Informs the user that the given feature is not supported and the
 --   corresponding AST node will be skipped. Displays an excerpt of the input
@@ -44,8 +44,7 @@ skipNotSupportedWithExcerpt
   => String      -- ^ The name of the feature (plural) that is not supported.
   -> S.SrcSpan a -- ^ The source span of the excerpt to display.
   -> Sem r ()
-skipNotSupportedWithExcerpt feature srcSpan =
-  report
-    $ message Info srcSpan
-    $ feature ++ " are not supported and will be skipped!"
+skipNotSupportedWithExcerpt feature srcSpan = report
+  $ message Info srcSpan
+  $ feature ++ " are not supported and will be skipped!"
 

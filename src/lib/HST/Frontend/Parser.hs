@@ -28,7 +28,7 @@ import           HST.Effect.Report
 import           HST.Frontend.GHC.Config
   ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config                    ( HSE )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax                        as S
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   can be parsed.

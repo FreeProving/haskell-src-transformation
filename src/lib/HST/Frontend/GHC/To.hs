@@ -29,7 +29,7 @@ import           HST.Frontend.GHC.Config
                    originalModuleImports, originalModuleDeprecMessage,
                    originalModuleHaddockModHeader)
   , TypeWrapper(SigType) )
-import qualified HST.Frontend.GHC.From as FromGHC
+import qualified HST.Frontend.GHC.From   as FromGHC
 import qualified HST.Frontend.Syntax     as S
 
 -------------------------------------------------------------------------------

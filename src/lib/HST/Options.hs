@@ -23,7 +23,7 @@ import           System.Console.GetOpt
 
 import           HST.Effect.Report
   ( Report, Severity(Error), message, report, reportFatal )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax   as S
 
 -- | A data type for all front ends that can be used for parsing the given input
 --   program in @haskell-src-transformations@.

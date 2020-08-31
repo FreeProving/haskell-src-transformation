@@ -14,7 +14,7 @@ import           Polysemy            ( Member, Members, Sem, run )
 
 import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
 import           HST.Effect.Report
-  ( Report, Severity(Error, Internal), message, evalReport, reportFatal )
+  ( Report, Severity(Error, Internal), evalReport, message, reportFatal )
 import qualified HST.Frontend.Syntax as S
 
 -------------------------------------------------------------------------------
@@ -25,8 +25,9 @@ import qualified HST.Frontend.Syntax as S
 --   Reports a fatal internal error if the given right-hand side has a guard.
 expFromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
 expFromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
-expFromUnguardedRhs (S.GuardedRhss _ _)
-  = reportFatal $ message Internal S.NoSrcSpan $ "Expected unguarded right-hand side."
+expFromUnguardedRhs (S.GuardedRhss _ _)     = reportFatal
+  $ message Internal S.NoSrcSpan
+  $ "Expected unguarded right-hand side."
 
 -------------------------------------------------------------------------------
 -- Pattern Names                                                             --
