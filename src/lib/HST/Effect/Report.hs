@@ -71,8 +71,17 @@ message :: Severity -> S.SrcSpan a -> String -> Message
 message severity srcSpan = Message severity (S.toMsgSrcSpan srcSpan)
 
 -- TODO Add @Pretty@ instance for messages.
-showPrettyMessage :: Member InputFile r => Message -> Sem r String
-showPrettyMessage (Message severity srcSpan msg) = do
+-- | Pretty-prints a message without a code excerpt.
+--
+--   Only used for testing purposes where the 'HST.Effect.InputFile' effect is
+--   not always handled.
+showPrettyMessage :: Message -> String
+showPrettyMessage (Message severity Nothing msg) = show severity ++ ": " ++ msg
+showPrettyMessage (Message severity (Just src) msg) = show severity ++ ": " ++ msg ++ "\n  In " ++ prettyMsgSrcSpan src ++ "."
+
+-- | Pretty-prints a message with a code excerpt.
+showPrettyMessageWithExcerpt :: Member InputFile r => Message -> Sem r String
+showPrettyMessageWithExcerpt (Message severity srcSpan msg) = do
   excerpt <- displayCodeExcerpt srcSpan
   return
     $ show severity
@@ -80,9 +89,22 @@ showPrettyMessage (Message severity srcSpan msg) = do
     ++ msg
     ++ if null excerpt then "" else '\n' : excerpt
 
+-- | Builds a string displaying the file path and the line and column of the
+--   start and end of the given message source span.
+prettyMsgSrcSpan :: S.MsgSrcSpan -> String
+prettyMsgSrcSpan src = S.msgSrcSpanFilePath src ++ ':' : prettyMsgSrcSpanNumbers src
+
+-- | Builds a string displaying the line and column of the given message source
+--   span start and end.
+prettyMsgSrcSpanNumbers :: S.MsgSrcSpan -> String
+prettyMsgSrcSpanNumbers src = show (S.msgSrcSpanStartLine src)
+  ++ ':'
+  : show (S.msgSrcSpanStartColumn src)
+  ++ '-'
+  : show (S.msgSrcSpanEndLine src) ++ ':' : show (S.msgSrcSpanEndColumn src)
+
 -- TODO Should the following function be in its own module? It can't be put
 -- back into 'HST.Frontend.Transformer.Messages' because of cyclic imports.
-
 -- | Displays an excerpt of the input code specified by the given source span.
 --
 --   The excerpt consists of an introductory line with the file path and the
@@ -96,16 +118,15 @@ displayCodeExcerpt (Just src) = do
   return $ case maybeContent of
     Nothing      -> ""
     Just content ->
-      let ls = getLines (S.msgSrcSpanStartLine src - 1) (S.msgSrcSpanEndLine src)
-            (lines content)
+      let ls = getLines (S.msgSrcSpanStartLine src - 1)
+            (S.msgSrcSpanEndLine src) (lines content)
       in if not (isValidSrcSpan ls)
            then "The source span "
-             ++ srcString
+             ++ prettyMsgSrcSpanNumbers src
              ++ " of `"
              ++ S.msgSrcSpanFilePath src
              ++ "` cannot be fully displayed!"
-           else S.msgSrcSpanFilePath src
-             ++ ':' : srcString ++ ":\n" ++ unlines (prettyLines ls)
+           else prettyMsgSrcSpan src ++ ":\n" ++ unlines (prettyLines ls)
  where
   -- | Returns a sublist of the given list specified by the given indices.
   --
@@ -123,14 +144,6 @@ displayCodeExcerpt (Just src) = do
     = (length ls == S.msgSrcSpanEndLine src - S.msgSrcSpanStartLine src + 1)
     && (length (head ls) >= S.msgSrcSpanStartColumn src)
     && (length (last ls) >= S.msgSrcSpanEndColumn src - 1)
-
-  -- | Builds a string displaying the line and column of the source span start
-  --   and end.
-  srcString :: String
-  srcString = show (S.msgSrcSpanStartLine src)
-    ++ ':'
-    : show (S.msgSrcSpanStartColumn src)
-    ++ '-' : show (S.msgSrcSpanEndLine src) ++ ':' : show (S.msgSrcSpanEndColumn src)
 
   -- | Adds line numbers to each given line and adds marks showing the start
   --   and end of the spanned code.
@@ -171,8 +184,8 @@ displayCodeExcerpt (Just src) = do
                     (filter (not . all isSpace) (tail lsShort)))
                  firstLine     = replicate
                    (maxLineNumLength + 2 + S.msgSrcSpanStartColumn src) ' '
-                   ++ replicate (maxLineLength - S.msgSrcSpanStartColumn src + 1)
-                   'v'
+                   ++ replicate
+                   (maxLineLength - S.msgSrcSpanStartColumn src + 1) 'v'
                  lastLine      = replicate (maxLineNumLength + 3 + minPadding)
                    ' '
                    ++ replicate (S.msgSrcSpanEndColumn src - minPadding - 1) '^'
@@ -255,7 +268,7 @@ reportToHandleOrCancel h = interpret \case
   -- | Prints the given message to the file handle given to the effect handler.
   hPutMessage :: Members '[Embed IO, InputFile] r => Message -> Sem r ()
   hPutMessage msg = do
-    msg' <- showPrettyMessage msg
+    msg' <- showPrettyMessageWithExcerpt msg
     embed (hPutStrLn h msg')
 
 -- | Intercepts all non-fatal messages reported by the given computation and
@@ -271,8 +284,7 @@ filterReportedMessages p = intercept \case
 -------------------------------------------------------------------------------
 -- | Handles the 'Cancel' effect by reporting the given fatal error message
 --   when the computation was canceled.
-cancelToReport
-  :: Member Report r => Message -> Sem (Cancel ': r) a -> Sem r a
+cancelToReport :: Member Report r => Message -> Sem (Cancel ': r) a -> Sem r a
 cancelToReport cancelMessage = runCancel
   >=> maybe (reportFatal cancelMessage) return
 
