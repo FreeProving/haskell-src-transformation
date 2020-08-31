@@ -15,15 +15,14 @@ import qualified FastString                        as GHC
 import qualified GHC.Hs                            as GHC
 import qualified Module                            as GHC
 import qualified Name                              as GHC
-import           Polysemy                          ( Member, Members, Sem )
+import           Polysemy                          ( Member, Sem )
 import qualified RdrName                           as GHC
 import qualified SrcLoc                            as GHC
 import qualified Type                              as GHC
 import qualified TysWiredIn                        as GHC
 
-import           HST.Effect.InputFile              ( InputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error), reportFatal )
+  ( Report, Severity(Error), message, reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
@@ -36,7 +35,7 @@ import           HST.Frontend.Transformer.Messages
 -------------------------------------------------------------------------------
 -- | Transforms the @ghc-lib-parser@ representation of a located Haskell module
 --   into the @haskell-src-transformations@ representation of a Haskell module.
-transformModule :: Members '[InputFile, Report] r
+transformModule :: Member Report r
                 => GHC.Located (GHC.HsModule GHC.GhcPs)
                 -> Sem r (S.Module GHC)
 transformModule (GHC.L s modul)
@@ -54,7 +53,7 @@ transformModule (GHC.L s modul)
 --
 --   Unsupported declarations are preserved by wrapping them in the
 --   'S.OtherDecl' constructor.
-transformDecl :: Members '[InputFile, Report] r
+transformDecl :: Member Report r
               => GHC.LHsDecl GHC.GhcPs
               -> Sem r (S.Decl GHC)
 
@@ -149,7 +148,7 @@ transformDecl (GHC.L _ (GHC.XHsDecl x)) = GHC.noExtCon x
 --   definitions are not supported by the pattern matching compiler and are
 --   therefore skipped. @Nothing@ is returned if the data definition itself or
 --   any of its constructors is not supported.
-transformDataDefn :: Members '[InputFile, Report] r
+transformDataDefn :: Member Report r
                   => GHC.HsDataDefn GHC.GhcPs
                   -> Sem r (Maybe [S.ConDecl GHC])
 transformDataDefn GHC.HsDataDefn { GHC.dd_cons = cons } = do
@@ -163,7 +162,7 @@ transformDataDefn (GHC.XHsDataDefn x)                   = GHC.noExtCon x
 --   The result is wrapped inside the @Maybe@ type since some kinds of
 --   constructors are not supported by the pattern matching compiler in which
 --   case the corresponding data definition is skipped.
-transformConDecl :: Members '[InputFile, Report] r
+transformConDecl :: Member Report r
                  => GHC.LConDecl GHC.GhcPs
                  -> Sem r (Maybe (S.ConDecl GHC))
 transformConDecl (GHC.L s conDecl@GHC.ConDeclH98 {}) = do
@@ -206,7 +205,7 @@ transformConDetails _ _ (GHC.RecCon _)          = do
 -- Function Declarations                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms a GHC located binding group into an HST binding group.
-transformLocalBinds :: Members '[InputFile, Report] r
+transformLocalBinds :: Member Report r
                     => GHC.LHsLocalBinds GHC.GhcPs
                     -> Sem r (Maybe (S.Binds GHC))
 transformLocalBinds (GHC.L s (GHC.HsValBinds _ binds)) = do
@@ -218,7 +217,7 @@ transformLocalBinds (GHC.L s (GHC.HsIPBinds _ _))      = notSupportedWithExcerpt
 transformLocalBinds (GHC.L _ (GHC.XHsLocalBindsLR x))  = GHC.noExtCon x
 
 -- | Transforms GHC value bindings into HST declarations.
-transformValBinds :: Members '[InputFile, Report] r
+transformValBinds :: Member Report r
                   => GHC.HsValBinds GHC.GhcPs
                   -> Sem r [S.Decl GHC]
 transformValBinds (GHC.ValBinds _ binds sigs) = mapM transformDecl
@@ -229,7 +228,7 @@ transformValBinds (GHC.XValBindsLR _)
   = notSupported "Value bindings extensions"
 
 -- | Transforms a GHC match group into HST matches.
-transformMatchGroup :: Members '[InputFile, Report] r
+transformMatchGroup :: Member Report r
                     => GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
                     -> Sem r [S.Match GHC]
 transformMatchGroup GHC.MG { GHC.mg_alts = GHC.L _ matches }
@@ -237,7 +236,7 @@ transformMatchGroup GHC.MG { GHC.mg_alts = GHC.L _ matches }
 transformMatchGroup (GHC.XMatchGroup x) = GHC.noExtCon x
 
 -- | Transforms a GHC located match into an HST match.
-transformMatch :: Members '[InputFile, Report] r
+transformMatch :: Member Report r
                => GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
                -> Sem r (S.Match GHC)
 transformMatch (GHC.L s match@GHC.Match {}) = do
@@ -256,7 +255,7 @@ transformMatch (GHC.L _ (GHC.XMatch x))     = GHC.noExtCon x
 
 -- | Transforms GHC guarded right-hand sides into an HST right-hand side and
 --   binding group.
-transformGRHSs :: Members '[InputFile, Report] r
+transformGRHSs :: Member Report r
                => GHC.GRHSs GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
                -> Sem r (S.Rhs GHC, Maybe (S.Binds GHC))
 transformGRHSs grhss@GHC.GRHSs {} = do
@@ -273,7 +272,7 @@ transformGRHSs (GHC.XGRHSs x)     = GHC.noExtCon x
 
 -- | Transforms a GHC guarded right-hand side into an HST guarded right-hand
 --   side.
-transformGRHS :: Members '[InputFile, Report] r
+transformGRHS :: Member Report r
               => GHC.LGRHS GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
               -> Sem r (S.GuardedRhs GHC)
 transformGRHS (GHC.L s (GHC.GRHS _ [gStmt] body))
@@ -286,7 +285,7 @@ transformGRHS (GHC.L _ (GHC.XGRHS x))             = GHC.noExtCon x
 
 -- | Transforms a GHC located statement consisting only of a single expression
 --   into an HST expression.
-transformStmtExpr :: Members '[InputFile, Report] r
+transformStmtExpr :: Member Report r
                   => GHC.LStmt GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
                   -> Sem r (S.Exp GHC)
 transformStmtExpr (GHC.L _ (GHC.BodyStmt _ body _ _))   = transformExpr body
@@ -320,7 +319,7 @@ transformBoxity GHC.Boxed   = S.Boxed
 transformBoxity GHC.Unboxed = S.Unboxed
 
 -- | Transforms a GHC located expression into an HST expression.
-transformExpr :: Members '[InputFile, Report] r
+transformExpr :: Member Report r
               => GHC.LHsExpr GHC.GhcPs
               -> Sem r (S.Exp GHC)
 transformExpr (GHC.L s (GHC.HsVar _ name)) = do
@@ -383,7 +382,7 @@ transformExpr (GHC.L s (GHC.HsCase _ e mg)) = do
   return $ S.Case (transformSrcSpan s) e' alts
  where
   matchToAlt
-    :: Members '[InputFile, Report] r => S.Match GHC -> Sem r (S.Alt GHC)
+    :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
   matchToAlt (S.Match s' _ [pat] rhs mBinds) = return $ S.Alt s' pat rhs mBinds
   matchToAlt (S.Match s' _ _ _ _)
     = notSupportedWithExcerpt "Case alternatives without exactly one pattern" s'
@@ -456,7 +455,7 @@ transformExpr (GHC.L _ (GHC.XExpr x)) = GHC.noExtCon x
 
 -- | Transforms a GHC located tuple argument consisting of an expression into
 --   an HST expression.
-transformTupleArg :: Members '[InputFile, Report] r
+transformTupleArg :: Member Report r
                   => GHC.LHsTupArg GHC.GhcPs
                   -> Sem r (S.Exp GHC)
 transformTupleArg (GHC.L _ (GHC.Present _ e)) = transformExpr e
@@ -469,7 +468,7 @@ transformTupleArg (GHC.L _ (GHC.XTupArg x))   = GHC.noExtCon x
 -------------------------------------------------------------------------------
 -- | Transforms a GHC located pattern into an HST pattern.
 transformPat
-  :: Members '[InputFile, Report] r => GHC.LPat GHC.GhcPs -> Sem r (S.Pat GHC)
+  :: Member Report r => GHC.LPat GHC.GhcPs -> Sem r (S.Pat GHC)
 transformPat (GHC.L s (GHC.VarPat _ name))
   = S.PVar (transformSrcSpan s) <$> transformRdrNameUnqual name
 transformPat (GHC.L s (GHC.ConPatIn name cpds))     = do
@@ -532,7 +531,7 @@ transformModuleName (GHC.L s modName) = S.ModuleName (transformSrcSpan s)
 -- | Transforms a GHC located reader name into an HST qualified name and a
 --   @Bool@ which is @True@ if the name belongs to a data constructor and
 --   @False@ otherwise.
-transformRdrName :: Members '[InputFile, Report] r
+transformRdrName :: Member Report r
                  => GHC.Located GHC.RdrName
                  -> Sem r (S.QName GHC, Bool)
 transformRdrName (GHC.L s (GHC.Unqual name))
@@ -553,7 +552,7 @@ transformRdrName (GHC.L s (GHC.Orig _ _))          = notSupportedWithExcerpt
   "Original names" (transformSrcSpan s)
 
 -- | Transforms a GHC located unqualified reader name into an HST name.
-transformRdrNameUnqual :: Members '[InputFile, Report] r
+transformRdrNameUnqual :: Member Report r
                        => GHC.Located GHC.RdrName
                        -> Sem r (S.Name GHC)
 transformRdrNameUnqual (GHC.L s (GHC.Unqual occName)) = return
@@ -567,7 +566,7 @@ transformRdrNameUnqual (GHC.L s (GHC.Exact _))        = notSupportedWithExcerpt
 
 -- | Transforms a GHC name with an HST source span into an HST special
 --   constructor.
-transformSpecialCon :: Members '[InputFile, Report] r
+transformSpecialCon :: Member Report r
                     => S.SrcSpan GHC
                     -> GHC.Name
                     -> Sem r (S.SpecialCon GHC)
@@ -580,7 +579,7 @@ transformSpecialCon s name = case Map.lookup name specialDataConMap of
       | GHC.isTupleDataCon dataCon ->
         return $ S.TupleCon s S.Boxed $ GHC.dataConSourceArity dataCon
     _ -> reportFatal
-      $ Message Error
+      $ message Error s
       $ ("Wired-in data constructor not supported: "
          ++ GHC.occNameString (GHC.nameOccName name))
 
@@ -604,12 +603,12 @@ specialDataConMap = Map.fromList
 -------------------------------------------------------------------------------
 -- | Wraps a GHC source span into the HST type for source spans.
 transformSrcSpan :: GHC.SrcSpan -> S.SrcSpan GHC
-transformSrcSpan srcSpan@(GHC.RealSrcSpan realSrcSpan) = S.SrcSpan
-  { S.srcSpanFilePath    = GHC.unpackFS (GHC.srcSpanFile realSrcSpan)
-  , S.srcSpanStartLine   = GHC.srcSpanStartLine realSrcSpan
-  , S.srcSpanStartColumn = GHC.srcSpanStartCol realSrcSpan
-  , S.srcSpanEndLine     = GHC.srcSpanEndLine realSrcSpan
-  , S.srcSpanEndColumn   = GHC.srcSpanEndCol realSrcSpan
-  , S.originalSrcSpan    = srcSpan
+transformSrcSpan srcSpan@(GHC.RealSrcSpan realSrcSpan) = S.SrcSpan srcSpan
+ S.MsgSrcSpan
+  { S.msgSrcSpanFilePath    = GHC.unpackFS (GHC.srcSpanFile realSrcSpan)
+  , S.msgSrcSpanStartLine   = GHC.srcSpanStartLine realSrcSpan
+  , S.msgSrcSpanStartColumn = GHC.srcSpanStartCol realSrcSpan
+  , S.msgSrcSpanEndLine     = GHC.srcSpanEndLine realSrcSpan
+  , S.msgSrcSpanEndColumn   = GHC.srcSpanEndCol realSrcSpan
   }
 transformSrcSpan (GHC.UnhelpfulSpan _)                 = S.NoSrcSpan
