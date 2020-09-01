@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | This module defines an effect for computations that can use different
---   front ends to parse, transform and pretty-print modules.
+--   front ends to parse, transform and pretty-print modules and expressions.
 --
 --   The actions of the effect are the operations provided by the 'Parsable',
 --   'Transformable' and 'PrettyPrintable' type classes. Import this module
@@ -19,6 +19,10 @@ module HST.Effect.WithFrontend
   , transformModule
   , unTransformModule
   , prettyPrintModule
+  , parseExpression
+  , transformExpression
+  , unTransformExpression
+  , prettyPrintExpression
     -- * Handlers
   , runWithFrontendInstances
   , runWithFrontend
@@ -32,7 +36,8 @@ import           HST.Effect.Cancel          ( Cancel )
 import           HST.Effect.Report          ( Report )
 import           HST.Frontend.GHC.Config    ( GHC )
 import           HST.Frontend.HSE.Config    ( HSE )
-import           HST.Frontend.Parser        ( Parsable, ParsedModule )
+import           HST.Frontend.Parser
+  ( Parsable, ParsedExpression, ParsedModule )
 import qualified HST.Frontend.Parser
 import           HST.Frontend.PrettyPrinter ( PrettyPrintable )
 import qualified HST.Frontend.PrettyPrinter
@@ -46,11 +51,11 @@ import           HST.Options
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
 -- | An effect for computations that need to use different front ends for
---   parsing, transforming and pretty-printing modules.
+--   parsing, transforming and pretty-printing modules and expressions.
 data WithFrontend f m a where
   -- | Action for parsing a module.
-  ParseModule :: FilePath      -- ^ The name of the input file.
-    -> String        -- ^ The contents of the input file.
+  ParseModule :: FilePath -- ^ The name of the input file.
+    -> String             -- ^ The contents of the input file.
     -> WithFrontend f m (ParsedModule f)
   -- | Action for transforming a module to the intermediate syntax.
   TransformModule :: ParsedModule f -- ^ The parsed module to transform.
@@ -61,6 +66,14 @@ data WithFrontend f m a where
   -- | Action for pretty printing a module.
   PrettyPrintModule :: ParsedModule f -- ^ The module to pretty-print.
     -> WithFrontend f m String
+  -- | Action for parsing an expression.
+  ParseExpression :: String -> WithFrontend f m (ParsedExpression f)
+  -- | Action for transforming an expression to the intermediate syntax.
+  TransformExpression :: ParsedExpression f -> WithFrontend f m (S.Exp f)
+  -- | Action for transforming an expression back.
+  UnTransformExpression :: S.Exp f -> WithFrontend f m (ParsedExpression f)
+  -- | Action for pretty printing an expression.
+  PrettyPrintExpression :: ParsedExpression f -> WithFrontend f m String
 
 makeSem ''WithFrontend
 
@@ -75,14 +88,22 @@ runWithFrontendInstances
   => Sem (WithFrontend f ': r) a
   -> Sem r a
 runWithFrontendInstances = interpret \case
-  ParseModule inputFile input         ->
+  ParseModule inputFile input          ->
     HST.Frontend.Parser.parseModule inputFile input
-  TransformModule parsedModule        ->
+  TransformModule parsedModule         ->
     HST.Frontend.Transformer.transformModule parsedModule
-  UnTransformModule transformedModule ->
+  UnTransformModule transformedModule  ->
     HST.Frontend.Transformer.unTransformModule transformedModule
-  PrettyPrintModule parsedModule      ->
+  PrettyPrintModule parsedModule       ->
     return $ HST.Frontend.PrettyPrinter.prettyPrintModule parsedModule
+  ParseExpression input                ->
+    HST.Frontend.Parser.parseExpression input
+  TransformExpression parsedExp        ->
+    HST.Frontend.Transformer.transformExpression parsedExp
+  UnTransformExpression transformedExp ->
+    HST.Frontend.Transformer.unTransformExpression transformedExp
+  PrettyPrintExpression parsedExp      ->
+    return $ HST.Frontend.PrettyPrinter.prettyPrintExpression parsedExp
 
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running
 --   the computation with the type class instances for the configuration data
