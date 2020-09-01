@@ -7,6 +7,8 @@ module HST.Frontend.Parser
   , ParsedModule(ParsedModuleHSE, ParsedModuleGHC)
   , getParsedModuleHSE
   , getParsedModuleGHC
+  , handleParseResultHSE
+  , handleParseResultGHC
   ) where
 
 import qualified Bag                                        as GHC
@@ -49,19 +51,8 @@ instance Parsable HSE where
   data ParsedModule HSE
     = ParsedModuleHSE { getParsedModuleHSE :: HSE.Module HSE.SrcSpanInfo }
 
-  parseModule inputFilename input
-    = case HSE.parseModuleWithMode parseMode input of
-      HSE.ParseOk inputModule    -> return (ParsedModuleHSE inputModule)
-      HSE.ParseFailed srcLoc msg -> reportFatal
-        $ Message Error
-        $ msg
-        ++ " in "
-        ++ HSE.srcFilename srcLoc
-        ++ ":"
-        ++ show (HSE.srcLine srcLoc)
-        ++ ":"
-        ++ show (HSE.srcColumn srcLoc)
-        ++ "."
+  parseModule inputFilename input = ParsedModuleHSE
+    <$> handleParseResultHSE (HSE.parseModuleWithMode parseMode input)
    where
     -- | Configuration of the @haskell-src-exts@ parser.
     parseMode :: HSE.ParseMode
@@ -73,34 +64,56 @@ instance Parsable GHC where
     { getParsedModuleGHC :: GHC.Located (GHC.HsModule GHC.GhcPs)
     }
 
-  parseModule inputFilename input
-    = case GHC.parseFile inputFilename defaultDynFlags input of
-      GHC.POk state inputModule -> do
-        reportParsingMessages state
-        return (ParsedModuleGHC inputModule)
-      GHC.PFailed state         -> do
-        reportParsingMessages state
-        cancel
-   where
-    -- | Reports all errors and warnings that were reported during parsing.
-    --
-    --   Cancels the computation if there is a parsing error. There can be
-    --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
-    --   language extensions are needed such that the parsed AST represents
-    --   a valid module).
-    reportParsingMessages
-      :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
-    reportParsingMessages state = do
-      let (warnings, errors) = GHC.getMessages state defaultDynFlags
-      GHC.mapBagM_ (reportErrMsg Warning) warnings
-      GHC.mapBagM_ (reportErrMsg Error) errors
-      unless (GHC.isEmptyBag errors) cancel
+  parseModule inputFilename input = ParsedModuleGHC
+    <$> handleParseResultGHC (GHC.parseFile inputFilename defaultDynFlags input)
 
-    -- | Reports an error message or warning from @ghc-lib-parser@.
-    reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
-    reportErrMsg severity msg = report
-      $ Message severity
-      $ intercalate "\n • "
-      $ map (GHC.showSDoc defaultDynFlags)
-      $ GHC.errDocImportant
-      $ GHC.errMsgDoc msg
+-- | Handles a parse result of the HSE front end, i. e. returns the AST node
+--   contained in the parse result or reports an error if parsing failed.
+handleParseResultHSE :: Member Report r => HSE.ParseResult a -> Sem r a
+handleParseResultHSE (HSE.ParseOk astNode)        = return astNode
+handleParseResultHSE (HSE.ParseFailed srcLoc msg) = reportFatal
+  $ Message Error
+  $ msg
+  ++ " in "
+  ++ HSE.srcFilename srcLoc
+  ++ ":"
+  ++ show (HSE.srcLine srcLoc)
+  ++ ":"
+  ++ show (HSE.srcColumn srcLoc)
+  ++ "."
+
+-- | Handles a parse result of the GHC front end, i. e. returns the AST node
+--   contained in the parse result, if available, and reports all errors and
+--   warnings that were reported during parsing.
+handleParseResultGHC
+  :: Members '[Cancel, Report] r => GHC.ParseResult a -> Sem r a
+handleParseResultGHC parseResult = case parseResult of
+  GHC.POk state astNode -> do
+    reportParsingMessages state
+    return astNode
+  GHC.PFailed state     -> do
+    reportParsingMessages state
+    cancel
+ where
+  -- | Reports all errors and warnings that were reported during parsing.
+  --
+  --   Cancels the computation if there is a parsing error. There can be
+  --   parsing errors even if 'GHC.parseFile' returns 'GHC.POk' (e.g., if
+  --   language extensions are needed such that the parsed AST represents
+  --   a valid module).
+  reportParsingMessages
+    :: Members '[Cancel, Report] r => GHC.PState -> Sem r ()
+  reportParsingMessages state = do
+    let (warnings, errors) = GHC.getMessages state defaultDynFlags
+    GHC.mapBagM_ (reportErrMsg Warning) warnings
+    GHC.mapBagM_ (reportErrMsg Error) errors
+    unless (GHC.isEmptyBag errors) cancel
+
+  -- | Reports an error message or warning from @ghc-lib-parser@.
+  reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
+  reportErrMsg severity msg = report
+    $ Message severity
+    $ intercalate "\n • "
+    $ map (GHC.showSDoc defaultDynFlags)
+    $ GHC.errDocImportant
+    $ GHC.errMsgDoc msg
