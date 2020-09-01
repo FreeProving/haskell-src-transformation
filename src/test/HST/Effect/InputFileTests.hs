@@ -1,8 +1,12 @@
 module HST.Effect.InputFileTests ( testInputFileEffect ) where
 
-
+import Control.Exception ( finally )
 import Polysemy (Member, Sem, runM)
 import HST.Effect.InputFile ( InputFile, getInputFile, runInputFile )
+
+import System.Directory
+import System.IO
+import System.IO.Error
 
 import Test.Hspec (Spec, context, describe, it, shouldBe, shouldReturn)
 
@@ -15,4 +19,5 @@ testRunInputFile = context "runInputFile" $ do
     let comp :: Member InputFile r => Sem r (Maybe String)
         comp = getInputFile "." >>= return
     runM (runInputFile [] comp) `shouldReturn` Nothing
-  it "returns "
+--  it "returns the file content if the given file is in the list of filepaths" $ do
+--    return ()

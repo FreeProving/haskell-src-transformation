@@ -136,6 +136,7 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
                     , HST.Effect.InputFileTests
+                    , HST.Frontend.Transformer.MessagesTests
                     , HST.Effect.ReportTests
                     , HST.Effect.SetExpectation
   build-depends:      haskell-src-transformations

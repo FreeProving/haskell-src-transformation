@@ -14,7 +14,9 @@ module HST.Effect.Report
   ( -- * Messages
     Severity(..)
   , Message(..)
+  , displayCodeExcerpt
   , message
+  , prettyMsgSrcSpanNumbers
   , showPrettyMessage
     -- * Effect
   , Report
