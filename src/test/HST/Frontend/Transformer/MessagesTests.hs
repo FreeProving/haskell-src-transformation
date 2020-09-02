@@ -37,12 +37,16 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
                          ]
   it "should correctly display a multi-line SrcSpan with startY < endY" $ do
     str <- runM . runInputFile [firstFile, secondFile]
-      $ displayCodeExcerpt $ Just multiLineSrcSpan1
-    str `shouldBe` unlines [ firstFile ++ ":5:1-6:11:"
-                           , "    vvvvvvvvvvvvvvvv"
-                           , "5 | empty :: Queue a"
-                           , "6 | empty = []"
-                           , "    ^^^^^^^^^^"]
+      $ displayCodeExcerpt
+      $ Just multiLineSrcSpan1
+    str
+      `shouldBe` unlines
+      [ firstFile ++ ":5:1-6:11:"
+      , "    vvvvvvvvvvvvvvvv"
+      , "5 | empty :: Queue a"
+      , "6 | empty = []"
+      , "    ^^^^^^^^^^"
+      ]
 
 invalidSrcSpan :: S.MsgSrcSpan
 invalidSrcSpan = S.MsgSrcSpan firstFile 2 4 1 3
