@@ -11,13 +11,13 @@ module HST.Effect.Fresh
     -- * Actions
   , freshIdent
   , freshName
-  , freshNameWithSpan
+  , freshNameWithSrcSpan
   , freshQName
-  , freshQNameWithSpan
+  , freshQNameWithSrcSpan
   , freshVar
-  , freshVarWithSpan
+  , freshVarWithSrcSpan
   , freshVarPat
-  , freshVarPatWithSpan
+  , freshVarPatWithSrcSpan
     -- * Interpretations
   , runFresh
     -- * Backward Compatibility
@@ -42,42 +42,43 @@ makeSem ''Fresh
 
 -- | Generates a name for a fresh variable.
 freshName :: Member Fresh r => String -> Sem r (S.Name a)
-freshName prefix = S.Ident S.NoSrcSpan <$> freshIdent prefix
+freshName = flip freshNameWithSrcSpan S.NoSrcSpan
 
 -- | Generates a name for a fresh variable and sets the `S.SrcSpan` to the given
 --   value.
-freshNameWithSpan
+freshNameWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Name a)
-freshNameWithSpan prefix s = S.Ident s <$> freshIdent prefix
+freshNameWithSrcSpan prefix s = S.Ident s <$> freshIdent prefix
 
 -- | Generates an unqualified name for a fresh variable.
 freshQName :: Member Fresh r => String -> Sem r (S.QName a)
-freshQName prefix = S.UnQual S.NoSrcSpan <$> freshName prefix
+freshQName = flip freshQNameWithSrcSpan S.NoSrcSpan
 
 -- | Generates an unqualified name for a fresh variable and sets the `S.SrcSpan`
 --   to the given value.
-freshQNameWithSpan
+freshQNameWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.QName a)
-freshQNameWithSpan prefix s = S.UnQual s <$> freshNameWithSpan prefix s
+freshQNameWithSrcSpan prefix s = S.UnQual s <$> freshNameWithSrcSpan prefix s
 
 -- | Generates a fresh variable expression.
 freshVar :: Member Fresh r => String -> Sem r (S.Exp a)
-freshVar prefix = S.Var S.NoSrcSpan <$> freshQName prefix
+freshVar = flip freshVarWithSrcSpan S.NoSrcSpan
 
 -- | Generates a fresh variable expression and sets the `S.SrcSpan` to the given
 --   value.
-freshVarWithSpan :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Exp a)
-freshVarWithSpan prefix s = S.Var s <$> freshQNameWithSpan prefix s
+freshVarWithSrcSpan
+  :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Exp a)
+freshVarWithSrcSpan prefix s = S.Var s <$> freshQNameWithSrcSpan prefix s
 
 -- | Generates a fresh variable pattern.
 freshVarPat :: Member Fresh r => String -> Sem r (S.Pat a)
-freshVarPat prefix = S.PVar S.NoSrcSpan <$> freshName prefix
+freshVarPat = flip freshVarPatWithSrcSpan S.NoSrcSpan
 
 -- | Generates a fresh variable pattern which `S.SrcSpan` is identical to the
 --   given one.
-freshVarPatWithSpan
+freshVarPatWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Pat a)
-freshVarPatWithSpan prefix s = S.PVar s <$> freshNameWithSpan prefix s
+freshVarPatWithSrcSpan prefix s = S.PVar s <$> freshNameWithSrcSpan prefix s
 
 -------------------------------------------------------------------------------
 -- Interpretations                                                           --

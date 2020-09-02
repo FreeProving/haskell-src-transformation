@@ -7,7 +7,7 @@ import           Polysemy            ( Member, Members, Sem )
 import           HST.CoreAlgorithm   ( Eqs, defaultErrorExp, match )
 import           HST.Effect.Env      ( Env )
 import           HST.Effect.Fresh
-  ( Fresh, freshVarPat, freshVarPatWithSpan, genericFreshPrefix )
+  ( Fresh, freshVarPat, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt   ( GetOpt )
 import           HST.Effect.Report   ( Report )
 import qualified HST.Frontend.Syntax as S
@@ -91,7 +91,7 @@ completeLambda :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                -> Sem r (S.Exp a)
 completeLambda s ps e insideLet = do
   let srcSpans = map S.getSrcSpan ps
-  xs <- mapM (freshVarPatWithSpan genericFreshPrefix) srcSpans
+  xs <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   e' <- completeCase insideLet e
   let eq = (ps, e')
   res <- match xs [eq] defaultErrorExp

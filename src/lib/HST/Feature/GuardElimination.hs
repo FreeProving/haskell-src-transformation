@@ -6,7 +6,7 @@ import           Polysemy            ( Member, Sem )
 
 import           HST.CoreAlgorithm   ( defaultErrorExp )
 import           HST.Effect.Fresh
-  ( Fresh, freshName, freshNameWithSpan, freshVarPat, freshVarPatWithSpan
+  ( Fresh, freshName, freshNameWithSrcSpan, freshVarPat, freshVarPatWithSrcSpan
   , genericFreshPrefix )
 import qualified HST.Frontend.Syntax as S
 
@@ -44,7 +44,7 @@ generateLet
   -> Sem r (S.Exp a)
 generateLet vs err gExps = do
   let srcSpans = map gExpSrcSpan gExps
-  varNames' <- mapM (freshNameWithSpan genericFreshPrefix) srcSpans
+  varNames' <- mapM (freshNameWithSrcSpan genericFreshPrefix) srcSpans
   varName <- freshName genericFreshPrefix
   let varNames                    = varNames' ++ [varName]
       startVarExpr : nextVarExprs = map S.var varNames
@@ -210,7 +210,7 @@ applyGE ms = do
       lhsSpan  = S.getSrcSpan (head ms)
       gexps    = map matchToGExp ms
       srcSpans = map S.getSrcSpan (gExpPats (head gexps))
-  varPats <- mapM (freshVarPatWithSpan genericFreshPrefix) srcSpans
+  varPats <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
     $ S.Match lhsSpan name varPats (S.UnGuardedRhs S.NoSrcSpan expr') Nothing
