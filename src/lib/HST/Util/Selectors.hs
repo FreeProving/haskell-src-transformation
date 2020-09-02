@@ -101,9 +101,11 @@ getPatVarName (S.PList _ _) = reportFatal
 class HasIdentifiers a where
   findIdentifiers :: a -> Set String
 
+-- Collects all identifiers in a list of types containing identifiers
 instance HasIdentifiers a => HasIdentifiers [a] where
   findIdentifiers = Set.unions . map findIdentifiers
 
+-- Collects all identifiers in a `Maybe` value if a value is present.
 instance HasIdentifiers a => HasIdentifiers (Maybe a) where
   findIdentifiers = maybe Set.empty findIdentifiers
 
@@ -188,11 +190,13 @@ instance HasIdentifiers (S.Alt a) where
 instance HasIdentifiers (S.Binds a) where
   findIdentifiers (S.BDecls _ decls) = findIdentifiers decls
 
+-- | Takes the identifier in a `QName`.
 instance HasIdentifiers (S.QName a) where
   findIdentifiers (S.Qual _ _ name) = findIdentifiers name
   findIdentifiers (S.UnQual _ name) = findIdentifiers name
   findIdentifiers (S.Special _ _)   = Set.empty
 
+-- | Takes the identifier of a name.
 instance HasIdentifiers (S.Name a) where
   findIdentifiers (S.Ident _ s)  = Set.singleton s
   findIdentifiers (S.Symbol _ _) = Set.empty

@@ -68,16 +68,11 @@ runFresh usedIdentifiers = evalState Map.empty . freshToState
   freshToState = reinterpret \case
     FreshIdent prefix -> do
       nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
-      let newId = while (\n -> (prefix ++ show n) `Set.member` usedIdentifiers)
-            (+ 1) nextId
+      let newId = until
+            (\n -> (prefix ++ show n) `Set.notMember` usedIdentifiers) (+ 1)
+            nextId
       modify $ Map.insert prefix (newId + 1)
       return (prefix ++ show newId)
-
-  -- | Applies the given function repeatedly to the given value as long as the
-  --   condition holds.
-  while :: (a -> Bool) -> (a -> a) -> a -> a
-  while p f x | p x = while p f (f x)
-              | otherwise = x
 
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --
