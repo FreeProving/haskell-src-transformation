@@ -9,7 +9,7 @@ import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
 import qualified HST.Frontend.Syntax       as S
-import           HST.Test.Expectation      ( prettyExpressionShouldBe )
+import           HST.Test.Expectation      ( prettyExpressionShouldBe, shouldTransformTo )
 import           HST.Test.Parser           ( parseTestExpression )
 import           HST.Test.Runner           ( runTest )
 import           HST.Util.Subst
@@ -155,3 +155,170 @@ testSubst = describe "HST.Util.Subst" $ do
           e        = ["\\x   x_0 -> (x, x_0, y)"]
           expected = ["\\x_0 x_1 -> (x_0, x_1, x)"]
       in shouldSubstituteTo subst e expected
+    it "does not substitute bound variables in let expressions"
+      $ runTest
+      $
+      -- σ = { x ↦ z, y ↦ z }
+      let subst    = substFromList [(S.unQual x, S.var z), (S.unQual y, S.var z)]
+          e        = ["let x = z in x y"]
+          expected = ["let x = z in x z"]
+      in shouldSubstituteTo subst e expected
+    it "renames variables that are no longer bound"
+      $ runTest
+      $
+      -- σ = { y ↦ z }
+      let subst    = singleSubst (S.unQual y) (S.var z)
+          e        = [ "let x = let y = z in y"
+                     , "in x y"]
+          expected = [ "let x = let y = z in y"
+                     , "in x z"]
+      in shouldSubstituteTo subst e expected
+    it "does not substitute bound variables in nested let expressions"
+      $ runTest
+      $
+      -- σ = { x ↦ z, y ↦ z }
+      let subst    = substFromList [(S.unQual x, S.var z), (S.unQual y, S.var z)]
+          e        = [ "let x = y"
+                     , "in let y = z in x y"]
+          expected = [ "let x = z"
+                     , "in let y = z in x y"]
+      in shouldSubstituteTo subst e expected
+    it "does not use more variable names than needed"
+      $ runTest
+      $
+      -- σ = { y ↦ x }
+      let subst    = singleSubst (S.unQual y) (S.var x)
+          e        = [ "let x = y"
+                     , "in let x = y in x"]
+          expected = [ "let x_0 = x"
+                     , "in let x_0 = x in x_0"]
+      in shouldSubstituteTo subst e expected
+    it "avoids capture by renaming variables in let expressions"
+      $ runTest
+      $
+      -- σ = { y ↦ x, z ↦ x }
+      let subst    = substFromList [(S.unQual y, S.var x), (S.unQual z, S.var x)]
+          e        = [ "let x   = y"
+                     , "    x_0 = z"
+                     , "in  x_1"]
+          expected = [ "let x_0 = x"
+                     , "    x_2 = x"
+                     , "in  x_1"]
+      in shouldSubstituteTo subst e expected
+    it "only substitutes variables not bound by a case alternative pattern"
+      $ runTest
+      $
+      -- σ = { x ↦ z, y ↦ z }
+      let subst    = substFromList [(S.unQual x, S.var z), (S.unQual y, S.var z)]
+          e        = [ "case x y of"
+                     , "  (x, x_0) -> (x, y)"]
+          expected = [ "case z z of"
+                     , "  (x, x_0) -> (x, z)"]
+      in shouldSubstituteTo subst e expected
+    it "uses different name spaces for each case alternative"
+      $ runTest
+      $
+      -- σ = { x ↦ y }
+      let subst    = singleSubst (S.unQual x) (S.var y)
+          e        = [ "case x of"
+                     , "  [y]   -> x"
+                     , "  y : z -> y : x"]
+          expected = [ "case y of"
+                     , "  [y_0]   -> y"
+                     , "  y_0 : z -> y_0 : y"]
+      in shouldSubstituteTo subst e expected
+    it ("only renames bound variables in case alternatives where the free "
+          ++ "variables they capture are used")
+      $ runTest
+      $
+      -- σ = { x ↦ y }
+      let subst    = singleSubst (S.unQual x) (S.var y)
+          e        = [ "case x of"
+                     , "  y -> x y"
+                     , "  y -> let x = z in x y"]
+          expected = [ "case y of"
+                     , "  y_0 -> y y_0"
+                     , "  y   -> let x = z in x y"]
+      in shouldSubstituteTo subst e expected
+    it "avoids capture by renaming variables in case alternative patterns"
+      $ runTest
+      $
+      -- σ = { y ↦ x, z ↦ x }
+      let subst    = substFromList [(S.unQual y, S.var x), (S.unQual z, S.var x)]
+          e        = [ "case [y, z] of"
+                     , "  x : x_2 : x_0 -> (x, y, z)"]
+          expected = [ "case [x, x] of"
+                     , "  x_0 : x_2 : x_1 -> (x_0, x, x)"]
+      in shouldSubstituteTo subst e expected
+    it "does not rename variables bound in where clauses"
+      $ runTest
+      $
+      -- σ = { z ↦ x }
+      let subst    = singleSubst (S.unQual z) (S.var x)
+          e        = [ "case x of"
+                     , "  y -> z"
+                     , "   where z = x"]
+          expected = [ "case x of"
+                     , "  y -> z"
+                     , "   where z = x"]
+      in shouldSubstituteTo subst e expected
+    it "only considers where clauses for their respective case alternative"
+      $ runTest
+      $
+      -- σ = { z ↦ x }
+      let subst    = singleSubst (S.unQual z) (S.var x)
+          e        = [ "case x of"
+                     , "  x -> z"
+                     , "   where z = x"
+                     , "  y -> z"]
+          expected = [ "case x of"
+                     , "  x -> z"
+                     , "   where z = x"
+                     , "  y -> x"]
+      in shouldSubstituteTo subst e expected
+    it "does not rename variables bound later in the where clause"
+      $ runTest
+      $
+      -- σ = { y ↦ x, z ↦ x }
+      let subst    = substFromList [(S.unQual y, S.var x), (S.unQual z, S.var x)]
+          e        = [ "case x of"
+                     , "  x_0 -> x"
+                     , "   where x = y"
+                     , "         y = z"]
+          expected = [ "case x of"
+                     , "  x_0 -> x_0"
+                     , "   where x_0 = y"
+                     , "         y   = x"]
+      in shouldSubstituteTo subst e expected
+  context "substitution in modules" $ do
+    it "avoids capture of variables shadowed in let expressions" $ runTest $
+      let m        = [ "module A where"
+                     , "f (x, y) = let x = y in x"]
+          expected = [ "module A where"
+                     , "f a0 = case a0 of"
+                     , "  (a1, a2) -> let x = a2 in x"]
+      in m `shouldTransformTo` expected
+{- TODO The following test should be used instead of the replacement that is
+        not commented out, after the corresponding issue has been fixed.
+    it "avoids capture of variables shadowed in case expressions" $ runTest $
+      let m        = [ "module A where"
+                     , "f (x, y) = case x of"
+                     , "             y -> (x, y)"]
+          expected = [ "module A where"
+                     , "f a0 = case a0 of"
+                     , "  (a1, a2) -> case a1 of"
+                     , "    y -> (a1, y)"]
+      in m `shouldTransformTo` expected -}
+    it "avoids capture of variables shadowed in case expressions" $ runTest $
+      let m        = [ "module A where"
+                     , "f (x, y) ="
+                     , "  let r = case x of"
+                     , "            y -> (x, y)"
+                     , "  in  r"]
+          expected = [ "module A where"
+                     , "f a1 = case a1 of"
+                     , "  (a2, a3) ->"
+                     , "    let r = case a2 of"
+                     , "              a0 -> (a2, a0)"
+                     , "    in  r"]
+      in m `shouldTransformTo` expected
