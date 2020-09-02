@@ -190,7 +190,7 @@ instance HasIdentifiers (S.Alt a) where
 instance HasIdentifiers (S.Binds a) where
   findIdentifiers (S.BDecls _ decls) = findIdentifiers decls
 
--- | Takes the identifier in a `QName`.
+-- | Takes the identifier in a `S.QName`.
 instance HasIdentifiers (S.QName a) where
   findIdentifiers (S.Qual _ _ name) = findIdentifiers name
   findIdentifiers (S.UnQual _ name) = findIdentifiers name
