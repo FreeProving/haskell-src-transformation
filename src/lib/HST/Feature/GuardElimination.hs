@@ -59,12 +59,11 @@ generateLet vs err gExps = do
 
 -- | Creates a function declaration for a @let@ binding that binds a variable
 --   with the given name to the given expression.
---
---   TODO Maybe we can use the source span of the expression for the
---   declaration, match and right-hand side.
 makeVarBinding :: S.Name a -> S.Exp a -> S.Decl a
-makeVarBinding name expr = S.FunBind S.NoSrcSpan
-  [S.Match S.NoSrcSpan name [] (S.UnGuardedRhs S.NoSrcSpan expr) Nothing]
+makeVarBinding name expr
+  = let srcSpan = S.getSrcSpan expr
+    in S.FunBind srcSpan
+       [S.Match srcSpan name [] (S.UnGuardedRhs srcSpan expr) Nothing]
 
 -------------------------------------------------------------------------------
 -- @case@ Expressions                                                        --

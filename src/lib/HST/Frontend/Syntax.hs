@@ -427,7 +427,7 @@ class HasSrcSpan node where
 
 -- | A wrapper for source span information with the option to not specify a
 --   source span.
-data SrcSpan a = SrcSpan (SrcSpanType a) | NoSrcSpan
+data SrcSpan a = SrcSpan { originalSrcSpan :: SrcSpanType a } | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 

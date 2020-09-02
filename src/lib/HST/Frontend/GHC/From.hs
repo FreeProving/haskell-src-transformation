@@ -265,8 +265,8 @@ transformGRHSs grhss@GHC.GRHSs {} = do
       return (S.UnGuardedRhs (transformSrcSpan s) body', binds)
     grhss' -> do
       grhss'' <- mapM transformGRHS grhss'
-      -- TODO Can we merge the source spans of multiple right-hand sides?
-      return (S.GuardedRhss S.NoSrcSpan grhss'', binds)
+      let srcSpan = combineSrcSpans (map S.getSrcSpan grhss'')
+      return (S.GuardedRhss srcSpan grhss'', binds)
         -- The source span here seems to be missing in the GHC AST
 transformGRHSs (GHC.XGRHSs x)     = GHC.noExtCon x
 
@@ -574,3 +574,10 @@ specialDataConMap = Map.fromList
 -- | Wraps a GHC source span into the HST type for source spans.
 transformSrcSpan :: GHC.SrcSpan -> S.SrcSpan GHC
 transformSrcSpan = S.SrcSpan
+
+-- | Combines multiple source spans into a source span that spans at least
+--   all characters within the individual spans.
+combineSrcSpans :: [S.SrcSpan GHC] -> S.SrcSpan GHC
+combineSrcSpans = transformSrcSpan
+  . foldr GHC.combineSrcSpans GHC.noSrcSpan
+  . map S.originalSrcSpan
