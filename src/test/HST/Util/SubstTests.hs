@@ -58,11 +58,9 @@ testSubst = describe "HST.Util.Subst" $ do
     it "applies the second substitution first"
       $ runTest
       $
-      -- σ₁   = { x ↦ z }
-      -- σ₂   = { x ↦ y }
-      -- σ    = σ₁ . σ₂ = { x ↦ y }
-      -- e    = x y z
-      -- σ(e) = y y z
+      -- σ₁ = { x ↦ z }
+      -- σ₂ = { x ↦ y }
+      -- σ  = σ₁ . σ₂ = { x ↦ y }
       let s1       = singleSubst (S.unQual x) (S.var z)
           s2       = singleSubst (S.unQual x) (S.var y)
           subst    = composeSubst s1 s2
@@ -72,11 +70,9 @@ testSubst = describe "HST.Util.Subst" $ do
     it "applies the second substitution to the first"
       $ runTest
       $
-      -- σ₁   = { y ↦ z }
-      -- σ₂   = { x ↦ y }
-      -- σ    = σ₁ . σ₂ = { x ↦ z, y ↦ z }
-      -- e    = x y z
-      -- σ(e) = z z z
+      -- σ₁ = { y ↦ z }
+      -- σ₂ = { x ↦ y }
+      -- σ  = σ₁ . σ₂ = { x ↦ z, y ↦ z }
       let s1       = singleSubst (S.unQual y) (S.var z)
           s2       = singleSubst (S.unQual x) (S.var y)
           subst    = composeSubst s1 s2
@@ -87,9 +83,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "substitutes variables"
       $ runTest
       $
-      -- σ    = { x ↦ y }
-      -- e    = f x
-      -- σ(e) = f y
+      -- σ = { x ↦ y }
       let subst    = singleSubst (S.unQual x) (S.var y)
           e        = ["f x"]
           expected = ["f y"]
@@ -97,9 +91,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "does not substitute bound variables"
       $ runTest
       $
-      -- σ    = { x ↦ z, y ↦ z }
-      -- e    = (\x -> f x y, x, y)
-      -- σ(e) = (\x -> f x z, z, z)
+      -- σ = { x ↦ z, y ↦ z }
       let subst
             = substFromList [(S.unQual x, S.var z), (S.unQual y, S.var z)]
           e        = ["(\\x -> f x y, x, y)"]
@@ -108,9 +100,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "renames bound variables to avoid capture"
       $ runTest
       $
-      -- σ    = { y ↦ x }
-      -- e    = \x   -> (x, y)
-      -- σ(e) = \x_0 -> (x_0, x)
+      -- σ = { y ↦ x }
       let subst    = singleSubst (S.unQual y) (S.var x)
           e        = ["\\x   -> (x, y)"]
           expected = ["\\x_0 -> (x_0, x)"]
@@ -118,9 +108,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "renames bound variables only if necessary"
       $ runTest
       $
-      -- σ    = { y ↦ z }
-      -- e    = \x -> (x, y)
-      -- σ(e) = \x -> (x, z)
+      -- σ = { y ↦ z }
       let subst    = singleSubst (S.unQual y) (S.var z)
           e        = ["\\x -> (x, y)"]
           expected = ["\\x -> (x, z)"]
@@ -128,9 +116,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "does not rename bound variables that capture unused free variables"
       $ runTest
       $
-      -- σ    = { x ↦ y }
-      -- e    = \y -> y
-      -- σ(e) = \y -> y
+      -- σ = { x ↦ y }
       let subst    = singleSubst (S.unQual x) (S.var y)
           e        = ["\\y -> y"]
           expected = ["\\y -> y"]
@@ -138,9 +124,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "avoids capture by renaming variables"
       $ runTest
       $
-      -- σ    = { y ↦ x }
-      -- e    = \x   -> (x, x_0, y)
-      -- σ(e) = \x_1 -> (x_1, x_0, x)
+      -- σ = { y ↦ x }
       let subst    = singleSubst (S.unQual y) (S.var x)
           e        = ["\\x   -> (x, x_0, y)"]
           expected = ["\\x_1 -> (x_1, x_0, x)"]
@@ -148,9 +132,7 @@ testSubst = describe "HST.Util.Subst" $ do
     it "avoids capture of renamed variables"
       $ runTest
       $
-      -- σ    = { y ↦ x }
-      -- e    = \x   x_0 -> (x, x_0, y)
-      -- σ(e) = \x_0 x_1 -> (x_0, x_1, x)
+      -- σ = { y ↦ x }
       let subst    = singleSubst (S.unQual y) (S.var x)
           e        = ["\\x   x_0 -> (x, x_0, y)"]
           expected = ["\\x_0 x_1 -> (x_0, x_1, x)"]
