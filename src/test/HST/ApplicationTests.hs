@@ -16,7 +16,7 @@ testApplication :: Spec
 testApplication = describe "HST.Application" $ do
   testProcessModule
 
--- | Test cases for 'processModule'.
+-- | Test cases for 'HST.Application.processModule'.
 testProcessModule :: Spec
 testProcessModule = context "processModule" $ do
   it "should leave functions without pattern matching unchanged"
