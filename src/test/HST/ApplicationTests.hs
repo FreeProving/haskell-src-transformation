@@ -3,10 +3,10 @@
 -- | This module contains basic tests for "HST.Application".
 module HST.ApplicationTests ( testApplication ) where
 
-import           Test.Hspec                ( Spec, context, describe, it )
+import           Test.Hspec           ( Spec, context, describe, it )
 
-import           HST.Test.Expectation      ( shouldTransformTo )
-import           HST.Test.Runner           ( runTest )
+import           HST.Test.Expectation ( shouldTransformTo )
+import           HST.Test.Runner      ( runTest )
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
