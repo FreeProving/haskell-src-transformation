@@ -18,7 +18,7 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.Report
-  ( Report, Severity(Error, Internal), failToReport, message, reportFatal )
+  ( Report, failToReport, reportFatal )
 import           HST.Environment
   ( ConEntry, DataEntry, conEntryArity, conEntryIsInfix, conEntryName
   , conEntryType, dataEntryCons )
@@ -28,6 +28,8 @@ import           HST.Environment.Renaming
   ( rename, subst, substitute, tSubst )
 import qualified HST.Frontend.Syntax            as S
 import           HST.Options                    ( optTrivialCase )
+import           HST.Util.Messages
+  ( Severity(Error, Internal), message )
 import           HST.Util.Predicates            ( isConPat, isVarPat )
 import           HST.Util.Selectors
   ( getAltConName, getMaybePatConName, getPatVarName )

@@ -7,13 +7,13 @@ module HST.Frontend.HSE.From where
 import qualified Language.Haskell.Exts             as HSE
 import           Polysemy                          ( Member, Sem )
 
-import           HST.Effect.Report
-  ( Report, Severity(Error), message, reportFatal )
+import           HST.Effect.Report                 ( Report, reportFatal )
 import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(OriginalModuleHead) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
+import           HST.Util.Messages                 ( Severity(Error), message )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --

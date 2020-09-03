@@ -4,9 +4,9 @@ module HST.Frontend.Transformer.Messages where
 
 import           Polysemy            ( Member, Sem )
 
-import           HST.Effect.Report
-  ( Report, Severity(Error, Info), message, report, reportFatal )
+import           HST.Effect.Report   ( Report, report, reportFatal )
 import qualified HST.Frontend.Syntax as S
+import           HST.Util.Messages   ( Severity(Error, Info), message )
 
 -- | Reports a fatal error that the given feature is not supported. Displays an
 --   excerpt of the input code specified by the given source span.

@@ -14,9 +14,10 @@ import           Test.Hspec
 import           HST.Effect.Cancel    ( runCancel )
 import           HST.Effect.InputFile ( runInputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error, Info, Warning)
-  , filterReportedMessages, msgSeverity, report, reportFatal
-  , reportToHandleOrCancel, reportToOutputOrCancel, runReport )
+  ( Report, filterReportedMessages, report, reportFatal, reportToHandleOrCancel
+  , reportToOutputOrCancel, runReport )
+import           HST.Util.Messages
+  ( Message(Message), Severity(Error, Info, Warning), msgSeverity )
 
 -- | Test group for interpreters of the 'HST.Effect.Report.Report' effect.
 testReportEffect :: Spec

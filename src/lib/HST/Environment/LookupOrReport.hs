@@ -9,11 +9,11 @@ module HST.Environment.LookupOrReport
 import           Polysemy            ( Members, Sem )
 
 import           HST.Effect.Env      ( Env, inEnv )
-import           HST.Effect.Report
-  ( Report, Severity(Error), message, reportFatal )
+import           HST.Effect.Report   ( Report, reportFatal )
 import           HST.Environment
   ( ConEntry, DataEntry, lookupConEntry, lookupDataEntry )
 import qualified HST.Frontend.Syntax as S
+import           HST.Util.Messages   ( Severity(Error), message )
 import           HST.Util.PrettyName ( prettyName )
 
 -- | Looks up the entry of a data constructor with the given name in the

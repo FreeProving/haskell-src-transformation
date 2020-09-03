@@ -22,8 +22,7 @@ import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
 import           HST.Effect.InputFile
   ( InputFile, getInputFile, runInputFile )
 import           HST.Effect.Report
-  ( Message, Report, Severity(Debug, Internal), exceptionToReport
-  , filterReportedMessages, message, msgSeverity, reportToHandleOrCancel )
+  ( Report, exceptionToReport, filterReportedMessages, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
   ( parseModule, prettyPrintModule, runWithFrontend, transformModule
   , unTransformModule )
@@ -31,6 +30,8 @@ import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
+import           HST.Util.Messages
+  ( Message, Severity(Debug, Internal), message, msgSeverity )
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --

@@ -21,14 +21,14 @@ import qualified SrcLoc                            as GHC
 import qualified Type                              as GHC
 import qualified TysWiredIn                        as GHC
 
-import           HST.Effect.Report
-  ( Report, Severity(Error), message, reportFatal )
+import           HST.Effect.Report                 ( Report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
+import           HST.Util.Messages                 ( Severity(Error), message )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
