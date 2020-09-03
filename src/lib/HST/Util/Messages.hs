@@ -22,7 +22,7 @@ import qualified HST.Frontend.Syntax  as S
 data Severity = Internal | Error | Warning | Info | Debug
  deriving ( Show, Eq )
 
--- | A message that can be 'report'ed.
+-- | A message that can be 'HST.Effect.Report.report'ed.
 data Message = Message { msgSeverity :: Severity
                        , msgSrcSpan  :: Maybe S.MsgSrcSpan
                        , msgText     :: String
