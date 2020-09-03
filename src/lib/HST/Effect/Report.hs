@@ -143,10 +143,12 @@ displayCodeExcerpt (Just src) = do
   --   in the source span do exist in the given lines.
   isValidSrcSpan :: [String] -> Bool
   isValidSrcSpan [] = False
-  isValidSrcSpan ls
-    = (length ls == S.msgSrcSpanEndLine src - S.msgSrcSpanStartLine src + 1)
-    && (length (head ls) >= S.msgSrcSpanStartColumn src)
-    && (length (last ls) >= S.msgSrcSpanEndColumn src - 1)
+  isValidSrcSpan ls = length ls
+    == S.msgSrcSpanEndLine src - S.msgSrcSpanStartLine src + 1
+    && length (head ls) >= S.msgSrcSpanStartColumn src
+    && length (last ls) >= S.msgSrcSpanEndColumn src - 1
+    && (S.msgSrcSpanEndLine src > S.msgSrcSpanStartLine src
+        || S.msgSrcSpanEndColumn src > S.msgSrcSpanStartColumn src)
 
   -- | Adds line numbers to each given line and adds marks showing the start
   --   and end of the spanned code.
