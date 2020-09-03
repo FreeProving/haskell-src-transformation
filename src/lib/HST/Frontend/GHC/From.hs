@@ -597,5 +597,4 @@ transformSrcSpan = S.SrcSpan
 --   all characters within the individual spans.
 combineSrcSpans :: [S.SrcSpan GHC] -> S.SrcSpan GHC
 combineSrcSpans = transformSrcSpan
-  . foldr GHC.combineSrcSpans GHC.noSrcSpan
-  . map S.originalSrcSpan
+  . foldr (GHC.combineSrcSpans . S.originalSrcSpan) GHC.noSrcSpan
