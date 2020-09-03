@@ -79,12 +79,10 @@ prettyMsgSrcSpanNumbers src = show (S.msgSrcSpanStartLine src)
 displayCodeExcerpt :: Member InputFile r => Maybe S.MsgSrcSpan -> Sem r String
 displayCodeExcerpt Nothing = return ""
 displayCodeExcerpt (Just src) = do
-  maybeContent <- getInputFile (S.msgSrcSpanFilePath src)
-  return $ case maybeContent of
-    Nothing      -> ""
-    Just content ->
-      let ls = getLines (S.msgSrcSpanStartLine src - 1)
-            (S.msgSrcSpanEndLine src) (lines content)
+  contents <- getInputFile (S.msgSrcSpanFilePath src)
+  return
+    $ let ls = getLines (S.msgSrcSpanStartLine src - 1)
+            (S.msgSrcSpanEndLine src) (lines contents)
       in if not (isValidSrcSpan ls)
            then "The source span "
              ++ prettyMsgSrcSpanNumbers src

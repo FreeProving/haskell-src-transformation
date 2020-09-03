@@ -87,7 +87,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
     $ \h -> do
       let comp :: Member Report r => Sem r Int
           comp = return 42
-      (runM . runCancel . runInputFile [] . reportToHandleOrCancel h) comp
+      (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         `shouldReturn` Just 42
       hSeek h AbsoluteSeek 0
       c <- hGetContents h
@@ -99,8 +99,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
         let msg = Message Error Nothing "Some Error"
             comp :: Member Report r => Sem r Int
             comp = reportFatal msg >> return 42
-        val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
-          comp
+        val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Nothing
@@ -112,8 +111,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
         let msg = Message Warning Nothing "Some Warning"
             comp :: Member Report r => Sem r Int
             comp = report msg >> return 42
-        val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
-          comp
+        val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Just 42
@@ -125,8 +123,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
       let msg2 = Message Warning Nothing "Some Warning"
           comp :: Member Report r => Sem r Int
           comp = report msg1 >> report msg2 >> return 42
-      val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
-        comp
+      val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
       hSeek h AbsoluteSeek 0
       c <- hGetContents h
       val `shouldBe` Just 42
