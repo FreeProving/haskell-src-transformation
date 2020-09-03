@@ -2,20 +2,20 @@
 --   and to the @ghc-lib-parser@ AST.
 --
 --   In GHC-lib, the AST node for match groups is
-
 module HST.Frontend.GHC.Util.AnyMatch where
 
-import qualified GHC.Hs                            as GHC
+import qualified GHC.Hs                  as GHC
 
-import qualified HST.Frontend.Syntax as S
-import  HST.Frontend.GHC.Config
+import           HST.Frontend.GHC.Config
+import qualified HST.Frontend.Syntax     as S
 
 -- | A data type that is used for the transformation of all nodes with pattern
 --   matching, i.e., 'S.Match'es, 'S.Lambda' abstractions and 'S.Alt'ernatives.
 data AnyMatch = AnyMatch
   { anyMatchSrcSpan  :: S.SrcSpan GHC
     -- ^ The source span of the match.
-  , anyMatchContext  :: GHC.HsMatchContext (GHC.NameOrRdrName (GHC.IdP GHC.GhcPs))
+  , anyMatchContext
+      :: GHC.HsMatchContext (GHC.NameOrRdrName (GHC.IdP GHC.GhcPs))
     -- ^ Additional information about the match that has not been transfomed
     --   yet.
   , anyMatchPatterns :: [S.Pat GHC]
