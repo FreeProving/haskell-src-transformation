@@ -97,15 +97,15 @@ getPatVarName (S.PList _ _) = reportFatal
 -------------------------------------------------------------------------------
 -- Find Identifiers in Modules                                               --
 -------------------------------------------------------------------------------
--- Class for all types that contain identifiers.
+-- | Class for all types that contain identifiers.
 class HasIdentifiers a where
   findIdentifiers :: a -> Set String
 
--- Collects all identifiers in a list of types containing identifiers
+-- | Collects all identifiers in a list of types containing identifiers.
 instance HasIdentifiers a => HasIdentifiers [a] where
   findIdentifiers = Set.unions . map findIdentifiers
 
--- Collects all identifiers in a `Maybe` value if a value is present.
+-- | Collects all identifiers in a `Maybe` value.
 instance HasIdentifiers a => HasIdentifiers (Maybe a) where
   findIdentifiers = maybe Set.empty findIdentifiers
 
