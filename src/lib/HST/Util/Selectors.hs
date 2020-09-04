@@ -5,10 +5,11 @@ module HST.Util.Selectors
     expFromUnguardedRhs
     -- * Pattern Names
   , getAltConName
-  , findIdentifiers
   , getPatConName
   , getMaybePatConName
   , getPatVarName
+    -- * Identifiers
+  , findIdentifiers
   ) where
 
 import           Data.Maybe          ( maybe )

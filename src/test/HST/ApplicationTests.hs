@@ -34,10 +34,8 @@ shouldTransformTo
   -> Sem r ()
 shouldTransformTo input expectedOutput = do
   inputModule <- parseTestModule input
-  inputModule' <- transformModule inputModule
-  outputModule <- runEnv . runFresh (findIdentifiers inputModule')
-    $ processModule inputModule'
-  outputModule' <- unTransformModule outputModule
+  outputModule <- runEnv . runFresh (findIdentifiers inputModule)
+    $ processModule inputModule
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule `prettyModuleShouldBe` expectedOutputModule
 
