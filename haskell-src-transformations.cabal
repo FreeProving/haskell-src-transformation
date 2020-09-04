@@ -136,10 +136,9 @@ test-suite haskell-src-transformations-unit-tests
   other-modules:      HST.ApplicationTests
                     , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
-                    , HST.Effect.InputFileTests
-                    , HST.Frontend.Transformer.MessagesTests
                     , HST.Effect.ReportTests
                     , HST.Effect.SetExpectation
+                    , HST.Util.MessagesTests
   build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8

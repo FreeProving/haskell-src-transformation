@@ -11,15 +11,8 @@
 --   fatal or non-fatal. The usual interpretation of a fatal message is for
 --   the computation to be 'cancel'ed.
 module HST.Effect.Report
-  ( -- * Messages
-    Severity(..)
-  , Message(..)
-  , displayCodeExcerpt
-  , message
-  , prettyMsgSrcSpanNumbers
-  , showPrettyMessage
-    -- * Effect
-  , Report
+  ( -- * Effect
+    Report
     -- * Actions
   , report
   , reportFatal
