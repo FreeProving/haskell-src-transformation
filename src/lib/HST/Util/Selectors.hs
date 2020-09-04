@@ -72,25 +72,23 @@ getMaybePatConName = run . evalReport . getPatConName
 --   Returns a fresh variable for wildcard patterns.
 --   The given pattern must be a variable or wildcard pattern. Otherwise a
 --   fatal internal error is reported.
-getPatVarName :: Members '[Fresh, Report] r => S.Pat a -> Sem r String
-getPatVarName (S.PVar _ pname) = return (getNameStr pname)
- where
-  getNameStr (S.Ident _ str)  = str
-  getNameStr (S.Symbol _ str) = str
-getPatVarName (S.PWildCard _) = freshIdent genericFreshPrefix
+getPatVarName :: Members '[Fresh, Report] r => S.Pat a -> Sem r (S.Name a)
+getPatVarName (S.PVar _ varName)    = return varName
+getPatVarName (S.PWildCard srcSpan)
+  = S.Ident srcSpan <$> freshIdent genericFreshPrefix
 -- Look into parentheses recursively.
-getPatVarName (S.PParen _ pat) = getPatVarName pat
+getPatVarName (S.PParen _ pat)      = getPatVarName pat
 -- All other patterns are not variable patterns.
-getPatVarName (S.PApp _ _ _) = reportFatal
+getPatVarName (S.PApp _ _ _)        = reportFatal
   $ Message Error
   $ "Expected variable or wildcard pattern, got constructor pattern."
 getPatVarName (S.PInfixApp _ _ _ _) = reportFatal
   $ Message Error
   $ "Expected variable or wildcard pattern, got infix constructor pattern."
-getPatVarName (S.PTuple _ _ _) = reportFatal
+getPatVarName (S.PTuple _ _ _)      = reportFatal
   $ Message Error
   $ "Expected variable or wildcard pattern, got tuple pattern."
-getPatVarName (S.PList _ _) = reportFatal
+getPatVarName (S.PList _ _)         = reportFatal
   $ Message Error
   $ "Expected variable or wildcard pattern, got list pattern."
 
