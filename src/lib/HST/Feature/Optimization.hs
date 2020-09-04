@@ -153,8 +153,8 @@ renameAll ((from, to) : r) e = do
 --   While an alternative is optimized, the pattern is pushed to the stack
 --   of matched patterns for the scrutinee in the environment.
 addAndOpt :: Members '[PatternStack a, Fresh, Report] r
-          => S.SrcSpan a
-          -> S.SrcSpan a
+          => S.SrcSpan a  -- ^ The source span for the whole case-expression
+          -> S.SrcSpan a  -- ^ The source span for the matched expression
           -> S.QName a
           -> [S.Alt a]
           -> Sem r (S.Exp a)
