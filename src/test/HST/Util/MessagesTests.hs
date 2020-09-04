@@ -1,12 +1,11 @@
 module HST.Util.MessagesTests ( testMessages ) where
 
 import           Polysemy             ( runM )
-import           Test.Hspec
-  ( Spec, context, describe, it, shouldBe )
+import           Test.Hspec           ( Spec, context, describe, it, shouldBe )
 
 import           HST.Effect.InputFile ( runInputFile )
 import qualified HST.Frontend.Syntax  as S
-import           HST.Util.Messages (displayCodeExcerpt)
+import           HST.Util.Messages    ( displayCodeExcerpt )
 
 -- | Tests for the `HST.Util.Messages` module.
 testMessages :: Spec
@@ -17,36 +16,27 @@ testMessages = describe "HST.Frontend.Transformer" $ do
 testDisplayCodeExcerpt :: Spec
 testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
   it "should return the empty string if no SrcSpan is given" $ do
-    str <- runM . runInputFile
-      $ displayCodeExcerpt Nothing
+    str <- runM . runInputFile $ displayCodeExcerpt Nothing
     str `shouldBe` []
   it "should display an error message if end column < start column" $ do
-    str <- runM . runInputFile
-      $ displayCodeExcerpt
-      $ Just invalidSrcSpan
+    str <- runM . runInputFile $ displayCodeExcerpt $ Just invalidSrcSpan
     str `shouldBe` "The source span 1:4-1:3 of `"
       ++ firstFile
       ++ "` cannot be fully displayed!"
   it "should display an error message if end line < start line" $ do
-    str <- runM . runInputFile
-      $ displayCodeExcerpt
-      $ Just invalidSrcSpan2
+    str <- runM . runInputFile $ displayCodeExcerpt $ Just invalidSrcSpan2
     str `shouldBe` "The source span 2:4-1:5 of `"
       ++ firstFile
       ++ "` cannot be fully displayed!"
   it "should correctly display a one-line SrcSpan" $ do
-    str <- runM . runInputFile
-      $ displayCodeExcerpt
-      $ Just oneLineSrcSpan
+    str <- runM . runInputFile $ displayCodeExcerpt $ Just oneLineSrcSpan
     str
       `shouldBe` unlines [ firstFile ++ ":1:8-1:21:"
                          , "1 | module ExampleQueue1 where"
                          , "           ^^^^^^^^^^^^^"
                          ]
   it "should correctly display a multi-line SrcSpan with startY < endY" $ do
-    str <- runM . runInputFile
-      $ displayCodeExcerpt
-      $ Just multiLineSrcSpan1
+    str <- runM . runInputFile $ displayCodeExcerpt $ Just multiLineSrcSpan1
     str
       `shouldBe` unlines
       [ firstFile ++ ":5:1-6:11:"
@@ -76,6 +66,5 @@ multiLineSrcSpan1 = S.MsgSrcSpan firstFile 5 1 6 11
 -- | The path to the file used for testing.
 firstFile :: FilePath
 firstFile = "./example/ExampleQueue1.hs"
-
 --secondFile :: FilePath
 --secondFile = "./example/ExampleQueue2.hs"
