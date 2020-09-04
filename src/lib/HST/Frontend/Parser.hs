@@ -24,11 +24,13 @@ import qualified SrcLoc                                     as GHC
 
 import           HST.Effect.Cancel                          ( Cancel, cancel )
 import           HST.Effect.Report
-  ( Report, Severity(Error, Warning), message, report, reportFatal )
+  ( Report, report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config                    ( HSE )
 import qualified HST.Frontend.Syntax                        as S
+import           HST.Util.Messages
+  ( Severity(Error, Warning), message )
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   can be parsed.

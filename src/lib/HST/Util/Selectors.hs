@@ -13,9 +13,9 @@ module HST.Util.Selectors
 import           Polysemy            ( Member, Members, Sem, run )
 
 import           HST.Effect.Fresh    ( Fresh, freshIdent, genericFreshPrefix )
-import           HST.Effect.Report
-  ( Report, Severity(Error, Internal), evalReport, message, reportFatal )
+import           HST.Effect.Report   ( Report, evalReport, reportFatal )
 import qualified HST.Frontend.Syntax as S
+import           HST.Util.Messages   ( Severity(Error, Internal), message )
 
 -------------------------------------------------------------------------------
 -- Right-hand sides                                                          --

@@ -22,8 +22,7 @@ import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
 import           HST.Effect.InputFile
   ( InputFile, getInputFile, runInputFile )
 import           HST.Effect.Report
-  ( Message, Report, Severity(Debug, Internal), exceptionToReport
-  , filterReportedMessages, message, msgSeverity, reportToHandleOrCancel )
+  ( Report, exceptionToReport, filterReportedMessages, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
   ( parseModule, prettyPrintModule, runWithFrontend, transformModule
   , unTransformModule )
@@ -31,6 +30,8 @@ import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
+import           HST.Util.Messages
+  ( Message, Severity(Debug, Internal), message, msgSeverity )
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --
@@ -62,7 +63,7 @@ main :: IO ()
 main = runFinal
   . embedToFinal
   . cancelToExit
-  . runInputFile []
+  . runInputFile
   . reportToHandleOrCancel stderr
   . exceptionToReport exceptionToMessage
   . runWithArgsIO
@@ -77,7 +78,8 @@ main = runFinal
 --   applied on the parsed input module and a state constructed from the
 --   command line arguments. The output is either printed to the console
 --   or a file.
-application :: Members '[Cancel, Embed IO, GetOpt, Report] r => Sem r ()
+application
+  :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r => Sem r ()
 application = do
   -- Filter reported message based on @--debug@ flag.
   debuggingEnabled <- getOpt optEnableDebug
@@ -89,11 +91,7 @@ application = do
       inputFiles <- getOpt optInputFiles
       if showHelp || null inputFiles
         then embed putUsageInfo
-        else 
-          -- TODO There probably is a better way to add actual input files to the
-          -- Report effect
-          runInputFile inputFiles . reportToHandleOrCancel stderr
-          $ mapM_ processInputFile inputFiles
+        else mapM_ processInputFile inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -110,20 +108,17 @@ processInputFile :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r
                  => FilePath
                  -> Sem r ()
 processInputFile inputFilename = do
-  maybeInput <- getInputFile inputFilename
-  case maybeInput of
-    Nothing    -> return ()
-    Just input -> do
-      frontend <- parseFrontend =<< getOpt optFrontend
-      (output, moduleName) <- processInput frontend inputFilename input
-      maybeOutputDir <- getOpt optOutputDir
-      case maybeOutputDir of
-        Just outputDir -> do
-          let outputFilename
-                = outputDir </> makeOutputFileName inputFilename moduleName
-          embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
-          embed $ writeFile outputFilename output
-        Nothing        -> embed $ putStrLn output
+  input <- getInputFile inputFilename
+  frontend <- parseFrontend =<< getOpt optFrontend
+  (output, moduleName) <- processInput frontend inputFilename input
+  maybeOutputDir <- getOpt optOutputDir
+  case maybeOutputDir of
+    Just outputDir -> do
+      let outputFilename
+            = outputDir </> makeOutputFileName inputFilename moduleName
+      embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
+      embed $ writeFile outputFilename output
+    Nothing        -> embed $ putStrLn output
 
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty

@@ -14,9 +14,10 @@ import           Test.Hspec
 import           HST.Effect.Cancel    ( runCancel )
 import           HST.Effect.InputFile ( runInputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error, Info, Warning)
-  , filterReportedMessages, msgSeverity, report, reportFatal
-  , reportToHandleOrCancel, reportToOutputOrCancel, runReport )
+  ( Report, filterReportedMessages, report, reportFatal, reportToHandleOrCancel
+  , reportToOutputOrCancel, runReport )
+import           HST.Util.Messages
+  ( Message(Message), Severity(Error, Info, Warning), msgSeverity )
 
 -- | Test group for interpreters of the 'HST.Effect.Report.Report' effect.
 testReportEffect :: Spec
@@ -86,7 +87,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
     $ \h -> do
       let comp :: Member Report r => Sem r Int
           comp = return 42
-      (runM . runCancel . runInputFile [] . reportToHandleOrCancel h) comp
+      (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         `shouldReturn` Just 42
       hSeek h AbsoluteSeek 0
       c <- hGetContents h
@@ -98,8 +99,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
         let msg = Message Error Nothing "Some Error"
             comp :: Member Report r => Sem r Int
             comp = reportFatal msg >> return 42
-        val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
-          comp
+        val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Nothing
@@ -111,8 +111,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
         let msg = Message Warning Nothing "Some Warning"
             comp :: Member Report r => Sem r Int
             comp = report msg >> return 42
-        val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
-          comp
+        val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Just 42
@@ -124,8 +123,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
       let msg2 = Message Warning Nothing "Some Warning"
           comp :: Member Report r => Sem r Int
           comp = report msg1 >> report msg2 >> return 42
-      val <- (runM . runCancel . runInputFile [] . reportToHandleOrCancel h)
-        comp
+      val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
       hSeek h AbsoluteSeek 0
       c <- hGetContents h
       val `shouldBe` Just 42

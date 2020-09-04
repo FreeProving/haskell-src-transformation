@@ -13,8 +13,7 @@ import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Env            ( runEnv )
 import           HST.Effect.Fresh          ( runFresh )
 import           HST.Effect.GetOpt         ( GetOpt, runWithArgs )
-import           HST.Effect.Report
-  ( Report, Severity(Info), cancelToReport, message )
+import           HST.Effect.Report         ( Report, cancelToReport )
 import           HST.Effect.SetExpectation
   ( SetExpectation, reportToSetExpectation, setExpectation, setExpectationToIO )
 import           HST.Effect.WithFrontend
@@ -22,6 +21,7 @@ import           HST.Effect.WithFrontend
   , transformModule, unTransformModule )
 import           HST.Frontend.Parser       ( ParsedModule )
 import qualified HST.Frontend.Syntax       as S
+import           HST.Util.Messages         ( Severity(Info), message )
 
 -------------------------------------------------------------------------------
 -- Utility Functions                                                         --
