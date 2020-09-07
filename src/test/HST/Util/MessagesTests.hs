@@ -7,15 +7,15 @@ import           HST.Effect.InputFile ( runInputFile )
 import qualified HST.Frontend.Syntax  as S
 import           HST.Util.Messages    ( displayCodeExcerpt )
 
--- | Tests for the `HST.Util.Messages` module.
+-- | Tests for the "HST.Util.Messages" module.
 testMessages :: Spec
-testMessages = describe "HST.Frontend.Transformer" $ do
+testMessages = describe "HST.Util.Messages" $ do
   testDisplayCodeExcerpt
 
--- Test cases for `displayCodeExcerpt`.
+-- | Test cases for 'displayCodeExcerpt'.
 testDisplayCodeExcerpt :: Spec
 testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
-  it "should return the empty string if no SrcSpan is given" $ do
+  it "should return the empty string if no source span is given" $ do
     str <- runM . runInputFile $ displayCodeExcerpt Nothing
     str `shouldBe` []
   it "should display an error message if end column < start column" $ do
@@ -28,7 +28,7 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
     str `shouldBe` "The source span 2:4-1:5 of `"
       ++ firstFile
       ++ "` cannot be fully displayed!"
-  it "should correctly display a one-line SrcSpan" $ do
+  it "should correctly display a one-line excerpt" $ do
     str <- runM . runInputFile $ displayCodeExcerpt $ Just oneLineSrcSpan
     str
       `shouldBe` unlines [ firstFile ++ ":1:8-1:21:"
@@ -46,20 +46,20 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
       , "    ^^^^^^^^^^"
       ]
 
--- | A `S.SrcSpan` which end column is smaller than its start column.
+-- | A 'S.SrcSpan' whose end column is smaller than its start column.
 invalidSrcSpan :: S.MsgSrcSpan
 invalidSrcSpan = S.MsgSrcSpan firstFile 1 4 1 3
 
--- | A `S.SrcSpan` that is not valid because the start line is below the end
+-- | A 'S.SrcSpan' that is not valid because the start line is below the end
 --   line.
 invalidSrcSpan2 :: S.MsgSrcSpan
 invalidSrcSpan2 = S.MsgSrcSpan firstFile 2 4 1 5
 
--- | A `S.SrcSpan` that shows one line.
+-- | A 'S.SrcSpan' that spans one line.
 oneLineSrcSpan :: S.MsgSrcSpan
 oneLineSrcSpan = S.MsgSrcSpan firstFile 1 8 1 21
 
--- | A `S.SrcSpan` over multiple lines.
+-- | A 'S.SrcSpan' spanning multiple lines.
 multiLineSrcSpan1 :: S.MsgSrcSpan
 multiLineSrcSpan1 = S.MsgSrcSpan firstFile 5 1 6 11
 
