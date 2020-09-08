@@ -44,8 +44,8 @@ makeSem ''Fresh
 freshName :: Member Fresh r => String -> Sem r (S.Name a)
 freshName = flip freshNameWithSrcSpan S.NoSrcSpan
 
--- | Generates a name for a fresh variable and sets the `S.SrcSpan` to the given
---   value.
+-- | Generates a name for a fresh variable and sets the 'S.SrcSpan' to the
+--   given value.
 freshNameWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Name a)
 freshNameWithSrcSpan prefix s = S.Ident s <$> freshIdent prefix
@@ -54,8 +54,8 @@ freshNameWithSrcSpan prefix s = S.Ident s <$> freshIdent prefix
 freshQName :: Member Fresh r => String -> Sem r (S.QName a)
 freshQName = flip freshQNameWithSrcSpan S.NoSrcSpan
 
--- | Generates an unqualified name for a fresh variable and sets the `S.SrcSpan`
---   to the given value.
+-- | Generates an unqualified name for a fresh variable and sets the
+--   'S.SrcSpan' to the given value.
 freshQNameWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.QName a)
 freshQNameWithSrcSpan prefix s = S.UnQual s <$> freshNameWithSrcSpan prefix s
@@ -64,8 +64,8 @@ freshQNameWithSrcSpan prefix s = S.UnQual s <$> freshNameWithSrcSpan prefix s
 freshVar :: Member Fresh r => String -> Sem r (S.Exp a)
 freshVar = flip freshVarWithSrcSpan S.NoSrcSpan
 
--- | Generates a fresh variable expression and sets the `S.SrcSpan` to the given
---   value.
+-- | Generates a fresh variable expression and sets the 'S.SrcSpan' to the
+--   given value.
 freshVarWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Exp a)
 freshVarWithSrcSpan prefix s = S.Var s <$> freshQNameWithSrcSpan prefix s
@@ -74,7 +74,7 @@ freshVarWithSrcSpan prefix s = S.Var s <$> freshQNameWithSrcSpan prefix s
 freshVarPat :: Member Fresh r => String -> Sem r (S.Pat a)
 freshVarPat = flip freshVarPatWithSrcSpan S.NoSrcSpan
 
--- | Generates a fresh variable pattern which `S.SrcSpan` is identical to the
+-- | Generates a fresh variable pattern whose 'S.SrcSpan' is identical to the
 --   given one.
 freshVarPatWithSrcSpan
   :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Pat a)
