@@ -23,7 +23,7 @@ import           HST.Effect.Report
   ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
   , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
-  ( parseModule, prettyPrintModule, runWithFrontend, transformModule
+  ( WithFrontend, parseModule, prettyPrintModule, runWithFrontend, transformModule
   , unTransformModule )
 import qualified HST.Frontend.Syntax     as S
 import           HST.Options
@@ -85,9 +85,12 @@ application = do
       -- is no input file.
       showHelp <- getOpt optShowHelp
       inputFiles <- getOpt optInputFiles
+      frontend <- parseFrontend =<< getOpt optFrontend
       if showHelp || null inputFiles
         then embed putUsageInfo
-        else mapM_ processInputFile inputFiles
+        else runWithFrontend frontend $ do
+          mods <- mapM (performTransformation frontend) inputFiles
+          mapM_ processInputModules (zip mods inputFiles)
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -100,12 +103,10 @@ application = do
 --   'makeOutputFileName' for the input module to the output directory.
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
-processInputFile
-  :: Members '[Cancel, Embed IO, GetOpt, Report] r => FilePath -> Sem r ()
+{- processInputFile
+  :: Members '[Cancel, Embed IO, GetOpt, Report] r => S.Module a -> Sem r ()
 processInputFile inputFilename = do
-  input <- embed $ readFile inputFilename
-  frontend <- parseFrontend =<< getOpt optFrontend
-  (output, moduleName) <- processInput frontend inputFilename input
+  (output, moduleName) <- processInput inputFilename input
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -113,12 +114,12 @@ processInputFile inputFilename = do
             = outputDir </> makeOutputFileName inputFilename moduleName
       embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
       embed $ writeFile outputFilename output
-    Nothing        -> embed $ putStrLn output
+    Nothing        -> embed $ putStrLn output -}
 
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
-processInput :: Members '[Cancel, GetOpt, Report] r
+{-processInput :: Members '[Cancel, GetOpt, Report] r
              => Frontend -- ^ The frontend to use to parse and print the file.
              -> FilePath -- ^ The name of the input file.
              -> String   -- ^ The contents of the input file.
@@ -126,7 +127,7 @@ processInput :: Members '[Cancel, GetOpt, Report] r
 processInput frontend inputFilename input = runWithFrontend frontend $ do
   inputModule <- parseModule inputFilename input
   intermediateModule <- transformModule inputModule
-  outputModule <- runEnv . runFresh (findIdentifiers intermediateModule) $ do
+  outputModule <- runEnv . runFresh (findIdentifiers modul) $ do
     intermediateModule' <- processModule intermediateModule
     unTransformModule intermediateModule'
   output <- prettyPrintModule outputModule
@@ -138,7 +139,30 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
 
   -- | Unwraps the given 'S.ModuleName'.
   getModuleName' :: S.ModuleName a -> String
-  getModuleName' (S.ModuleName _ name) = name
+  getModuleName' (S.ModuleName _ name) = name-}
+
+processInputModules :: Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r => (S.Module a, FilePath) -> Sem r ()
+processInputModules (modul, inputFilename) = do
+  outputModule <- runEnv . runFresh (findIdentifiers modul) $ do
+    intermediateModule' <- processModule modul
+    unTransformModule intermediateModule'
+  output <- prettyPrintModule outputModule
+  let moduleName = getModuleName outputModule
+  maybeOutputDir <- getOpt optOutputDir
+  case maybeOutputDir of
+    Just outputDir -> do
+      let outputFilename
+            = outputDir </> makeOutputFileName inputFilename moduleName
+      embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
+      embed $ writeFile outputFilename output
+    Nothing        -> embed $ putStrLn output
+  where
+    getModuleName :: S.Module a -> Maybe String
+    getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
+
+    -- | Unwraps the given 'S.ModuleName'.
+    getModuleName' :: S.ModuleName a -> String
+    getModuleName' (S.ModuleName _ name) = name
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
@@ -159,3 +183,10 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName :: FilePath
   outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
     modName
+
+performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r => Frontend -> FilePath -> Sem r (S.Module a)
+performTransformation frontend inputFilename = do
+  input <- embed $ readFile inputFilename
+  inputModule <- parseModule inputFilename input
+  intermediateModule <- transformModule inputModule
+  return intermediateModule
