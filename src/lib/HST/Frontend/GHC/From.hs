@@ -280,7 +280,6 @@ transformGRHSs grhss@GHC.GRHSs {} = do
       grhss'' <- mapM transformGRHS grhss'
       let srcSpan = combineSrcSpans (map S.getSrcSpan grhss'')
       return (S.GuardedRhss srcSpan grhss'', binds)
-        -- The source span here seems to be missing in the GHC AST
 transformGRHSs (GHC.XGRHSs x)     = GHC.noExtCon x
 
 -- | Transforms a GHC guarded right-hand side into an HST guarded right-hand

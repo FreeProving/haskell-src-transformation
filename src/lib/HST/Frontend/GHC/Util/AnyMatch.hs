@@ -16,12 +16,12 @@ data AnyMatch = AnyMatch
     -- ^ The source span of the match.
   , anyMatchContext
       :: GHC.HsMatchContext (GHC.NameOrRdrName (GHC.IdP GHC.GhcPs))
-    -- ^ Additional information about the match that has not been transfomed
+    -- ^ Additional information about the match that has not been transformed
     --   yet.
   , anyMatchPatterns :: [S.Pat GHC]
     -- ^ The patterns that are matched by this match.
   , anyMatchRhs      :: S.Rhs GHC
     -- ^ The right-hand side of the match.
   , anyMatchBinds    :: Maybe (S.Binds GHC)
-    -- ^ Bindings of an options `where`-clause of the match.
+    -- ^ Bindings of an optional @where@-clause of the match.
   }

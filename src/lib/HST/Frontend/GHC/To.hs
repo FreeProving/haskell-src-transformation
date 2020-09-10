@@ -287,7 +287,7 @@ transformExp (S.ExpTypeSig s e (SigType typ)) = GHC.L (transformSrcSpan s)
 --
 --   The source span information of the group of case alternatives seems to be
 --   missing in the HSE syntax and therefore in our syntax, so the source span
---   of the entire case construct (first argumet) is inserted instead.
+--   of the entire case construct (first argument) is inserted instead.
 transformAlts :: Member Report r
               => GHC.SrcSpan
               -> [S.Alt GHC]
