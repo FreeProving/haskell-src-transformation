@@ -1,8 +1,15 @@
--- | This module contains a data type that is used for the transformation from
+-- | This module contains a data type that is used for the transformation of
+--   function declarations, lambda abstractions and @case@ alternatives from
 --   and to the @ghc-lib-parser@ AST.
 --
---   In GHC-lib, the AST node for match groups is
-module HST.Frontend.GHC.Util.AnyMatch where
+--   In the GHC AST, the nodes for matches is used not just for function
+--   declarations but also for lambda abstractions and @case@ alternatives.
+--   Additional information such as the name of the matched function is stored
+--   in a 'GHC.HsMatchContext'. The remaining information is the same in every
+--   case. In order to avoid code duplication, the AST transformation uses
+--   the data type defined in this module to transform the parts of a match
+--   that are not context specific.
+module HST.Frontend.GHC.Util.AnyMatch (AnyMatch(..)) where
 
 import qualified GHC.Hs                  as GHC
 
