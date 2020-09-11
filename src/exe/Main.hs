@@ -23,8 +23,8 @@ import           HST.Effect.Report
   ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
   , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
-  ( WithFrontend, parseModule, prettyPrintModule, runWithFrontend, transformModule
-  , unTransformModule )
+  ( WithFrontend, parseModule, prettyPrintModule, runWithFrontend
+  , transformModule, unTransformModule )
 import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
@@ -115,7 +115,6 @@ processInputFile inputFilename = do
       embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
       embed $ writeFile outputFilename output
     Nothing        -> embed $ putStrLn output -}
-
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
@@ -140,8 +139,10 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
   -- | Unwraps the given 'S.ModuleName'.
   getModuleName' :: S.ModuleName a -> String
   getModuleName' (S.ModuleName _ name) = name-}
-
-processInputModules :: Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r => (S.Module a, FilePath) -> Sem r ()
+processInputModules
+  :: Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r
+  => (S.Module a, FilePath)
+  -> Sem r ()
 processInputModules (modul, inputFilename) = do
   outputModule <- runEnv . runFresh (findIdentifiers modul) $ do
     intermediateModule' <- processModule modul
@@ -156,13 +157,13 @@ processInputModules (modul, inputFilename) = do
       embed $ createDirectoryIfMissing True (takeDirectory outputFilename)
       embed $ writeFile outputFilename output
     Nothing        -> embed $ putStrLn output
-  where
-    getModuleName :: S.Module a -> Maybe String
-    getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
+ where
+  getModuleName :: S.Module a -> Maybe String
+  getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
 
-    -- | Unwraps the given 'S.ModuleName'.
-    getModuleName' :: S.ModuleName a -> String
-    getModuleName' (S.ModuleName _ name) = name
+  -- | Unwraps the given 'S.ModuleName'.
+  getModuleName' :: S.ModuleName a -> String
+  getModuleName' (S.ModuleName _ name) = name
 
 -------------------------------------------------------------------------------
 -- Output                                                                    --
@@ -184,7 +185,10 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
     modName
 
-performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r => Frontend -> FilePath -> Sem r (S.Module a)
+performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r
+                      => Frontend
+                      -> FilePath
+                      -> Sem r (S.Module a)
 performTransformation frontend inputFilename = do
   input <- embed $ readFile inputFilename
   inputModule <- parseModule inputFilename input

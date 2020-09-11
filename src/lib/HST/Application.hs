@@ -13,6 +13,7 @@ import           HST.Effect.Env               ( Env, modifyEnv )
 import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
+import           HST.Effect.InputModule       ( ModuleInterface )
 import           HST.Effect.Report            ( Report )
 import           HST.Environment
   ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
@@ -101,6 +102,18 @@ useAlgo ms = do
   matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
     expr <- expFromUnguardedRhs rhs
     return (pat : pats, expr)
+
+createModuleInterface :: S.Module a -> ModuleInterface a
+createModuleInterface (S.Module modName _ _ ds) = ModuleInterface name
+  (createModuleMap ds)
+ where
+  name = maybe (S.ModuleName S.NoSrcSpan "Main") id modName
+
+createModuleMap :: [S.Decl a] -> Map (S.QName a) (S.QName a)
+createModuleMap [] = Map.empty
+createModuleMap ((DataDecl _ _ name cons) : ds) = Map.insert (S.toQName name)
+  (map (toQName . conDeclName) ds)
+createModuleMap (d : ds) = createModuleMap ds
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --
