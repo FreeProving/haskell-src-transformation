@@ -25,7 +25,7 @@ import           HST.Effect.Report
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
-import           HST.Frontend.GHC.Util.AnyMatch
+import           HST.Frontend.GHC.Util.AnyMatch    ( AnyMatch(..) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )

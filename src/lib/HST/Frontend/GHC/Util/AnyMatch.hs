@@ -9,11 +9,11 @@
 --   case. In order to avoid code duplication, the AST transformation uses
 --   the data type defined in this module to transform the parts of a match
 --   that are not context specific.
-module HST.Frontend.GHC.Util.AnyMatch (AnyMatch(..)) where
+module HST.Frontend.GHC.Util.AnyMatch ( AnyMatch(..) ) where
 
 import qualified GHC.Hs                  as GHC
 
-import           HST.Frontend.GHC.Config
+import           HST.Frontend.GHC.Config ( GHC )
 import qualified HST.Frontend.Syntax     as S
 
 -- | A data type that is used for the transformation of all nodes with pattern
