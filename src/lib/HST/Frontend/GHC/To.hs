@@ -149,8 +149,8 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
         ++ "retransformation. Only function and signature declarations are "
         ++ "allowed!"
 
--- | Creates a located GHC match group with the given source span that contains
---   the given matches.
+-- | Creates a GHC match group with the given source span that contains the
+--   given matches.
 makeMatchGroup :: GHC.SrcSpan
                -> [GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)]
                -> GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)

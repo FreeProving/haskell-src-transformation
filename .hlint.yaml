@@ -30,7 +30,7 @@
     - HST.Feature.GuardElimination
       # The `NoSrcSpan` constructor is allowed in its definition.
     - HST.Frontend.Syntax
-      # Entries for predefined data types and their data types don't have
+      # Entries for predefined data types and their constructors don't have
       # source spans.
     - HST.Environment.Prelude
       # We could remove the actions of the `Fresh` effect that insert
