@@ -19,5 +19,5 @@ parseTestModule = (parseModule "<test-input>" >=> transformModule) . unlines
 
 -- | Parses an expression for testing purposes.
 parseTestExp
-  :: Members '[Cancel, Report, WithFrontend f] r => [String] -> Sem r (S.Exp f)
-parseTestExp = (parseExp >=> transformExp) . unlines
+  :: Members '[Cancel, Report, WithFrontend f] r => String -> Sem r (S.Exp f)
+parseTestExp = parseExp >=> transformExp
