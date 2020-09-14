@@ -13,13 +13,13 @@ import           HST.Frontend.HSE.Config ( HSE )
 import qualified HST.Frontend.HSE.From   as FromHSE
 import qualified HST.Frontend.HSE.To     as ToHSE
 import           HST.Frontend.Parser
-  ( ParsedExpression(ParsedExpressionHSE, ParsedExpressionGHC)
-  , ParsedModule(ParsedModuleGHC, ParsedModuleHSE), getParsedExpressionGHC
-  , getParsedExpressionHSE, getParsedModuleGHC, getParsedModuleHSE )
+  ( ParsedExp(ParsedExpHSE, ParsedExpGHC)
+  , ParsedModule(ParsedModuleGHC, ParsedModuleHSE), getParsedExpGHC
+  , getParsedExpHSE, getParsedModuleGHC, getParsedModuleHSE )
 import qualified HST.Frontend.Syntax     as S
 
 -- | Type class for "HST.Frontend.Syntax" configurations whose 'ParsedModule's
---   and 'ParsedExpression's can be transformed to and from the intermediate
+--   and 'ParsedExp's can be transformed to and from the intermediate
 --   syntax.
 class Transformable a where
   -- | Transforms a parsed module to the intermediate syntax.
@@ -34,28 +34,28 @@ class Transformable a where
                     -> Sem r (ParsedModule a)
 
   -- | Transforms a parsed expression to the intermediate syntax.
-  transformExpression
-    :: Member Report r => ParsedExpression a -> Sem r (S.Exp a)
+  transformExp
+    :: Member Report r => ParsedExp a -> Sem r (S.Exp a)
 
   -- | Transforms an expression from the intermediate syntax back to a pretty
   --   printable expression.
-  unTransformExpression
-    :: Member Report r => S.Exp a -> Sem r (ParsedExpression a)
+  unTransformExp
+    :: Member Report r => S.Exp a -> Sem r (ParsedExp a)
 
 instance Transformable HSE where
   transformModule       = FromHSE.transformModule . getParsedModuleHSE
 
   unTransformModule     = return . ParsedModuleHSE . ToHSE.transformModule
 
-  transformExpression   = FromHSE.transformExp . getParsedExpressionHSE
+  transformExp   = FromHSE.transformExp . getParsedExpHSE
 
-  unTransformExpression = return . ParsedExpressionHSE . ToHSE.transformExp
+  unTransformExp = return . ParsedExpHSE . ToHSE.transformExp
 
 instance Transformable GHC where
   transformModule       = FromGHC.transformModule . getParsedModuleGHC
 
   unTransformModule     = fmap ParsedModuleGHC . ToGHC.transformModule
 
-  transformExpression   = FromGHC.transformExpr . getParsedExpressionGHC
+  transformExp   = FromGHC.transformExpr . getParsedExpGHC
 
-  unTransformExpression = fmap ParsedExpressionGHC . ToGHC.transformExp
+  unTransformExp = fmap ParsedExpGHC . ToGHC.transformExp

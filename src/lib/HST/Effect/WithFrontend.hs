@@ -19,10 +19,10 @@ module HST.Effect.WithFrontend
   , transformModule
   , unTransformModule
   , prettyPrintModule
-  , parseExpression
-  , transformExpression
-  , unTransformExpression
-  , prettyPrintExpression
+  , parseExp
+  , transformExp
+  , unTransformExp
+  , prettyPrintExp
     -- * Handlers
   , runWithFrontendInstances
   , runWithFrontend
@@ -37,7 +37,7 @@ import           HST.Effect.Report          ( Report )
 import           HST.Frontend.GHC.Config    ( GHC )
 import           HST.Frontend.HSE.Config    ( HSE )
 import           HST.Frontend.Parser
-  ( Parsable, ParsedExpression, ParsedModule )
+  ( Parsable, ParsedExp, ParsedModule )
 import qualified HST.Frontend.Parser
 import           HST.Frontend.PrettyPrinter ( PrettyPrintable )
 import qualified HST.Frontend.PrettyPrinter
@@ -67,13 +67,13 @@ data WithFrontend f m a where
   PrettyPrintModule :: ParsedModule f -- ^ The module to pretty-print.
     -> WithFrontend f m String
   -- | Action for parsing an expression.
-  ParseExpression :: String -> WithFrontend f m (ParsedExpression f)
+  ParseExp :: String -> WithFrontend f m (ParsedExp f)
   -- | Action for transforming an expression to the intermediate syntax.
-  TransformExpression :: ParsedExpression f -> WithFrontend f m (S.Exp f)
+  TransformExp :: ParsedExp f -> WithFrontend f m (S.Exp f)
   -- | Action for transforming an expression back.
-  UnTransformExpression :: S.Exp f -> WithFrontend f m (ParsedExpression f)
+  UnTransformExp :: S.Exp f -> WithFrontend f m (ParsedExp f)
   -- | Action for pretty printing an expression.
-  PrettyPrintExpression :: ParsedExpression f -> WithFrontend f m String
+  PrettyPrintExp :: ParsedExp f -> WithFrontend f m String
 
 makeSem ''WithFrontend
 
@@ -96,14 +96,14 @@ runWithFrontendInstances = interpret \case
     HST.Frontend.Transformer.unTransformModule transformedModule
   PrettyPrintModule parsedModule       ->
     return $ HST.Frontend.PrettyPrinter.prettyPrintModule parsedModule
-  ParseExpression input                ->
-    HST.Frontend.Parser.parseExpression input
-  TransformExpression parsedExp        ->
-    HST.Frontend.Transformer.transformExpression parsedExp
-  UnTransformExpression transformedExp ->
-    HST.Frontend.Transformer.unTransformExpression transformedExp
-  PrettyPrintExpression parsedExp      ->
-    return $ HST.Frontend.PrettyPrinter.prettyPrintExpression parsedExp
+  ParseExp input                ->
+    HST.Frontend.Parser.parseExp input
+  TransformExp parsedExp        ->
+    HST.Frontend.Transformer.transformExp parsedExp
+  UnTransformExp transformedExp ->
+    HST.Frontend.Transformer.unTransformExp transformedExp
+  PrettyPrintExp parsedExp      ->
+    return $ HST.Frontend.PrettyPrinter.prettyPrintExp parsedExp
 
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running
 --   the computation with the type class instances for the configuration data

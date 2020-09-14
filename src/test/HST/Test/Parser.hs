@@ -7,7 +7,7 @@ import           Polysemy                ( Members, Sem )
 import           HST.Effect.Cancel       ( Cancel )
 import           HST.Effect.Report       ( Report )
 import           HST.Effect.WithFrontend
-  ( WithFrontend, parseExpression, parseModule, transformExpression
+  ( WithFrontend, parseExp, parseModule, transformExp
   , transformModule )
 import qualified HST.Frontend.Syntax     as S
 
@@ -18,6 +18,6 @@ parseTestModule :: Members '[Cancel, Report, WithFrontend f] r
 parseTestModule = (parseModule "<test-input>" >=> transformModule) . unlines
 
 -- | Parses an expression for testing purposes.
-parseTestExpression
+parseTestExp
   :: Members '[Cancel, Report, WithFrontend f] r => [String] -> Sem r (S.Exp f)
-parseTestExpression = (parseExpression >=> transformExpression) . unlines
+parseTestExp = (parseExp >=> transformExp) . unlines

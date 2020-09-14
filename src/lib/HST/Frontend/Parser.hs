@@ -3,13 +3,13 @@
 -- | This module contains functions for parsing Haskell modules and expressions
 --   with the different front ends.
 module HST.Frontend.Parser
-  ( Parsable(parseModule, parseExpression)
+  ( Parsable(parseModule, parseExp)
   , ParsedModule(ParsedModuleHSE, ParsedModuleGHC)
-  , ParsedExpression(ParsedExpressionHSE, ParsedExpressionGHC)
+  , ParsedExp(ParsedExpHSE, ParsedExpGHC)
   , getParsedModuleHSE
   , getParsedModuleGHC
-  , getParsedExpressionHSE
-  , getParsedExpressionGHC
+  , getParsedExpHSE
+  , getParsedExpGHC
   ) where
 
 import qualified Bag                                        as GHC
@@ -38,8 +38,8 @@ class Parsable a where
   -- | Type family for the return type of 'parseModule'.
   data ParsedModule a :: *
 
-  -- | Type family for the return type of 'parseExpression'.
-  data ParsedExpression a :: *
+  -- | Type family for the return type of 'parseExp'.
+  data ParsedExp a :: *
 
   -- | Parses the given Haskell file.
   --
@@ -54,8 +54,8 @@ class Parsable a where
   --
   --   Syntax errors are reported. The computation can be canceled even if
   --   there is no fatal error.
-  parseExpression
-    :: Members '[Report, Cancel] r => String -> Sem r (ParsedExpression a)
+  parseExp
+    :: Members '[Report, Cancel] r => String -> Sem r (ParsedExp a)
 
 -- | Parses a Haskell module or expression with the parser of
 --   @haskell-src-exts@.
@@ -63,8 +63,8 @@ instance Parsable HSE where
   data ParsedModule HSE
     = ParsedModuleHSE { getParsedModuleHSE :: HSE.Module HSE.SrcSpanInfo }
 
-  data ParsedExpression HSE
-    = ParsedExpressionHSE { getParsedExpressionHSE :: HSE.Exp HSE.SrcSpanInfo }
+  data ParsedExp HSE
+    = ParsedExpHSE { getParsedExpHSE :: HSE.Exp HSE.SrcSpanInfo }
 
   parseModule inputFilename input = ParsedModuleHSE
     <$> handleParseResultHSE (HSE.parseModuleWithMode parseMode input)
@@ -73,7 +73,7 @@ instance Parsable HSE where
     parseMode :: HSE.ParseMode
     parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
-  parseExpression input = ParsedExpressionHSE
+  parseExp input = ParsedExpHSE
     <$> handleParseResultHSE (HSE.parseExp input)
 
 -- | Handles a parse result of the HSE front end, i. e. returns the AST node
@@ -97,14 +97,14 @@ instance Parsable GHC where
     { getParsedModuleGHC :: GHC.Located (GHC.HsModule GHC.GhcPs)
     }
 
-  data ParsedExpression GHC = ParsedExpressionGHC
-    { getParsedExpressionGHC :: GHC.Located (GHC.HsExpr GHC.GhcPs)
+  data ParsedExp GHC = ParsedExpGHC
+    { getParsedExpGHC :: GHC.Located (GHC.HsExpr GHC.GhcPs)
     }
 
   parseModule inputFilename input = ParsedModuleGHC
     <$> handleParseResultGHC (GHC.parseFile inputFilename defaultDynFlags input)
 
-  parseExpression input = ParsedExpressionGHC
+  parseExp input = ParsedExpGHC
     <$> handleParseResultGHC (GHC.parseExpression input defaultDynFlags)
 
 -- | Handles a parse result of the GHC front end, i. e. returns the AST node

@@ -6,8 +6,8 @@ import           Test.Hspec                ( shouldBe )
 
 import           HST.Effect.SetExpectation ( SetExpectation, setExpectation )
 import           HST.Effect.WithFrontend
-  ( WithFrontend, prettyPrintExpression, prettyPrintModule
-  , unTransformExpression, unTransformModule )
+  ( WithFrontend, prettyPrintExp, prettyPrintModule
+  , unTransformExp, unTransformModule )
 import qualified HST.Frontend.Syntax       as S
 
 -- | Pretty prints both given modules and tests whether the resulting strings
@@ -23,11 +23,11 @@ prettyModuleShouldBe m1 m2 = do
 
 -- | Pretty prints both given expressions and tests whether the resulting
 --   strings are equal modulo whitespace.
-prettyExpressionShouldBe :: Members '[SetExpectation, WithFrontend f] r
+prettyExpShouldBe :: Members '[SetExpectation, WithFrontend f] r
                          => S.Exp f
                          -> S.Exp f
                          -> Sem r ()
-prettyExpressionShouldBe e1 e2 = do
-  p1 <- unTransformExpression e1 >>= prettyPrintExpression
-  p2 <- unTransformExpression e2 >>= prettyPrintExpression
+prettyExpShouldBe e1 e2 = do
+  p1 <- unTransformExp e1 >>= prettyPrintExp
+  p2 <- unTransformExp e2 >>= prettyPrintExp
   setExpectation (p1 `shouldBe` p2)

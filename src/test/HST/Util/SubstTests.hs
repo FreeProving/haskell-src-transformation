@@ -10,8 +10,8 @@ import           HST.Effect.SetExpectation ( SetExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
 import qualified HST.Frontend.Syntax       as S
 import           HST.Test.Expectation
-  ( prettyExpressionShouldBe )
-import           HST.Test.Parser           ( parseTestExpression )
+  ( prettyExpShouldBe )
+import           HST.Test.Parser           ( parseTestExp )
 import           HST.Test.Runner           ( runTest )
 import           HST.Util.Subst
   ( Subst, applySubst, composeSubst, singleSubst, substFromList )
@@ -44,10 +44,10 @@ shouldSubstituteTo
   -> [String]
   -> Sem r ()
 shouldSubstituteTo subst input expectedOutput = do
-  inputExp <- parseTestExpression input
+  inputExp <- parseTestExp input
   let outputExp = applySubst subst inputExp
-  expectedOutputExp <- parseTestExpression expectedOutput
-  outputExp `prettyExpressionShouldBe` expectedOutputExp
+  expectedOutputExp <- parseTestExp expectedOutput
+  outputExp `prettyExpShouldBe` expectedOutputExp
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
