@@ -34,28 +34,26 @@ class Transformable a where
                     -> Sem r (ParsedModule a)
 
   -- | Transforms a parsed expression to the intermediate syntax.
-  transformExp
-    :: Member Report r => ParsedExp a -> Sem r (S.Exp a)
+  transformExp :: Member Report r => ParsedExp a -> Sem r (S.Exp a)
 
   -- | Transforms an expression from the intermediate syntax back to a pretty
   --   printable expression.
-  unTransformExp
-    :: Member Report r => S.Exp a -> Sem r (ParsedExp a)
+  unTransformExp :: Member Report r => S.Exp a -> Sem r (ParsedExp a)
 
 instance Transformable HSE where
-  transformModule       = FromHSE.transformModule . getParsedModuleHSE
+  transformModule   = FromHSE.transformModule . getParsedModuleHSE
 
-  unTransformModule     = return . ParsedModuleHSE . ToHSE.transformModule
+  unTransformModule = return . ParsedModuleHSE . ToHSE.transformModule
 
-  transformExp   = FromHSE.transformExp . getParsedExpHSE
+  transformExp      = FromHSE.transformExp . getParsedExpHSE
 
-  unTransformExp = return . ParsedExpHSE . ToHSE.transformExp
+  unTransformExp    = return . ParsedExpHSE . ToHSE.transformExp
 
 instance Transformable GHC where
-  transformModule       = FromGHC.transformModule . getParsedModuleGHC
+  transformModule   = FromGHC.transformModule . getParsedModuleGHC
 
-  unTransformModule     = fmap ParsedModuleGHC . ToGHC.transformModule
+  unTransformModule = fmap ParsedModuleGHC . ToGHC.transformModule
 
-  transformExp   = FromGHC.transformExpr . getParsedExpGHC
+  transformExp      = FromGHC.transformExpr . getParsedExpGHC
 
-  unTransformExp = fmap ParsedExpGHC . ToGHC.transformExp
+  unTransformExp    = fmap ParsedExpGHC . ToGHC.transformExp

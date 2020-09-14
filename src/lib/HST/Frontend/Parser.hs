@@ -54,8 +54,7 @@ class Parsable a where
   --
   --   Syntax errors are reported. The computation can be canceled even if
   --   there is no fatal error.
-  parseExp
-    :: Members '[Report, Cancel] r => String -> Sem r (ParsedExp a)
+  parseExp :: Members '[Report, Cancel] r => String -> Sem r (ParsedExp a)
 
 -- | Parses a Haskell module or expression with the parser of
 --   @haskell-src-exts@.
@@ -73,8 +72,7 @@ instance Parsable HSE where
     parseMode :: HSE.ParseMode
     parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
-  parseExp input = ParsedExpHSE
-    <$> handleParseResultHSE (HSE.parseExp input)
+  parseExp input = ParsedExpHSE <$> handleParseResultHSE (HSE.parseExp input)
 
 -- | Handles a parse result of the HSE front end, i. e. returns the AST node
 --   contained in the parse result or reports an error if parsing failed.
@@ -97,9 +95,8 @@ instance Parsable GHC where
     { getParsedModuleGHC :: GHC.Located (GHC.HsModule GHC.GhcPs)
     }
 
-  data ParsedExp GHC = ParsedExpGHC
-    { getParsedExpGHC :: GHC.Located (GHC.HsExpr GHC.GhcPs)
-    }
+  data ParsedExp GHC
+    = ParsedExpGHC { getParsedExpGHC :: GHC.Located (GHC.HsExpr GHC.GhcPs) }
 
   parseModule inputFilename input = ParsedModuleGHC
     <$> handleParseResultGHC (GHC.parseFile inputFilename defaultDynFlags input)

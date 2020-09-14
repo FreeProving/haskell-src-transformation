@@ -7,8 +7,7 @@ import           Polysemy                ( Members, Sem )
 import           HST.Effect.Cancel       ( Cancel )
 import           HST.Effect.Report       ( Report )
 import           HST.Effect.WithFrontend
-  ( WithFrontend, parseExp, parseModule, transformExp
-  , transformModule )
+  ( WithFrontend, parseExp, parseModule, transformExp, transformModule )
 import qualified HST.Frontend.Syntax     as S
 
 -- | Parses a module for testing purposes.

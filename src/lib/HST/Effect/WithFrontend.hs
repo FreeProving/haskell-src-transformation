@@ -88,21 +88,18 @@ runWithFrontendInstances
   => Sem (WithFrontend f ': r) a
   -> Sem r a
 runWithFrontendInstances = interpret \case
-  ParseModule inputFile input          ->
-    HST.Frontend.Parser.parseModule inputFile input
-  TransformModule parsedModule         ->
+  ParseModule inputFile input -> HST.Frontend.Parser.parseModule inputFile input
+  TransformModule parsedModule ->
     HST.Frontend.Transformer.transformModule parsedModule
-  UnTransformModule transformedModule  ->
+  UnTransformModule transformedModule ->
     HST.Frontend.Transformer.unTransformModule transformedModule
-  PrettyPrintModule parsedModule       ->
+  PrettyPrintModule parsedModule ->
     return $ HST.Frontend.PrettyPrinter.prettyPrintModule parsedModule
-  ParseExp input                ->
-    HST.Frontend.Parser.parseExp input
-  TransformExp parsedExp        ->
-    HST.Frontend.Transformer.transformExp parsedExp
+  ParseExp input -> HST.Frontend.Parser.parseExp input
+  TransformExp parsedExp -> HST.Frontend.Transformer.transformExp parsedExp
   UnTransformExp transformedExp ->
     HST.Frontend.Transformer.unTransformExp transformedExp
-  PrettyPrintExp parsedExp      ->
+  PrettyPrintExp parsedExp ->
     return $ HST.Frontend.PrettyPrinter.prettyPrintExp parsedExp
 
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running

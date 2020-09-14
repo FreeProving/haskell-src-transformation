@@ -10,8 +10,8 @@ import qualified Outputable              as GHC
 import           HST.Frontend.GHC.Config ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config ( HSE )
 import           HST.Frontend.Parser
-  ( ParsedExp, ParsedModule, getParsedExpGHC
-  , getParsedExpHSE, getParsedModuleGHC, getParsedModuleHSE )
+  ( ParsedExp, ParsedModule, getParsedExpGHC, getParsedExpHSE
+  , getParsedModuleGHC, getParsedModuleHSE )
 
 -- | Type class for "HST.Frontend.Syntax" configurations whose 'ParsedModule's
 --   and 'ParsedExp's can be pretty-printed.
@@ -29,8 +29,8 @@ instance PrettyPrintable HSE where
   prettyPrintModule
     = HSE.prettyPrintStyleMode styleHSE HSE.defaultMode . getParsedModuleHSE
 
-  prettyPrintExp = HSE.prettyPrintStyleMode styleHSE HSE.defaultMode
-    . getParsedExpHSE
+  prettyPrintExp
+    = HSE.prettyPrintStyleMode styleHSE HSE.defaultMode . getParsedExpHSE
 
 -- | The pretty-printing style used with the @haskell-src-exts@ front end.
 styleHSE :: HSE.Style
@@ -42,6 +42,6 @@ styleHSE = HSE.Style { HSE.mode           = HSE.PageMode
 -- | Pretty prints the given Haskell module or expression with the pretty
 --   printer of @ghc-lib-parser@.
 instance PrettyPrintable GHC where
-  prettyPrintModule     = GHC.showPpr defaultDynFlags . getParsedModuleGHC
+  prettyPrintModule = GHC.showPpr defaultDynFlags . getParsedModuleGHC
 
-  prettyPrintExp = GHC.showPpr defaultDynFlags . getParsedExpGHC
+  prettyPrintExp    = GHC.showPpr defaultDynFlags . getParsedExpGHC

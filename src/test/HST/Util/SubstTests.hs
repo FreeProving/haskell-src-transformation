@@ -9,8 +9,7 @@ import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
 import qualified HST.Frontend.Syntax       as S
-import           HST.Test.Expectation
-  ( prettyExpShouldBe )
+import           HST.Test.Expectation      ( prettyExpShouldBe )
 import           HST.Test.Parser           ( parseTestExp )
 import           HST.Test.Runner           ( runTest )
 import           HST.Util.Subst
@@ -316,9 +315,8 @@ testSubst = describe "HST.Util.Subst" $ do
       --          x_0 -> x_0
       --           where x_0 = y
       --                 y   = x
-      let subst    =
-            substFromList [(S.unQual y, S.var x), (S.unQual z, S.var x)]
+      let subst
+            = substFromList [(S.unQual y, S.var x), (S.unQual z, S.var x)]
           e        = "case x of { x_0 -> x   where { x   = y; y = z } }"
           expected = "case x of { x_0 -> x_0 where { x_0 = y; y = x } }"
-                     
       in shouldSubstituteTo subst e expected
