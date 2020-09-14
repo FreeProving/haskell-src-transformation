@@ -5,11 +5,11 @@
 
 -- | This module defines an effect that allows to get modules and module
 --   interfaces by the module name.
-module HST.Effect.InputModule ( ModuleInterface, InputModule, runInputModule ) where
+module HST.Effect.InputModule ( ModuleInterface(..), InputModule, runInputModule ) where
 
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
-import           Polysemy            ( Member, Members, Sem, reinterpret )
+import           Polysemy            ( Member, Members, Sem, interpret )
 import           Polysemy.Reader     ( Reader, asks, runReader )
 
 import           HST.Environment
@@ -30,14 +30,9 @@ data InputModule a m b where
   GetInputModuleInterface :: S.ModuleName a
     -> InputModule a m (Maybe (ModuleInterface a))
 
-runInputModuleWithMap :: Map (S.ModuleName a) (S.Module a, ModuleInterface a)
+runInputModule :: Map (S.ModuleName a) (S.Module a, ModuleInterface a)
                       -> Sem (InputModule a ': r) b
                       -> Sem r b
-runInputModuleWithMap modules = runReader modules . inputModuleToReader
- where
-  inputModuleToReader :: Sem (InputModule a ': r) b
-                      -> Sem (Reader (Map (S.ModuleName a)
-                                      (S.Module a, ModuleInterface a)) ': r) b
-  inputModuleToReader = reinterpret \case
-    GetInputModule modName          -> asks (fmap fst . lookup modName)
-    GetInputModuleInterface modName -> asks (fmap snd . lookup modName)
+runInputModule modules = interpret \case
+    GetInputModule modName -> return (fmap fst (Map.lookup modName modules))
+    GetInputModuleInterface modName -> return (fmap snd (Map.lookup modName modules))
