@@ -79,9 +79,17 @@ match vars@(x : xs) eqs er
     -- Rule 4: Pattern lists of some equations start with a variable pattern
     -- and others start with a constructor pattern.
     --
-    -- TODO This is probably causing the infinite loops when there are
-    --      unsupported patterns.
-    otherwise = createRekMatch vars er (groupByFirstPatType eqs)
+    -- If all patterns are in the same group (i.e., there is only one group),
+    -- the recursive call to 'match' in 'createRekMatch' would cause an
+    -- infinite loop. An internal error is reported in this case to ensure
+    -- termination.
+    otherwise = let groups = groupByFirstPatType eqs
+                in if length groups == 1
+                     then reportFatal
+                       $ Message Internal
+                       $ "Failed to group equations by pattern type. "
+                       ++ "All patterns are in the same group."
+                     else createRekMatch vars er groups
 match [] _ _               = reportFatal
   $ Message Error
   $ "Equations have different number of arguments."

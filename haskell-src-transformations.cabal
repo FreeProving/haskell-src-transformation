@@ -137,12 +137,14 @@ test-suite haskell-src-transformations-unit-tests
   other-modules:      HST.ApplicationTests
                     , HST.CoreAlgorithmTests
                     , HST.Effect.CancelTests
+                    , HST.Effect.FreshTests
                     , HST.Effect.ReportTests
                     , HST.Effect.SetExpectation
                     , HST.Test.Expectation
                     , HST.Test.Parser
                     , HST.Test.Runner
                     , HST.Util.FreeVarsTests
+                    , HST.Util.SelectorsTests
                     , HST.Util.SubstTests
   build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7

@@ -5,8 +5,38 @@ module HST.ApplicationTests ( testApplication ) where
 
 import           Test.Hspec           ( Spec, context, describe, it )
 
-import           HST.Test.Expectation ( shouldTransformTo )
-import           HST.Test.Runner      ( runTest )
+import           HST.Application           ( processModule )
+import           HST.Effect.Cancel         ( Cancel )
+import           HST.Effect.Env            ( runEnv )
+import           HST.Effect.Fresh          ( runFresh )
+import           HST.Effect.GetOpt         ( GetOpt )
+import           HST.Effect.Report         ( Report )
+import           HST.Effect.SetExpectation ( SetExpectation )
+import           HST.Effect.WithFrontend   ( WithFrontend )
+import qualified HST.Frontend.Syntax       as S
+import           HST.Test.Expectation      ( prettyModuleShouldBe )
+import           HST.Test.Parser           ( parseTestModule )
+import           HST.Test.Runner           ( runTest )
+import           HST.Util.Selectors        ( findIdentifiers )
+
+-------------------------------------------------------------------------------
+-- Expectation Setters                                                       --
+-------------------------------------------------------------------------------
+-- | Parses the given modules, processes the input module with 'processModule'
+--   and sets the expectation that the given output module is produced.
+shouldTransformTo
+  :: ( S.EqAST f
+     , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
+     )
+  => [String]
+  -> [String]
+  -> Sem r ()
+shouldTransformTo input expectedOutput = do
+  inputModule <- parseTestModule input
+  outputModule <- runEnv . runFresh (findIdentifiers inputModule)
+    $ processModule inputModule
+  expectedOutputModule <- parseTestModule expectedOutput
+  outputModule `prettyModuleShouldBe` expectedOutputModule
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
