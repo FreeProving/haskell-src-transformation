@@ -204,14 +204,13 @@ transformBinds (HSE.IPBinds _ _)    = notSupported "Implicit-parameters"
 transformMatch
   :: Member Report r => HSE.Match HSE.SrcSpanInfo -> Sem r (S.Match HSE)
 transformMatch (HSE.Match s name pats rhs mBinds)
-  = S.Match (transformSrcSpan s) <$> transformName name
+  = S.Match (transformSrcSpan s) False <$> transformName name
   <*> mapM transformPat pats
   <*> transformRhs rhs
   <*> mapM transformBinds mBinds
 transformMatch (HSE.InfixMatch s pat name pats rhs mBinds)
-  = S.InfixMatch (transformSrcSpan s) <$> transformPat pat
-  <*> transformName name
-  <*> mapM transformPat pats
+  = S.Match (transformSrcSpan s) True <$> transformName name
+  <*> mapM transformPat (pat : pats)
   <*> transformRhs rhs
   <*> mapM transformBinds mBinds
 

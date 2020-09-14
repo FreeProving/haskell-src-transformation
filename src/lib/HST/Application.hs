@@ -18,7 +18,7 @@ import           HST.Environment
   ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
 import           HST.Environment.Prelude      ( insertPreludeEntries )
 import           HST.Feature.CaseCompletion   ( applyCCModule )
-import           HST.Feature.GuardElimination ( applyGEModule, getMatchName )
+import           HST.Feature.GuardElimination ( applyGEModule )
 import           HST.Feature.Optimization     ( optimize )
 import qualified HST.Frontend.Syntax          as S
 import           HST.Options                  ( optOptimizeCase )
@@ -75,8 +75,7 @@ useAlgoMatches s ms  = useAlgo s ms
 -- | Tests whether the given match of a function declaration contains
 --   a constructor pattern.
 hasCons :: S.Match a -> Bool
-hasCons (S.Match _ _ ps _ _)         = any isConPat ps
-hasCons (S.InfixMatch _ p1 _ ps _ _) = any isConPat (p1 : ps)
+hasCons = any isConPat . S.matchPats
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
@@ -85,23 +84,21 @@ useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
         -> Sem r (S.Match a)
 useAlgo s ms = do
   eqs <- mapM matchToEquation ms
-  let name  = getMatchName (head ms)
-      arity = length (fst (head eqs))
+  let name    = S.matchName (head ms)
+      arity   = length (fst (head eqs))
+      isInfix = all S.matchIsInfix ms
   nVars <- replicateM arity (freshVarPat genericFreshPrefix)
   nExp <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
-  return $ S.Match s name nVars (S.UnGuardedRhs s nExp') Nothing
+  return $ S.Match s isInfix name nVars (S.UnGuardedRhs s nExp') Nothing
  where
   -- | Converts a rule of a function declaration to an equation.
   --
   --   There must be no guards on the right-hand side.
   matchToEquation :: Member Report r => S.Match a -> Sem r (Eqs a)
-  matchToEquation (S.Match _ _ pats rhs _)          = do
+  matchToEquation (S.Match _ _ _ pats rhs _) = do
     expr <- expFromUnguardedRhs rhs
     return (pats, expr)
-  matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
-    expr <- expFromUnguardedRhs rhs
-    return (pat : pats, expr)
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --
@@ -118,7 +115,7 @@ collectDataInfo (S.Module _ _ _ decls) = mapM_ collectDataDecl decls
 --   data type declaration.
 collectDataDecl :: Member (Env a) r => S.Decl a -> Sem r ()
 collectDataDecl (S.DataDecl _ _ dataName conDecls) = do
-  let dataQName  = S.UnQual S.NoSrcSpan dataName
+  let dataQName  = S.unQual dataName
       conEntries = map (makeConEntry dataQName) conDecls
   modifyEnv
     $ insertDataEntry DataEntry { dataEntryName = dataQName
@@ -130,7 +127,7 @@ collectDataDecl _ = return ()
 -- | Creates an environment entry for a constructor declaration.
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
 makeConEntry dataQName conDecl = ConEntry
-  { conEntryName    = S.UnQual S.NoSrcSpan (S.conDeclName conDecl)
+  { conEntryName    = S.unQual (S.conDeclName conDecl)
   , conEntryArity   = S.conDeclArity conDecl
   , conEntryIsInfix = S.conDeclIsInfix conDecl
   , conEntryType    = dataQName

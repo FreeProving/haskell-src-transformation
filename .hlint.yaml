@@ -17,6 +17,31 @@
 # Duplication makes the test code easier to read.
 - ignore: {name: "Reduce duplication", within: ["HST.Effect.ReportTests"]}
 
+# Warn about usage of `NoSrcSpan`.
+- functions:
+  - name: [ NoSrcSpan ]
+    message: |
+      Avoid `NoSrcSpan`. Try to annotate all source spans explicitly or
+      add an exception to the `.hlint.yaml` file for this module.
+    within:
+      # Many artificial nodes are generated in the core algorithm and during
+      # guard elimination. There is not a good source span for all of them.
+    - HST.CoreAlgorithm
+    - HST.Feature.GuardElimination
+      # The `NoSrcSpan` constructor is allowed in its definition.
+    - HST.Frontend.Syntax
+      # Entries for predefined data types and their constructors don't have
+      # source spans.
+    - HST.Environment.Prelude
+      # We could remove the actions of the `Fresh` effect that insert
+      # `NoSrcSpan` such that users of the effect are forced to discard
+      # location information explicitly.
+    - HST.Effect.Fresh
+    # During the back-transformation, missing source spans have to be converted
+    # to the original AST data type.
+    - HST.Frontend.GHC.To
+    - HST.Frontend.HSE.To
+
 # Aliases for qualified imports.
 - modules:
   - {name: [ Data.Map.Strict ], as: Map}
