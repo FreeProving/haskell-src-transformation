@@ -1,5 +1,5 @@
 -- | This module contains methods for eliminating guards in modules.
-module HST.Feature.GuardElimination ( applyGEModule, getMatchName ) where
+module HST.Feature.GuardElimination ( applyGEModule ) where
 
 import           Data.List           ( zipWith4 )
 import           Polysemy            ( Member, Sem )
@@ -19,8 +19,7 @@ data GExp a = GExp { gExpSrcSpan :: S.SrcSpan a
 
 -- | Converts a rule of a function declaration to a 'GExp'.
 matchToGExp :: S.Match a -> GExp a
-matchToGExp (S.Match s _ pats rhs _)          = GExp s pats rhs
-matchToGExp (S.InfixMatch s pat _ pats rhs _) = GExp s (pat : pats) rhs
+matchToGExp (S.Match s _ _ pats rhs _) = GExp s pats rhs
 
 -- | Converts an alternative of a @case@ expression to a 'GExp'.
 altToGExp :: S.Alt a -> GExp a
@@ -63,7 +62,14 @@ makeVarBinding :: S.Name a -> S.Exp a -> S.Decl a
 makeVarBinding name expr
   = let srcSpan = S.getSrcSpan expr
     in S.FunBind srcSpan
-       [S.Match srcSpan name [] (S.UnGuardedRhs srcSpan expr) Nothing]
+       [ S.Match { S.matchSrcSpan = srcSpan
+                 , S.matchIsInfix = False
+                 , S.matchName    = name
+                 , S.matchPats    = []
+                 , S.matchRhs     = S.UnGuardedRhs srcSpan expr
+                 , S.matchBinds   = Nothing
+                 }
+       ]
 
 -------------------------------------------------------------------------------
 -- @case@ Expressions                                                        --
@@ -208,19 +214,20 @@ applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
 -- | Applies guard elimination to the rules of a function declaration.
 applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
 applyGE ms = do
-  let name     = getMatchName (head ms)
+  let name     = S.matchName (head ms)
       lhsSpan  = S.getSrcSpan (head ms)
       gexps    = map matchToGExp ms
       srcSpans = map S.getSrcSpan (gExpPats (head gexps))
   varPats <- mapM (freshVarPatWithSpan genericFreshPrefix) srcSpans
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
-    $ S.Match lhsSpan name varPats (S.UnGuardedRhs S.NoSrcSpan expr') Nothing
-
--- | Gets the name of the function that is defined by the given rule.
-getMatchName :: S.Match a -> S.Name a
-getMatchName (S.Match _ name _ _ _)        = name
-getMatchName (S.InfixMatch _ _ name _ _ _) = name
+    $ S.Match { S.matchSrcSpan = lhsSpan
+              , S.matchIsInfix = False
+              , S.matchName    = name
+              , S.matchPats    = varPats
+              , S.matchRhs     = S.UnGuardedRhs S.NoSrcSpan expr'
+              , S.matchBinds   = Nothing
+              }
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
@@ -228,8 +235,7 @@ getMatchName (S.InfixMatch _ _ name _ _ _) = name
 -- | Tests whether the given rule of a function declaration uses
 --   guards or contains an expression with guards.
 hasGuards :: S.Match a -> Bool
-hasGuards (S.Match _ _ _ rhs _)        = hasGuardsRhs rhs
-hasGuards (S.InfixMatch _ _ _ _ rhs _) = hasGuardsRhs rhs
+hasGuards = hasGuardsRhs . S.matchRhs
 
 -- | Tests whether the given right-hand side of a function rule has a guard
 --   itself or contains an expression that has subexpressions with guarded

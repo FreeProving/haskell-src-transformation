@@ -203,17 +203,16 @@ transformBinds (HSE.IPBinds _ _)    = notSupported "Implicit-parameters"
 -- | Transforms an HSE match into an HST match.
 transformMatch
   :: Member Report r => HSE.Match HSE.SrcSpanInfo -> Sem r (S.Match HSE)
-transformMatch (HSE.Match s name pats rhs mBinds)
-  = S.Match (transformSrcSpan s) <$> transformName name
-  <*> mapM transformPat pats
-  <*> transformRhs rhs
-  <*> mapM transformBinds mBinds
-transformMatch (HSE.InfixMatch s pat name pats rhs mBinds)
-  = S.InfixMatch (transformSrcSpan s) <$> transformPat pat
-  <*> transformName name
-  <*> mapM transformPat pats
-  <*> transformRhs rhs
-  <*> mapM transformBinds mBinds
+transformMatch (HSE.Match s name pats rhs mBinds)          = do
+  S.Match (transformSrcSpan s) False <$> transformName name
+    <*> mapM transformPat pats
+    <*> transformRhs rhs
+    <*> mapM transformBinds mBinds
+transformMatch (HSE.InfixMatch s pat name pats rhs mBinds) = do
+  S.Match (transformSrcSpan s) True <$> transformName name
+    <*> mapM transformPat (pat : pats)
+    <*> transformRhs rhs
+    <*> mapM transformBinds mBinds
 
 -- | Transforms an HSE right hand side into an HST right hand side.
 transformRhs :: Member Report r => HSE.Rhs HSE.SrcSpanInfo -> Sem r (S.Rhs HSE)

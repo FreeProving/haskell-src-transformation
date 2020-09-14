@@ -75,10 +75,14 @@ transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind {})) = do
     = case GHC.mc_strictness ctxt of
       GHC.NoSrcStrict -> do
         name' <- transformRdrNameUnqual (GHC.mc_fun ctxt)
-        case GHC.mc_fixity ctxt of
-          GHC.Prefix -> return $ S.Match s' name' pats' rhs' mBinds'
-          GHC.Infix  -> return
-            $ S.InfixMatch s' (head pats') name' (tail pats') rhs' mBinds'
+        return
+          $ S.Match { S.matchSrcSpan = s'
+                    , S.matchName    = name'
+                    , S.matchIsInfix = GHC.mc_fixity ctxt == GHC.Infix
+                    , S.matchPats    = pats'
+                    , S.matchRhs     = rhs'
+                    , S.matchBinds   = mBinds'
+                    }
       _               ->
         notSupported "Function declarations with strictness annotations"
   funMatchToMatch (AnyMatch _ _ _ _ _)

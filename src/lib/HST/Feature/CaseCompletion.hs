@@ -123,12 +123,9 @@ applyCCMatches insideLet = mapM applyCCMatch
   applyCCMatch :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                => S.Match a
                -> Sem r (S.Match a)
-  applyCCMatch (S.Match s n ps rhs _)        = do
-    e <- expFromUnguardedRhs rhs
-    x <- completeCase insideLet e
-    return $ S.Match s n ps (S.UnGuardedRhs (S.getSrcSpan rhs) x) Nothing
-  applyCCMatch (S.InfixMatch s p n ps rhs _) = do
-    e <- expFromUnguardedRhs rhs
-    x <- completeCase insideLet e
-    return
-      $ S.InfixMatch s p n ps (S.UnGuardedRhs (S.getSrcSpan rhs) x) Nothing
+  applyCCMatch m = do
+    let rhs     = S.matchRhs m
+        srcSpan = S.getSrcSpan rhs
+    expr <- expFromUnguardedRhs rhs
+    expr' <- completeCase insideLet expr
+    return $ m { S.matchRhs = S.UnGuardedRhs srcSpan expr' }

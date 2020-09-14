@@ -79,38 +79,23 @@ transformDecl (S.FunBind funSrcSpan matches) = do
      })
  where
   getMatchesName :: Member Report r => [S.Match GHC] -> Sem r (S.Name GHC)
-  getMatchesName (S.Match _ name _ _ _ : _) = return name
-  getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = return name
-  getMatchesName [] = reportFatal
+  getMatchesName (match : _) = return (S.matchName match)
+  getMatchesName []          = reportFatal
     $ Message Internal
     "Encountered empty match group in function binding during retransformation!"
 
   matchToFunMatch :: Member Report r => S.Match GHC -> Sem r AnyMatch
-  matchToFunMatch (S.Match matchSrcSpan name pats rhs mBinds)          = do
+  matchToFunMatch (S.Match matchSrcSpan isInfix name pats rhs mBinds) = do
     let name' = transformName GHC.varName name
     return
       $ AnyMatch
       { anyMatchSrcSpan  = matchSrcSpan
       , anyMatchContext  = GHC.FunRhs
           { GHC.mc_fun        = name'
-          , GHC.mc_fixity     = GHC.Prefix
+          , GHC.mc_fixity     = if isInfix then GHC.Infix else GHC.Prefix
           , GHC.mc_strictness = GHC.NoSrcStrict
           }
       , anyMatchPatterns = pats
-      , anyMatchRhs      = rhs
-      , anyMatchBinds    = mBinds
-      }
-  matchToFunMatch (S.InfixMatch matchSrcSpan pat name pats rhs mBinds) = do
-    let name' = transformName GHC.varName name
-    return
-      $ AnyMatch
-      { anyMatchSrcSpan  = matchSrcSpan
-      , anyMatchContext  = GHC.FunRhs
-          { GHC.mc_fun        = name'
-          , GHC.mc_fixity     = GHC.Infix
-          , GHC.mc_strictness = GHC.NoSrcStrict
-          }
-      , anyMatchPatterns = pat : pats
       , anyMatchRhs      = rhs
       , anyMatchBinds    = mBinds
       }
