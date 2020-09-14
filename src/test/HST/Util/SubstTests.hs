@@ -10,7 +10,7 @@ import           HST.Effect.SetExpectation ( SetExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
 import qualified HST.Frontend.Syntax       as S
 import           HST.Test.Expectation
-  ( prettyExpressionShouldBe, shouldTransformTo )
+  ( prettyExpressionShouldBe )
 import           HST.Test.Parser           ( parseTestExpression )
 import           HST.Test.Runner           ( runTest )
 import           HST.Util.Subst
@@ -327,39 +327,3 @@ testSubst = describe "HST.Util.Subst" $ do
                      , "         y   = x"
                      ]
       in shouldSubstituteTo subst e expected
-  context "substitution in modules" $ do
-    it "avoids capture of variables shadowed in let expressions"
-      $ runTest
-      $ let m        = ["module A where", "f (x, y) = let x = y in x"]
-            expected = [ "module A where"
-                       , "f a0 = case a0 of"
-                       , "  (a1, a2) -> let x = a2 in x"
-                       ]
-        in m `shouldTransformTo` expected
-    {- TODO The following test should be used instead of the replacement that
-        is not commented out, after the corresponding issue has been fixed.
-    it "avoids capture of variables shadowed in case expressions" $ runTest $
-      let m        = [ "module A where"
-                     , "f (x, y) = case x of"
-                     , "             y -> (x, y)"]
-          expected = [ "module A where"
-                     , "f a0 = case a0 of"
-                     , "  (a1, a2) -> case a1 of"
-                     , "    y -> (a1, y)"]
-      in m `shouldTransformTo` expected -}
-    it "avoids capture of variables shadowed in case expressions"
-      $ runTest
-      $ let m        = [ "module A where"
-                       , "f (x, y) ="
-                       , "  let r = case x of"
-                       , "            y -> (x, y)"
-                       , "  in  r"
-                       ]
-            expected = [ "module A where"
-                       , "f a1 = case a1 of"
-                       , "  (a2, a3) ->"
-                       , "    let r = case a2 of"
-                       , "              a0 -> (a2, a0)"
-                       , "    in  r"
-                       ]
-        in m `shouldTransformTo` expected
