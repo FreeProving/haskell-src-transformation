@@ -9,7 +9,7 @@ import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation, setExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
-import           HST.Frontend.Syntax       as S
+import qualified HST.Frontend.Syntax       as S
 import           HST.Test.Parser           ( parseTestModule )
 import           HST.Test.Runner           ( runTest )
 import           HST.Util.FreeVars         ( freeVars )
@@ -20,7 +20,7 @@ import           HST.Util.FreeVars         ( freeVars )
 -- | Parses the given Haskell module and sets the expectation that the given
 --   variables are free.
 shouldBeFreeIn
-  :: (Members '[Cancel, Report, SetExpectation, WithFrontend f] r, ShowAST f)
+  :: (Members '[Cancel, Report, SetExpectation, WithFrontend f] r, S.ShowAST f)
   => [String] -- ^ The identifiers of the expected free variables.
   -> [String] -- ^ The lines of the input module.
   -> Sem r ()
