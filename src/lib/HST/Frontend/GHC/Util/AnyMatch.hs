@@ -2,7 +2,7 @@
 --   function declarations, lambda abstractions and @case@ alternatives from
 --   and to the @ghc-lib-parser@ AST.
 --
---   In the GHC AST, the nodes for matches is used not just for function
+--   In the GHC AST, the nodes for matches are used not just for function
 --   declarations but also for lambda abstractions and @case@ alternatives.
 --   Additional information such as the name of the matched function is stored
 --   in a 'GHC.HsMatchContext'. The remaining information is the same in every
