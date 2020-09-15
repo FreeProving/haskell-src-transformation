@@ -12,10 +12,8 @@ module HST.Effect.InputModule
 
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
-import           Polysemy            ( Member, Members, Sem, interpret )
-import           Polysemy.Reader     ( Reader, asks, runReader )
+import           Polysemy            ( Sem, interpret )
 
-import           HST.Environment
 import qualified HST.Frontend.Syntax as S
 
 type TypeName a = S.QName a

@@ -30,7 +30,7 @@ import           HST.Effect.WithFrontend
   , transformModule, unTransformModule )
 import qualified HST.Frontend.Syntax     as S
 import           HST.Options
-  ( Frontend(..), optEnableDebug, optFrontend, optInputFiles, optOutputDir
+  ( optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
 import           HST.Util.Selectors      ( findIdentifiers )
 
@@ -92,7 +92,7 @@ application = do
       if showHelp || null inputFiles
         then embed putUsageInfo
         else runWithFrontend frontend $ do
-          mods <- mapM (performTransformation frontend) inputFiles
+          mods <- mapM performTransformation inputFiles
           mapM_ processInputModules (zip mods inputFiles)
 
 -------------------------------------------------------------------------------
@@ -190,10 +190,9 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
     modName
 
 performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r
-                      => Frontend
-                      -> FilePath
+                      => FilePath
                       -> Sem r (S.Module f)
-performTransformation frontend inputFilename = do
+performTransformation inputFilename = do
   input <- embed $ readFile inputFilename
   inputModule <- parseModule inputFilename input
   transformModule inputModule

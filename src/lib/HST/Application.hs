@@ -117,7 +117,7 @@ createModuleMap :: [S.Decl a] -> Map (S.QName a) [S.QName a]
 createModuleMap [] = Map.empty
 createModuleMap ((S.DataDecl _ _ name cons) : ds) = Map.insert (S.toQName name)
   (map (S.toQName . S.conDeclName) cons) (createModuleMap ds)
-createModuleMap (d : ds) = createModuleMap ds
+createModuleMap (_ : ds) = createModuleMap ds
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --
