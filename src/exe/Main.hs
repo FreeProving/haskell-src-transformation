@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
 -- | This module contains the command line interface for the
 --   @haskell-src-transformations@ package.
 module Main ( main ) where
@@ -140,15 +143,15 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
   getModuleName' :: S.ModuleName a -> String
   getModuleName' (S.ModuleName _ name) = name-}
 processInputModules
-  :: Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r
-  => (S.Module a, FilePath)
+  :: forall f r. (Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r, S.EqAST f)
+  => (S.Module f, FilePath)
   -> Sem r ()
 processInputModules (modul, inputFilename) = do
   outputModule <- runEnv . runFresh (findIdentifiers modul) $ do
     intermediateModule' <- processModule modul
-    unTransformModule intermediateModule'
+    unTransformModule @f intermediateModule'
   output <- prettyPrintModule outputModule
-  let moduleName = getModuleName outputModule
+  let moduleName = getModuleName modul
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -188,7 +191,7 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
 performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r
                       => Frontend
                       -> FilePath
-                      -> Sem r (S.Module a)
+                      -> Sem r (S.Module f)
 performTransformation frontend inputFilename = do
   input <- embed $ readFile inputFilename
   inputModule <- parseModule inputFilename input
