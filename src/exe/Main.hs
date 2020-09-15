@@ -196,5 +196,4 @@ performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r
 performTransformation frontend inputFilename = do
   input <- embed $ readFile inputFilename
   inputModule <- parseModule inputFilename input
-  intermediateModule <- transformModule inputModule
-  return intermediateModule
+  transformModule inputModule

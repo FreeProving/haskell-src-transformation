@@ -8,6 +8,7 @@ import           Control.Monad                ( replicateM )
 import           Control.Monad.Extra          ( ifM )
 import           Data.Map.Strict              ( Map )
 import qualified Data.Map.Strict              as Map
+import           Data.Maybe                   ( fromMaybe )
 import           Polysemy                     ( Member, Members, Sem )
 
 import           HST.CoreAlgorithm            ( Eqs, defaultErrorExp, match )
@@ -110,7 +111,7 @@ createModuleInterface :: S.Module a -> ModuleInterface a
 createModuleInterface (S.Module _ _ modName ds) = ModuleInterface name
   (createModuleMap ds)
  where
-  name = maybe (S.ModuleName S.NoSrcSpan "Main") id modName
+  name = fromMaybe (S.ModuleName S.NoSrcSpan "Main") modName
 
 createModuleMap :: [S.Decl a] -> Map (S.QName a) [S.QName a]
 createModuleMap [] = Map.empty
