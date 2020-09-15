@@ -185,6 +185,5 @@ transformSpecialCon (S.ExprHole s)         = HSE.ExprHole (transformSrcSpan s)
 -------------------------------------------------------------------------------
 -- | Unwraps the HST type for source spans into an HSE source span.
 transformSrcSpan :: S.SrcSpan HSE -> HSE.SrcSpanInfo
-transformSrcSpan s = case s of
-  S.SrcSpan srcSpan -> srcSpan
-  S.NoSrcSpan       -> HSE.noSrcSpan
+transformSrcSpan (S.SrcSpan originalSrcSpan _) = originalSrcSpan
+transformSrcSpan S.NoSrcSpan                   = HSE.noSrcSpan

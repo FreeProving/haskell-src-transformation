@@ -22,9 +22,10 @@ import           HST.Effect.Cancel       ( Cancel, cancelToExit )
 import           HST.Effect.Env          ( runEnv )
 import           HST.Effect.Fresh        ( runFresh )
 import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
+import           HST.Effect.InputFile
+  ( InputFile, getInputFile, runInputFile )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Debug, Internal), exceptionToReport
-  , filterReportedMessages, msgSeverity, reportToHandleOrCancel )
+  ( Report, exceptionToReport, filterReportedMessages, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
   ( WithFrontend, parseModule, prettyPrintModule, runWithFrontend
   , transformModule, unTransformModule )
@@ -32,6 +33,8 @@ import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( optEnableDebug, optFrontend, optInputFiles, optOutputDir
   , optShowHelp, optionDescriptors, parseFrontend )
+import           HST.Util.Messages
+  ( Message, Severity(Debug, Internal), message, msgSeverity )
 import           HST.Util.Selectors      ( findIdentifiers )
 
 -------------------------------------------------------------------------------
@@ -64,13 +67,14 @@ main :: IO ()
 main = runFinal
   . embedToFinal
   . cancelToExit
+  . runInputFile
   . reportToHandleOrCancel stderr
   . exceptionToReport exceptionToMessage
   . runWithArgsIO
   $ application
  where
   exceptionToMessage :: SomeException -> Message
-  exceptionToMessage e = Message Internal (displayException e)
+  exceptionToMessage e = message Internal S.NoSrcSpan (displayException e)
 
 -- | The main computation of the command line interface.
 --
@@ -78,7 +82,8 @@ main = runFinal
 --   applied on the parsed input module and a state constructed from the
 --   command line arguments. The output is either printed to the console
 --   or a file.
-application :: Members '[Cancel, Embed IO, GetOpt, Report] r => Sem r ()
+application
+  :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r => Sem r ()
 application = do
   -- Filter reported message based on @--debug@ flag.
   debuggingEnabled <- getOpt optEnableDebug
@@ -106,10 +111,13 @@ application = do
 --   'makeOutputFileName' for the input module to the output directory.
 --   If the output directory does not exist, the output directory and all of
 --   its parent directories are created.
-{- processInputFile
-  :: Members '[Cancel, Embed IO, GetOpt, Report] r => S.Module a -> Sem r ()
+{- processInputFile :: Members '[Cancel, Embed IO, GetOpt, InputFile, Report] r
+                 => FilePath
+                 -> Sem r ()
 processInputFile inputFilename = do
-  (output, moduleName) <- processInput inputFilename input
+  input <- getInputFile inputFilename
+  frontend <- parseFrontend =<< getOpt optFrontend
+  (output, moduleName) <- processInput frontend inputFilename input
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do
@@ -121,7 +129,7 @@ processInputFile inputFilename = do
 -- | Parses a given string to a module using the given front end, then applies
 --   the transformation and at last returns the module name and a pretty
 --   printed version of the transformed module.
-{-processInput :: Members '[Cancel, GetOpt, Report] r
+{- processInput :: Members '[Cancel, GetOpt, InputFile, Report] r
              => Frontend -- ^ The frontend to use to parse and print the file.
              -> FilePath -- ^ The name of the input file.
              -> String   -- ^ The contents of the input file.

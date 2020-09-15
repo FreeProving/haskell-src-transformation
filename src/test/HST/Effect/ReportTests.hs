@@ -1,19 +1,23 @@
 -- | This module contains tests for "HST.Effect.Report".
 module HST.Effect.ReportTests ( testReportEffect ) where
 
-import           Control.Exception ( finally )
-import           Polysemy          ( Member, Sem, run, runM )
-import           Polysemy.Output   ( runOutputList )
-import           System.Directory  ( getTemporaryDirectory, removeFile )
+import           Control.Exception    ( finally )
+import           Polysemy             ( Member, Sem, run, runM )
+import           Polysemy.Output      ( runOutputList )
+import           System.Directory     ( getTemporaryDirectory, removeFile )
 import           System.IO
-import           System.IO.Error   ( catchIOError )
+  ( Handle, SeekMode(AbsoluteSeek), hClose, hGetContents, hSeek, openTempFile )
+import           System.IO.Error      ( catchIOError )
 import           Test.Hspec
   ( Spec, context, describe, it, shouldBe, shouldReturn )
 
-import           HST.Effect.Cancel ( runCancel )
+import           HST.Effect.Cancel    ( runCancel )
+import           HST.Effect.InputFile ( runInputFile )
 import           HST.Effect.Report
-  ( Message(..), Report, Severity(..), filterReportedMessages, report
-  , reportFatal, reportToHandleOrCancel, reportToOutputOrCancel, runReport )
+  ( Report, filterReportedMessages, report, reportFatal, reportToHandleOrCancel
+  , reportToOutputOrCancel, runReport )
+import           HST.Util.Messages
+  ( Message(Message), Severity(Error, Info, Warning), msgSeverity )
 
 -- | Test group for interpreters of the 'HST.Effect.Report.Report' effect.
 testReportEffect :: Spec
@@ -31,19 +35,19 @@ testRunReport = context "runReport" $ do
         comp = return 42
     run (runReport comp) `shouldBe` ([], Just 42)
   it "returns Nothing and a single Message if a fatal error is reported" $ do
-    let msg = Message Error "Some error"
+    let msg = Message Error Nothing "Some error"
         comp :: Member Report r => Sem r Int
         comp = reportFatal msg >> return 42
     run (runReport comp) `shouldBe` ([msg], Nothing)
   it "returns Just a value and a single message if a single message is reported"
     $ do
-      let msg = Message Warning "Some warning"
+      let msg = Message Warning Nothing "Some warning"
           comp :: Member Report r => Sem r Int
           comp = report msg >> return 42
       run (runReport comp) `shouldBe` ([msg], Just 42)
   it "reports messages in the correct order" $ do
-    let msg1 = Message Info "Some info"
-        msg2 = Message Warning "Some warning"
+    let msg1 = Message Info Nothing "Some info"
+        msg2 = Message Warning Nothing "Some warning"
         comp :: Member Report r => Sem r Int
         comp = report msg1 >> report msg2 >> return 42
     run (runReport comp) `shouldBe` ([msg1, msg2], Just 42)
@@ -56,19 +60,19 @@ testReportToOutputOrCancel = context "reportToOutputOrCancel" $ do
         comp = return 42
     outputRun comp `shouldBe` ([], Just 42)
   it "returns Nothing and a single message if a fatal error is reported" $ do
-    let msg = Message Error "Some error"
+    let msg = Message Error Nothing "Some error"
         comp :: Member Report r => Sem r Int
         comp = reportFatal msg >> return 42
     outputRun comp `shouldBe` ([msg], Nothing)
   it "returns Just a value and a single message if a single message is reported"
     $ do
-      let msg = Message Warning "Some warning"
+      let msg = Message Warning Nothing "Some warning"
           comp :: Member Report r => Sem r Int
           comp = report msg >> return 42
       outputRun comp `shouldBe` ([msg], Just 42)
   it "reports messages in the correct order" $ do
-    let msg1 = Message Info "Some info"
-        msg2 = Message Warning "Some warning"
+    let msg1 = Message Info Nothing "Some info"
+        msg2 = Message Warning Nothing "Some warning"
         comp :: Member Report r => Sem r Int
         comp = report msg1 >> report msg2 >> return 42
     outputRun comp `shouldBe` ([msg1, msg2], Just 42)
@@ -83,7 +87,8 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
     $ \h -> do
       let comp :: Member Report r => Sem r Int
           comp = return 42
-      (runM . runCancel . reportToHandleOrCancel h) comp `shouldReturn` Just 42
+      (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
+        `shouldReturn` Just 42
       hSeek h AbsoluteSeek 0
       c <- hGetContents h
       null c `shouldBe` True
@@ -91,10 +96,10 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
       ++ "if a fatal message was reported")
     $ do
       processCompHandle "tempFile" $ \h -> do
-        let msg = Message Error "Some Error"
+        let msg = Message Error Nothing "Some Error"
             comp :: Member Report r => Sem r Int
             comp = reportFatal msg >> return 42
-        val <- (runM . runCancel . reportToHandleOrCancel h) comp
+        val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Nothing
@@ -103,10 +108,10 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
       ++ "if a single message was reported")
     $ do
       processCompHandle "tempFile" $ \h -> do
-        let msg = Message Warning "Some Warning"
+        let msg = Message Warning Nothing "Some Warning"
             comp :: Member Report r => Sem r Int
             comp = report msg >> return 42
-        val <- (runM . runCancel . reportToHandleOrCancel h) comp
+        val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
         hSeek h AbsoluteSeek 0
         c <- hGetContents h
         val `shouldBe` Just 42
@@ -114,11 +119,11 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
   it "should write reported messages to the handle in the right order"
     $ processCompHandle "tempFile"
     $ \h -> do
-      let msg1 = Message Info "Some Info"
-      let msg2 = Message Warning "Some Warning"
+      let msg1 = Message Info Nothing "Some Info"
+      let msg2 = Message Warning Nothing "Some Warning"
           comp :: Member Report r => Sem r Int
           comp = report msg1 >> report msg2 >> return 42
-      val <- (runM . runCancel . reportToHandleOrCancel h) comp
+      val <- (runM . runCancel . runInputFile . reportToHandleOrCancel h) comp
       hSeek h AbsoluteSeek 0
       c <- hGetContents h
       val `shouldBe` Just 42
@@ -128,7 +133,7 @@ testReportToHandleOrCancel = context "reportToHandleOrCancel" $ do
 testFilterReportedMessages :: Spec
 testFilterReportedMessages = context "filterReportedMessages" $ do
   it "should report nothing if predicate is always false" $ do
-    let msg1 = Message Info "Some info"
+    let msg1 = Message Info Nothing "Some info"
         comp :: Member Report r => Sem r Int
         comp = report msg1 >> return 42
     runFilter (const False) comp `shouldBe` ([], Just 42)
@@ -137,7 +142,7 @@ testFilterReportedMessages = context "filterReportedMessages" $ do
         comp = return 42
     runFilter (const True) comp `shouldBe` ([], Just 42)
   it "should report all messages for tautologic predicate" $ do
-    let msg = Message Warning "Some warning"
+    let msg = Message Warning Nothing "Some warning"
         comp, comp2 :: Member Report r => Sem r Int
         comp = report msg >> return 42
         comp2 = reportFatal msg >> return 42
@@ -145,21 +150,21 @@ testFilterReportedMessages = context "filterReportedMessages" $ do
     runFilter (const True) comp2 `shouldBe` ([msg], Nothing)
   it "should report all messages if all reported messages satisfy the predicate"
     $ do
-      let msg1 = Message Warning "Some warning"
-          msg2 = Message Warning "Another warning"
+      let msg1 = Message Warning Nothing "Some warning"
+          msg2 = Message Warning Nothing "Another warning"
           comp :: Member Report r => Sem r Int
           comp = report msg1 >> report msg2 >> return 42
       runFilter isWarn comp `shouldBe` ([msg1, msg2], Just 42)
   it "should report no messages if no reported message satisfies the predicate"
     $ do
-      let msg1 = Message Info "Some info"
-          msg2 = Message Error "Some error"
+      let msg1 = Message Info Nothing "Some info"
+          msg2 = Message Error Nothing "Some error"
           comp :: Member Report r => Sem r Int
           comp = report msg1 >> report msg2 >> return 42
       runFilter isWarn comp `shouldBe` ([], Just 42)
   it "should report all messages that satisfy the predicate" $ do
-    let msg1 = Message Info "Some info"
-        msg2 = Message Warning "Some warning"
+    let msg1 = Message Info Nothing "Some info"
+        msg2 = Message Warning Nothing "Some warning"
         comp :: Member Report r => Sem r Int
         comp = report msg1 >> report msg2 >> return 42
     runFilter isWarn comp `shouldBe` ([msg2], Just 42)
