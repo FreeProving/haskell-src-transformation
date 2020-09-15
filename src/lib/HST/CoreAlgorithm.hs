@@ -87,7 +87,7 @@ match vars@(x : xs) eqs er
     otherwise = let groups = groupByFirstPatType eqs
                 in if length groups == 1
                      then reportFatal
-                       $ Message Internal
+                       $ message Internal S.NoSrcSpan
                        $ "Failed to group equations by pattern type. "
                        ++ "All patterns are in the same group."
                      else createRekMatch vars er groups
