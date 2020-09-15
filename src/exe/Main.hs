@@ -197,10 +197,10 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
     modName
 
-performTransformation :: Members '[Cancel, Embed IO, Report, WithFrontend f] r
+performTransformation :: Members '[Cancel, Embed IO, InputFile, Report, WithFrontend f] r
                       => FilePath
                       -> Sem r (S.Module f)
 performTransformation inputFilename = do
-  input <- embed $ readFile inputFilename
+  input <- getInputFile inputFilename
   inputModule <- parseModule inputFilename input
   transformModule inputModule
