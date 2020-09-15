@@ -8,9 +8,9 @@ import           Polysemy                ( Member, Members, Sem )
 import           HST.Effect.Fresh        ( Fresh )
 import           HST.Effect.PatternStack
   ( PatternStack, peekPattern, popPattern, pushPattern, runPatternStack )
-import           HST.Effect.Report        ( Report, reportFatal )
-import qualified HST.Frontend.Syntax      as S
-import           HST.Util.Messages        ( Severity(Error), message )
+import           HST.Effect.Report       ( Report, reportFatal )
+import qualified HST.Frontend.Syntax     as S
+import           HST.Util.Messages       ( Severity(Error), message )
 import           HST.Util.Selectors
   ( expFromUnguardedRhs, getAltConName, getPatConName, getPatVarName )
 import           HST.Util.Subst          ( applySubst, substFromList )

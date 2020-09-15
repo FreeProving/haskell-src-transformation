@@ -81,16 +81,16 @@ getPatVarName (S.PWildCard srcSpan)
 -- Look into parentheses recursively.
 getPatVarName (S.PParen _ pat)      = getPatVarName pat
 -- All other patterns are not variable patterns.
-getPatVarName (S.PApp _ _ _) = reportFatal
+getPatVarName (S.PApp _ _ _)        = reportFatal
   $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got constructor pattern."
 getPatVarName (S.PInfixApp _ _ _ _) = reportFatal
   $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got infix constructor pattern."
-getPatVarName (S.PTuple _ _ _) = reportFatal
+getPatVarName (S.PTuple _ _ _)      = reportFatal
   $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got tuple pattern."
-getPatVarName (S.PList _ _) = reportFatal
+getPatVarName (S.PList _ _)         = reportFatal
   $ message Error S.NoSrcSpan
   $ "Expected variable or wildcard pattern, got list pattern."
 
