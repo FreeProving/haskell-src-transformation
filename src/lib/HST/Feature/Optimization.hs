@@ -2,10 +2,10 @@
 --   unnecessary nested case expressions.
 module HST.Feature.Optimization ( optimize ) where
 
-import           Control.Monad.Extra      ( findM )
-import           Polysemy                 ( Member, Members, Sem )
+import           Control.Monad.Extra     ( findM )
+import           Polysemy                ( Member, Members, Sem )
 
-import           HST.Effect.Fresh         ( Fresh )
+import           HST.Effect.Fresh        ( Fresh )
 import           HST.Effect.PatternStack
   ( PatternStack, peekPattern, popPattern, pushPattern, runPatternStack )
 import           HST.Effect.Report        ( Report, reportFatal )
@@ -14,6 +14,7 @@ import qualified HST.Frontend.Syntax      as S
 import           HST.Util.Messages        ( Severity(Error), message )
 import           HST.Util.Selectors
   ( expFromUnguardedRhs, getAltConName, getPatConName, getPatVarName )
+import           HST.Util.Subst          ( applySubst, substFromList )
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
@@ -137,15 +138,12 @@ renameAll :: Members '[Fresh, Report] r
           => [(S.Pat a, S.Pat a)]
           -> S.Exp a
           -> Sem r (S.Exp a)
-
--- TODO refactor higher order foldr
--- TODO generate one Subst and apply only once
-renameAll [] e               = return e
-renameAll ((from, to) : r) e = do
-  f <- getPatVarName from
-  t <- getPatVarName to
-  res <- renameAll r e
-  return $ rename (subst f t) res
+renameAll ps e = do
+  fromNames <- mapM (fmap S.unQual . getPatVarName . fst) ps
+  let toExprs = map (S.patToExp . snd) ps
+      ps'     = zip fromNames toExprs
+      subst   = substFromList ps'
+  return $ applySubst subst e
 
 -- | Applies 'optimizeAlt' to the given @case@ expression alternatives and
 --   constructs a @case@ expression from the optimized alternatives.
