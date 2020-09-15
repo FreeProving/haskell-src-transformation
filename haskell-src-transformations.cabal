@@ -88,6 +88,7 @@ library
                     , HST.Effect.Env
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
+                    , HST.Effect.InputFile
                     , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Effect.WithFrontend
@@ -110,6 +111,7 @@ library
                     , HST.Frontend.Transformer.Messages
                     , HST.Options
                     , HST.Util.FreeVars
+                    , HST.Util.Messages
                     , HST.Util.Predicates
                     , HST.Util.PrettyName
                     , HST.Util.Selectors

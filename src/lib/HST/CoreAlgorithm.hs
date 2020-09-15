@@ -18,8 +18,7 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error, Internal), failToReport
-  , reportFatal )
+  ( Report, failToReport, reportFatal )
 import           HST.Environment
   ( ConEntry, DataEntry, conEntryArity, conEntryIsInfix, conEntryName
   , conEntryType, dataEntryCons )
@@ -27,6 +26,8 @@ import           HST.Environment.LookupOrReport
   ( lookupConEntryOrReport, lookupDataEntryOrReport )
 import qualified HST.Frontend.Syntax            as S
 import           HST.Options                    ( optTrivialCase )
+import           HST.Util.Messages
+  ( Severity(Error, Internal), message )
 import           HST.Util.Predicates            ( isConPat, isVarPat )
 import           HST.Util.Selectors
   ( getAltConName, getMaybePatConName, getPatVarName )
@@ -86,12 +87,12 @@ match vars@(x : xs) eqs er
     otherwise = let groups = groupByFirstPatType eqs
                 in if length groups == 1
                      then reportFatal
-                       $ Message Internal
+                       $ message Internal S.NoSrcSpan
                        $ "Failed to group equations by pattern type. "
                        ++ "All patterns are in the same group."
                      else createRekMatch vars er groups
 match [] _ _               = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Equations have different number of arguments."
 
 -- | Substitutes all occurrences of the variable bound by the first pattern
@@ -105,7 +106,7 @@ substVars varPat' (p : ps, e) = do
       subst   = singleSubst (S.unQual varName) varExp'
   return (ps, applySubst subst e)
 substVars _ ([], _)           = reportFatal
-  $ Message Internal
+  $ message Internal S.NoSrcSpan
   $ "Expected equation with at least one pattern."
 
 -- | Applies 'match' to every group of equations where the error expression
@@ -166,7 +167,7 @@ computeAlts x xs eqs er = do
 identifyMissingCons
   :: Members '[Env a, Report] r => [S.Alt a] -> Sem r [ConEntry a]
 identifyMissingCons []   = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Could not identify missing constructors: "
   ++ "Empty case expressions are not supported."
 identifyMissingCons alts = do
@@ -308,8 +309,9 @@ computeAlt pat pats er prps@(p : _) = do
   f (v : vs, r) = do
     (_, _, oldpats) <- decomposeConPat v
     return (oldpats ++ vs, r)
-computeAlt _ _ _ []
-  = reportFatal $ Message Internal $ "Expected at least one pattern in group."
+computeAlt _ _ _ [] = reportFatal
+  $ message Internal S.NoSrcSpan
+  $ "Expected at least one pattern in group."
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
 --      oldpats
