@@ -92,8 +92,8 @@ oneLineSrcSpan = S.MsgSrcSpan exampleFilePath 1 8 1 21
 multiLineSrcSpan1 :: S.MsgSrcSpan
 multiLineSrcSpan1 = S.MsgSrcSpan exampleFilePath 5 1 6 11
 
--- | A 'S.SrcSpan' spanning multiple lines and whose end column is smaller than
---   the start column.
+-- | A 'S.SrcSpan' spanning multiple lines whose end column is smaller than the
+--   start column.
 multiLineSrcSpan2 :: S.MsgSrcSpan
 multiLineSrcSpan2 = S.MsgSrcSpan exampleFilePath 5 10 6 6
 
@@ -121,6 +121,6 @@ exampleContent = unlines
   , "add x q = q ++ [x]"
   ]
 
--- | The map to use for the handler of `HST.Effect.InputFile`.
+-- | The map to use for the handler of 'HST.Effect.InputFile'.
 exampleMap :: Map FilePath String
 exampleMap = Map.singleton exampleFilePath exampleContent
