@@ -321,7 +321,7 @@ decomposeConPat (S.PList s ps)
     let (n : nv) = ps
         nspan    = S.getSrcSpan n
         listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
-    decomposeConPat (S.PInfixApp nspan n listCon (S.PList S.NoSrcSpan nv))
+    decomposeConPat (S.PInfixApp s n listCon (S.PList s nv))
 decomposeConPat (S.PTuple s bxd ps)         = do
   nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
   return (S.PTuple s bxd nvars, nvars, ps)
