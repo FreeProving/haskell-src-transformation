@@ -143,7 +143,8 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
   getModuleName' :: S.ModuleName a -> String
   getModuleName' (S.ModuleName _ name) = name-}
 processInputModules
-  :: forall f r. (Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r, S.EqAST f)
+  :: forall f r.
+  (Members '[Cancel, Embed IO, GetOpt, Report, WithFrontend f] r, S.EqAST f)
   => (S.Module f, FilePath)
   -> Sem r ()
 processInputModules (modul, inputFilename) = do

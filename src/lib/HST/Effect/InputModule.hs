@@ -5,7 +5,11 @@
 
 -- | This module defines an effect that allows to get modules and module
 --   interfaces by the module name.
-module HST.Effect.InputModule ( ModuleInterface(..), InputModule, runInputModule ) where
+module HST.Effect.InputModule
+  ( ModuleInterface(..)
+  , InputModule
+  , runInputModule
+  ) where
 
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
@@ -31,8 +35,10 @@ data InputModule a m b where
     -> InputModule a m (Maybe (ModuleInterface a))
 
 runInputModule :: Map (S.ModuleName a) (S.Module a, ModuleInterface a)
-                      -> Sem (InputModule a ': r) b
-                      -> Sem r b
+               -> Sem (InputModule a ': r) b
+               -> Sem r b
 runInputModule modules = interpret \case
-    GetInputModule modName -> return (fmap fst (Map.lookup modName modules))
-    GetInputModuleInterface modName -> return (fmap snd (Map.lookup modName modules))
+  GetInputModule modName          -> return
+    (fmap fst (Map.lookup modName modules))
+  GetInputModuleInterface modName -> return
+    (fmap snd (Map.lookup modName modules))

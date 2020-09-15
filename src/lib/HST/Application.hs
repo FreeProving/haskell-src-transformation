@@ -7,7 +7,7 @@ module HST.Application ( processModule ) where
 import           Control.Monad                ( replicateM )
 import           Control.Monad.Extra          ( ifM )
 import           Data.Map.Strict              ( Map )
-import qualified Data.Map.Strict as Map
+import qualified Data.Map.Strict              as Map
 import           Polysemy                     ( Member, Members, Sem )
 
 import           HST.CoreAlgorithm            ( Eqs, defaultErrorExp, match )
@@ -15,7 +15,8 @@ import           HST.Effect.Env               ( Env, modifyEnv )
 import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
-import           HST.Effect.InputModule       ( ModuleInterface(ModuleInterface) )
+import           HST.Effect.InputModule
+  ( ModuleInterface(ModuleInterface) )
 import           HST.Effect.Report            ( Report )
 import           HST.Environment
   ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
