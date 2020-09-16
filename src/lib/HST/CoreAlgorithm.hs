@@ -17,11 +17,11 @@ import           HST.Effect.Env                 ( Env )
 import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
+import           HST.Effect.InputModule         ( ConEntry(..) )
 import           HST.Effect.Report
   ( Report, failToReport, reportFatal )
 import           HST.Environment
-  ( ConEntry, DataEntry, conEntryArity, conEntryIsInfix, conEntryName
-  , conEntryType, dataEntryCons )
+  ( DataEntry, dataEntryCons )
 import           HST.Environment.LookupOrReport
   ( lookupConEntryOrReport, lookupDataEntryOrReport )
 import qualified HST.Frontend.Syntax            as S

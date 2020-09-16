@@ -2,8 +2,7 @@
 --   compiler's state.
 module HST.Environment
   ( -- * Environment Entries
-    ConEntry(..)
-  , DataEntry(..)
+    DataEntry(..)
     -- * Environment
   , Environment
   , emptyEnv
@@ -18,31 +17,7 @@ module HST.Environment
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
 
-import qualified HST.Frontend.Syntax as S
-
--------------------------------------------------------------------------------
--- Aliases for Names in the Environment                                      --
--------------------------------------------------------------------------------
--- | The name of a data type.
-type TypeName a = S.QName a
-
--- | The name of a data constructor.
-type ConName a = S.QName a
-
--------------------------------------------------------------------------------
--- Environment Entries                                                       --
--------------------------------------------------------------------------------
--- | An entry of the 'Environment' for a data constructor that is in scope.
-data ConEntry a = ConEntry
-  { conEntryName    :: ConName a
-    -- ^ The name of the constructor.
-  , conEntryArity   :: Int
-    -- ^ The number of fields of the constructor.
-  , conEntryIsInfix :: Bool
-    -- ^ Whether the constructor should be written in infix notation or not.
-  , conEntryType    :: TypeName a
-    -- ^ The name of the data type that the constructor belongs to.
-  }
+import           HST.Effect.InputModule ( ConEntry(conEntryName), ConName, TypeName )
 
 -- | An entry of the 'Environment' for a data type whose constructors are in
 --   scope.

@@ -9,9 +9,10 @@ module HST.Environment.LookupOrReport
 import           Polysemy            ( Members, Sem )
 
 import           HST.Effect.Env      ( Env, inEnv )
+import           HST.Effect.InputModule ( ConEntry )
 import           HST.Effect.Report   ( Report, reportFatal )
 import           HST.Environment
-  ( ConEntry, DataEntry, lookupConEntry, lookupDataEntry )
+  ( DataEntry, lookupConEntry, lookupDataEntry )
 import qualified HST.Frontend.Syntax as S
 import           HST.Util.Messages   ( Severity(Error), message )
 import           HST.Util.PrettyName ( prettyName )

@@ -5,8 +5,9 @@ module HST.Environment.Prelude ( insertPreludeEntries ) where
 import           Polysemy            ( Member, Sem )
 
 import           HST.Effect.Env      ( Env, modifyEnv )
+import           HST.Effect.InputModule ( ConEntry(..) )
 import           HST.Environment
-  ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
+  ( DataEntry(..), insertConEntry, insertDataEntry )
 import qualified HST.Frontend.Syntax as S
 
 -- | Inserts entries for built-in data types and data constructors into the
