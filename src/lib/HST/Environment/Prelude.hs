@@ -2,13 +2,13 @@
 --   data constructors.
 module HST.Environment.Prelude ( insertPreludeEntries ) where
 
-import           Polysemy            ( Member, Sem )
+import           Polysemy               ( Member, Sem )
 
-import           HST.Effect.Env      ( Env, modifyEnv )
+import           HST.Effect.Env         ( Env, modifyEnv )
 import           HST.Effect.InputModule ( ConEntry(..) )
 import           HST.Environment
   ( DataEntry(..), insertConEntry, insertDataEntry )
-import qualified HST.Frontend.Syntax as S
+import qualified HST.Frontend.Syntax    as S
 
 -- | Inserts entries for built-in data types and data constructors into the
 --   environment.

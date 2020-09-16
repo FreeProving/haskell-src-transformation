@@ -17,14 +17,16 @@ import           System.FilePath
   ( (<.>), (</>), joinPath, takeBaseName, takeDirectory )
 import           System.IO               ( stderr )
 
-import           HST.Application         ( processModule, createModuleInterface )
+import           HST.Application
+  ( createModuleInterface, processModule )
 import           HST.Effect.Cancel       ( Cancel, cancelToExit )
 import           HST.Effect.Env          ( runEnv )
 import           HST.Effect.Fresh        ( runFresh )
 import           HST.Effect.GetOpt       ( GetOpt, getOpt, runWithArgsIO )
 import           HST.Effect.InputFile
   ( InputFile, getInputFile, runInputFile )
-import           HST.Effect.InputModule  ( InputModule, ModuleInterface, getInputModule, runInputModule)
+import           HST.Effect.InputModule
+  ( InputModule, ModuleInterface, getInputModule, runInputModule )
 import           HST.Effect.Report
   ( Report, exceptionToReport, filterReportedMessages, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
@@ -99,8 +101,8 @@ application = do
         then embed putUsageInfo
         else runWithFrontend frontend $ do
           mods <- mapM performTransformation inputFiles
-          runInputModule (zip inputFiles mods) $
-            mapM_ processInputModule inputFiles
+          runInputModule (zip inputFiles mods)
+            $ mapM_ processInputModule inputFiles
 
 -------------------------------------------------------------------------------
 -- Pattern Matching Compilation                                              --
@@ -152,7 +154,6 @@ processInput frontend inputFilename input = runWithFrontend frontend $ do
   -- | Unwraps the given 'S.ModuleName'.
   getModuleName' :: S.ModuleName a -> String
   getModuleName' (S.ModuleName _ name) = name-}
-
 -- | Reads, parses and transforms the module at the given file path and returns
 --   the module transformed to the HST syntax and the created module interface.
 performTransformation
@@ -175,8 +176,9 @@ performTransformation inputFilename = do
 --   its parent directories are created.
 processInputModule
   :: forall f r.
-  (Members '[Cancel, Embed IO, GetOpt, InputModule f, Report, WithFrontend f] r
-  , S.EqAST f)
+  ( Members '[Cancel, Embed IO, GetOpt, InputModule f, Report, WithFrontend f] r
+  , S.EqAST f
+  )
   => FilePath
   -> Sem r ()
 processInputModule inputFilename = do

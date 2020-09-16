@@ -24,7 +24,7 @@ module HST.Effect.InputModule
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
 import           Data.Maybe          ( mapMaybe )
-import           Polysemy            ( Member, Sem, makeSem, interpret )
+import           Polysemy            ( Member, Sem, interpret, makeSem )
 
 import           HST.Effect.Report   ( Report, reportFatal )
 import qualified HST.Frontend.Syntax as S
@@ -73,8 +73,8 @@ data ConEntry a = ConEntry
 data InputModule a m b where
   GetInputModule :: FilePath -> InputModule a m (S.Module a)
   GetInputModuleInterface :: FilePath -> InputModule a m (ModuleInterface a)
-  GetInputModuleInterfaceByName
-    :: S.ModuleName a -> InputModule a m (Maybe (ModuleInterface a))
+  GetInputModuleInterfaceByName :: S.ModuleName a
+    -> InputModule a m (Maybe (ModuleInterface a))
 
 makeSem ''InputModule
 
@@ -92,18 +92,20 @@ runInputModule :: Member Report r
                => [(FilePath, (S.Module a, ModuleInterface a))]
                -> Sem (InputModule a ': r) b
                -> Sem r b
-runInputModule moduleList =
-  let moduleMap = Map.fromList moduleList
-      moduleNameMap =
-        Map.fromList (mapMaybe createModuleNameMapEntry moduleList)
-  in interpret \case
-     GetInputModule filePath -> fmap fst (getInputEntry filePath moduleMap)
-     GetInputModuleInterface filePath ->
-       fmap snd (getInputEntry filePath moduleMap)
-     GetInputModuleInterfaceByName modName ->
-       case Map.lookup modName moduleNameMap of
-         Just filePath -> Just <$> fmap snd (getInputEntry filePath moduleMap)
-         Nothing -> return Nothing
+runInputModule moduleList
+  = let moduleMap     = Map.fromList moduleList
+        moduleNameMap = Map.fromList
+          (mapMaybe createModuleNameMapEntry moduleList)
+    in interpret \case
+         GetInputModule filePath               -> fmap fst
+           (getInputEntry filePath moduleMap)
+         GetInputModuleInterface filePath      -> fmap snd
+           (getInputEntry filePath moduleMap)
+         GetInputModuleInterfaceByName modName ->
+           case Map.lookup modName moduleNameMap of
+             Just filePath -> Just
+               <$> fmap snd (getInputEntry filePath moduleMap)
+             Nothing       -> return Nothing
  where
   -- | Looks up the given file path in the given module map and returns the
   --   corresponding entry or reports an error, if no entry is available.
@@ -111,15 +113,16 @@ runInputModule moduleList =
                 => FilePath
                 -> Map FilePath (S.Module a, ModuleInterface a)
                 -> Sem r (S.Module a, ModuleInterface a)
-  getInputEntry filePath moduleMap =
-    case Map.lookup filePath moduleMap of
-      Just (modul, interface) -> return (modul, interface)
-      Nothing -> reportFatal $ message Error S.NoSrcSpan
-                   $ "No input module was found for " ++ filePath ++ "!"
+  getInputEntry filePath moduleMap = case Map.lookup filePath moduleMap of
+    Just (modul, interface) -> return (modul, interface)
+    Nothing                 -> reportFatal
+      $ message Error S.NoSrcSpan
+      $ "No input module was found for " ++ filePath ++ "!"
+
   -- | Creates an entry of a map which maps module names to file paths by
   --   converting a regular module map entry.
   createModuleNameMapEntry :: (FilePath, (S.Module a, ModuleInterface a))
                            -> Maybe (S.ModuleName a, FilePath)
   createModuleNameMapEntry (filePath, (S.Module _ _ (Just modName) _ _, _))
-   = Just (modName, filePath)
+    = Just (modName, filePath)
   createModuleNameMapEntry _ = Nothing

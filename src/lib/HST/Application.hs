@@ -120,10 +120,10 @@ createModuleInterface (S.Module _ _ modName _ decls) = ModuleInterface modName
 --
 --   Returns @Nothing@ if the given declaration is not a data type declaration.
 createModuleInterfaceEntry :: S.Decl a -> Maybe (TypeName a, [ConEntry a])
-createModuleInterfaceEntry (S.DataDecl _ _ dataName conDecls) =
-  let dataQName  = S.UnQual S.NoSrcSpan dataName
-      conEntries = map (makeConEntry dataQName) conDecls
-  in  Just (dataQName, conEntries)
+createModuleInterfaceEntry (S.DataDecl _ _ dataName conDecls)
+  = let dataQName  = S.UnQual S.NoSrcSpan dataName
+        conEntries = map (makeConEntry dataQName) conDecls
+    in Just (dataQName, conEntries)
 createModuleInterfaceEntry _ = Nothing
 
 -------------------------------------------------------------------------------

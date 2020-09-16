@@ -14,10 +14,11 @@ module HST.Environment
   , insertDataEntry
   ) where
 
-import           Data.Map.Strict     ( Map )
-import qualified Data.Map.Strict     as Map
+import           Data.Map.Strict        ( Map )
+import qualified Data.Map.Strict        as Map
 
-import           HST.Effect.InputModule ( ConEntry(conEntryName), ConName, TypeName )
+import           HST.Effect.InputModule
+  ( ConEntry(conEntryName), ConName, TypeName )
 
 -- | An entry of the 'Environment' for a data type whose constructors are in
 --   scope.

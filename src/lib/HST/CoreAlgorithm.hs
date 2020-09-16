@@ -20,8 +20,7 @@ import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.InputModule         ( ConEntry(..) )
 import           HST.Effect.Report
   ( Report, failToReport, reportFatal )
-import           HST.Environment
-  ( DataEntry, dataEntryCons )
+import           HST.Environment                ( DataEntry, dataEntryCons )
 import           HST.Environment.LookupOrReport
   ( lookupConEntryOrReport, lookupDataEntryOrReport )
 import qualified HST.Frontend.Syntax            as S
