@@ -69,16 +69,19 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
          ]
   it "should display a shortened excerpt correctly"
     $ let str = run . runInputFileNoIO exampleMap
-              $ displayCodeExcerpt
-              $ Just longSrcSpan
-      in str `shouldBe` unlines [ exampleFilePath ++ ":3:1-9:19:"
-                                , "    vvvvvvvvvvvvvvvvvvvvvvvvvv"
-                                , "3 | type Queue a = [a]"
-                                , "4 | "
-                                , ":"
-                                , "8 | isEmpty :: Queue a -> Bool"
-                                , "9 | isEmpty q = null q"
-                                , "    ^^^^^^^^^^^^^^^^^^"]
+            $ displayCodeExcerpt
+            $ Just longSrcSpan
+      in str
+         `shouldBe` unlines
+         [ exampleFilePath ++ ":3:1-9:19:"
+         , "    vvvvvvvvvvvvvvvvvvvvvvvvvv"
+         , "3 | type Queue a = [a]"
+         , "4 | "
+         , ":"
+         , "8 | isEmpty :: Queue a -> Bool"
+         , "9 | isEmpty q = null q"
+         , "    ^^^^^^^^^^^^^^^^^^"
+         ]
 
 -- | A 'S.SrcSpan' whose end column is smaller than its start column.
 invalidSrcSpan :: S.MsgSrcSpan
