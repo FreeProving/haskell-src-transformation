@@ -60,11 +60,11 @@ class ( Show (SrcSpanType a)
 -------------------------------------------------------------------------------
 -- | A representation of a Haskell module.
 --
---   The pattern matching compiler only needs to know the declarations and the
---   name of the module. All other information is stored in the
---   'OriginalModuleHead'.
+--   The pattern matching compiler only needs to know the declarations, the
+--   name and the import declarations of the module. All other information is
+--   stored in the 'OriginalModuleHead'.
 data Module a
-  = Module (SrcSpan a) (OriginalModuleHead a) (Maybe (ModuleName a)) [Decl a]
+  = Module (SrcSpan a) (OriginalModuleHead a) (Maybe (ModuleName a)) [ImportDecl a] [Decl a]
 
 deriving instance EqAST a => Eq (Module a)
 
@@ -72,7 +72,7 @@ deriving instance ShowAST a => Show (Module a)
 
 -- | Gets the source span information of a module.
 instance HasSrcSpan Module where
-  getSrcSpan (Module srcSpan _ _ _) = srcSpan
+  getSrcSpan (Module srcSpan _ _ _ _) = srcSpan
 
 -------------------------------------------------------------------------------
 -- Declarations                                                              --
@@ -111,6 +111,24 @@ instance HasSrcSpan Decl where
   getSrcSpan (DataDecl srcSpan _ _ _) = srcSpan
   getSrcSpan (FunBind srcSpan _)      = srcSpan
   getSrcSpan (OtherDecl srcSpan _)    = srcSpan
+
+-- | An import declaration supporting regular imports, qualified imports and
+--   alias names.
+--
+--   Import declarations should not be converted back. The original import
+--   declarations should be part of the 'OriginalModuleHead' of the 'Module'.
+data ImportDecl a = ImportDecl { importSrcSpan :: SrcSpan a
+                               , importModule  :: ModuleName a
+                               , importIsQual  :: Bool
+                               , importAsName  :: Maybe (ModuleName a)
+                               }
+ deriving Eq
+
+deriving instance ShowAST a => Show (ImportDecl a)
+
+-- | Gets the source span information of an import declaration.
+instance HasSrcSpan ImportDecl where
+  getSrcSpan = importSrcSpan
 
 -------------------------------------------------------------------------------
 -- Data Type Declarations                                                    --
