@@ -25,7 +25,7 @@ import qualified HST.Frontend.Syntax     as S
 --   The module head is restored from the original module head. The module
 --   name field does not affect the name of the resulting module.
 transformModule :: S.Module HSE -> HSE.Module HSE.SrcSpanInfo
-transformModule (S.Module s origModuleHead _ decls) = HSE.Module
+transformModule (S.Module s origModuleHead _ _ decls) = HSE.Module
   (transformSrcSpan s) (originalModuleHead origModuleHead)
   (originalModulePragmas origModuleHead) (originalModuleImports origModuleHead)
   (map transformDecl decls)
