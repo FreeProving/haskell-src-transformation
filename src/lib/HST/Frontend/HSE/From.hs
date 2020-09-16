@@ -159,19 +159,31 @@ transformDecl decl@(HSE.ForExp s _ _ _ _) = return
 --
 --   Unsupported import declarations are skipped and the user is informed
 --   about them as missing imports could lead to further errors.
-transformImportDecl :: Member Report r => HSE.ImportDecl HSE.SrcSpanInfo -> Sem r (Maybe (S.ImportDecl HSE))
-transformImportDecl HSE.ImportDecl {HSE.importSrc = True, HSE.importAnn = s} = skipNotSupported "{-# SOURCE #-} imports" (transformSrcSpan s) >> return Nothing
-transformImportDecl HSE.ImportDecl {HSE.importSafe = True, HSE.importAnn = s} = skipNotSupported "Safe imports" (transformSrcSpan s) >> return Nothing
-transformImportDecl HSE.ImportDecl {HSE.importPkg = Just _, HSE.importAnn = s} = skipNotSupported "Package imports" (transformSrcSpan s) >> return Nothing
-transformImportDecl HSE.ImportDecl {HSE.importSpecs = Just _, HSE.importAnn = s} = skipNotSupported "Import specifications" (transformSrcSpan s) >> return Nothing
+transformImportDecl :: Member Report r
+                    => HSE.ImportDecl HSE.SrcSpanInfo
+                    -> Sem r (Maybe (S.ImportDecl HSE))
+transformImportDecl HSE.ImportDecl { HSE.importSrc = True, HSE.importAnn = s }
+  = skipNotSupported "{-# SOURCE #-} imports" (transformSrcSpan s)
+  >> return Nothing
+transformImportDecl HSE.ImportDecl { HSE.importSafe = True, HSE.importAnn = s }
+  = skipNotSupported "Safe imports" (transformSrcSpan s) >> return Nothing
+transformImportDecl
+  HSE.ImportDecl { HSE.importPkg = Just _, HSE.importAnn = s }
+  = skipNotSupported "Package imports" (transformSrcSpan s) >> return Nothing
+transformImportDecl
+  HSE.ImportDecl { HSE.importSpecs = Just _, HSE.importAnn = s }
+  = skipNotSupported "Import specifications" (transformSrcSpan s)
+  >> return Nothing
 transformImportDecl importDecl = do
   importModule <- transformModuleName (HSE.importModule importDecl)
   aliasName <- traverse transformModuleName (HSE.importAs importDecl)
-  return $ Just S.ImportDecl { S.importSrcSpan = transformSrcSpan (HSE.importAnn importDecl)
-                             , S.importModule  = importModule
-                             , S.importIsQual  = HSE.importQualified importDecl
-                             , S.importAsName  = aliasName
-                             }
+  return
+    $ Just S.ImportDecl
+    { S.importSrcSpan = transformSrcSpan (HSE.importAnn importDecl)
+    , S.importModule  = importModule
+    , S.importIsQual  = HSE.importQualified importDecl
+    , S.importAsName  = aliasName
+    }
 
 -------------------------------------------------------------------------------
 -- Data Type Declarations                                                    --

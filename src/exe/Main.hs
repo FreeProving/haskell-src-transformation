@@ -31,8 +31,8 @@ import           HST.Effect.WithFrontend
   , transformModule, unTransformModule )
 import qualified HST.Frontend.Syntax     as S
 import           HST.Options
-  ( optEnableDebug, optFrontend, optInputFiles, optOutputDir
-  , optShowHelp, optionDescriptors, parseFrontend )
+  ( optEnableDebug, optFrontend, optInputFiles, optOutputDir, optShowHelp
+  , optionDescriptors, parseFrontend )
 import           HST.Util.Messages
   ( Message, Severity(Debug, Internal), message, msgSeverity )
 import           HST.Util.Selectors      ( findIdentifiers )
@@ -197,9 +197,10 @@ makeOutputFileName inputFile modName = outputFileName <.> "hs"
   outputFileName = maybe (takeBaseName inputFile) (joinPath . splitOn ".")
     modName
 
-performTransformation :: Members '[Cancel, Embed IO, InputFile, Report, WithFrontend f] r
-                      => FilePath
-                      -> Sem r (S.Module f)
+performTransformation
+  :: Members '[Cancel, Embed IO, InputFile, Report, WithFrontend f] r
+  => FilePath
+  -> Sem r (S.Module f)
 performTransformation inputFilename = do
   input <- getInputFile inputFilename
   inputModule <- parseModule inputFilename input

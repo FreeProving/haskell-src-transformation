@@ -63,8 +63,11 @@ class ( Show (SrcSpanType a)
 --   The pattern matching compiler only needs to know the declarations, the
 --   name and the import declarations of the module. All other information is
 --   stored in the 'OriginalModuleHead'.
-data Module a
-  = Module (SrcSpan a) (OriginalModuleHead a) (Maybe (ModuleName a)) [ImportDecl a] [Decl a]
+data Module a = Module (SrcSpan a)
+                       (OriginalModuleHead a)
+                       (Maybe (ModuleName a))
+                       [ImportDecl a]
+                       [Decl a]
 
 deriving instance EqAST a => Eq (Module a)
 
@@ -117,11 +120,12 @@ instance HasSrcSpan Decl where
 --
 --   Import declarations should not be converted back. The original import
 --   declarations should be part of the 'OriginalModuleHead' of the 'Module'.
-data ImportDecl a = ImportDecl { importSrcSpan :: SrcSpan a
-                               , importModule  :: ModuleName a
-                               , importIsQual  :: Bool
-                               , importAsName  :: Maybe (ModuleName a)
-                               }
+data ImportDecl a = ImportDecl
+  { importSrcSpan :: SrcSpan a
+  , importModule  :: ModuleName a
+  , importIsQual  :: Bool
+  , importAsName  :: Maybe (ModuleName a)
+  }
  deriving Eq
 
 deriving instance ShowAST a => Show (ImportDecl a)
