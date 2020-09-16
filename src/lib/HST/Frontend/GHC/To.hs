@@ -44,7 +44,7 @@ import           HST.Util.Messages       ( Severity(Internal), message )
 transformModule :: Member Report r
                 => S.Module GHC
                 -> Sem r (GHC.Located (GHC.HsModule GHC.GhcPs))
-transformModule (S.Module s omh _ decls) = do
+transformModule (S.Module s omh _ _ decls) = do
   decls' <- mapM transformDecl decls
   return
     $ GHC.L (transformSrcSpan s) GHC.HsModule

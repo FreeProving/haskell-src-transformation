@@ -44,7 +44,8 @@ transformModule (GHC.L s modul)
        (OriginalModuleHead (GHC.hsmodName modul) (GHC.hsmodExports modul)
         (GHC.hsmodImports modul) (GHC.hsmodDeprecMessage modul)
         (GHC.hsmodHaddockModHeader modul)) modName'
-       <$> mapM transformDecl (GHC.hsmodDecls modul)
+       <$> fmap catMaybes (mapM transformImportDecl (GHC.hsmodImports modul))
+       <*> mapM transformDecl (GHC.hsmodDecls modul)
 
 -------------------------------------------------------------------------------
 -- Declarations                                                              --
@@ -136,6 +137,24 @@ transformDecl decl@(GHC.L s (GHC.DocD _ _)) = return
 transformDecl decl@(GHC.L s (GHC.RoleAnnotD _ _)) = return
   $ S.OtherDecl (transformSrcSpan s) (Decl decl)
 transformDecl (GHC.L _ (GHC.XHsDecl x)) = GHC.noExtCon x
+
+-- | Transforms a GHC located import declaration into an HST import
+--   declaration.
+--
+--   Unsupported import declarations are skipped and the user is informed
+--   about them as missing imports could lead to further errors.
+transformImportDecl :: Member Report r => GHC.LImportDecl GHC.GhcPs -> Sem r (Maybe (S.ImportDecl GHC))
+transformImportDecl (GHC.L s GHC.ImportDecl {GHC.ideclSource = True}) = skipNotSupported "{-# SOURCE #-} imports" (transformSrcSpan s) >> return Nothing
+transformImportDecl (GHC.L s GHC.ImportDecl {GHC.ideclSafe = True}) = skipNotSupported "Safe imports" (transformSrcSpan s) >> return Nothing
+transformImportDecl (GHC.L s GHC.ImportDecl {GHC.ideclImplicit = True}) = skipNotSupported "Implicit imports" (transformSrcSpan s) >> return Nothing
+transformImportDecl (GHC.L s GHC.ImportDecl {GHC.ideclPkgQual = Just _}) = skipNotSupported "Package imports" (transformSrcSpan s) >> return Nothing
+transformImportDecl (GHC.L s GHC.ImportDecl {GHC.ideclHiding = Just _}) = skipNotSupported "Import specifications" (transformSrcSpan s) >> return Nothing
+transformImportDecl (GHC.L s importDecl) =
+  return $ Just S.ImportDecl { S.importSrcSpan = transformSrcSpan s
+                             , S.importModule  = transformModuleName (GHC.ideclName importDecl)
+                             , S.importIsQual  = GHC.ideclQualified importDecl /= GHC.NotQualified
+                             , S.importAsName  = fmap transformModuleName (GHC.ideclAs importDecl)
+                             }
 
 -------------------------------------------------------------------------------
 -- Data Type Declarations                                                    --
