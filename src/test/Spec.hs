@@ -11,7 +11,7 @@ import           HST.Util.FreeVarsTests  ( testFreeVars )
 import           HST.Util.MessagesTests ( testMessages )
 import           HST.Util.SelectorsTests ( testSelectors )
 import           HST.Util.SubstTests     ( testSubst )
->>>>>>> main
+
 
 main :: IO ()
 main = hspec $ do
@@ -20,7 +20,7 @@ main = hspec $ do
   testCoreAlgorithm
   testFreshEffect
   testFreeVars
-  testMessage
+  testMessages
   testReportEffect
   testSelectors
   testSubst
