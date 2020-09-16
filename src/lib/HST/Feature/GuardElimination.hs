@@ -166,9 +166,9 @@ applyGEAlts alts
 
 -- | Applies guard elimination to function declarations in the given module.
 applyGEModule :: Member Fresh r => S.Module a -> Sem r (S.Module a)
-applyGEModule (S.Module s origModuleHead moduleName decls) = do
+applyGEModule (S.Module s origModuleHead moduleName imports decls) = do
   decls' <- mapM applyGEDecl decls
-  return $ S.Module s origModuleHead moduleName decls'
+  return $ S.Module s origModuleHead moduleName imports decls'
 
 -- | Applies guard elimination to a declaration.
 --

@@ -98,9 +98,9 @@ completeLambda ps e insideLet = do
 applyCCModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
               => S.Module a
               -> Sem r (S.Module a)
-applyCCModule (S.Module s origModuleHead moduleName decls) = do
+applyCCModule (S.Module s origModuleHead moduleName imports decls) = do
   decls' <- mapM (applyCCDecl False) decls
-  return $ S.Module s origModuleHead moduleName decls'
+  return $ S.Module s origModuleHead moduleName imports decls'
 
 applyCCDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
             => Bool

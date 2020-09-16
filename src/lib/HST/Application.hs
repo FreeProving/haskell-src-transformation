@@ -52,9 +52,9 @@ processModule m = do
 useAlgoModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
               => S.Module a
               -> Sem r (S.Module a)
-useAlgoModule (S.Module s origModuleHead moduleName decls) = do
+useAlgoModule (S.Module s origModuleHead moduleName imports decls) = do
   decls' <- mapM useAlgoDecl decls
-  return $ S.Module s origModuleHead moduleName decls'
+  return $ S.Module s origModuleHead moduleName imports decls'
 
 -- | Applies the core algorithm on the given declaration.
 useAlgoDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
@@ -108,7 +108,7 @@ useAlgo ms = do
     return (pat : pats, expr)
 
 createModuleInterface :: S.Module a -> ModuleInterface a
-createModuleInterface (S.Module _ _ modName ds) = ModuleInterface name
+createModuleInterface (S.Module _ _ modName _ ds) = ModuleInterface name
   (createModuleMap ds)
  where
   name = fromMaybe (S.ModuleName S.NoSrcSpan "Main") modName
@@ -125,7 +125,7 @@ createModuleMap (_ : ds) = createModuleMap ds
 -- | Initializes the environment with the data types declared in the given
 --   module.
 collectDataInfo :: Member (Env a) r => S.Module a -> Sem r ()
-collectDataInfo (S.Module _ _ _ decls) = mapM_ collectDataDecl decls
+collectDataInfo (S.Module _ _ _ _ decls) = mapM_ collectDataDecl decls
 
 -- | Inserts entries for the data type and constructors declared by the given
 --   declaration into the environment.

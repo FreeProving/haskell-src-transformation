@@ -111,7 +111,7 @@ instance HasIdentifiers a => HasIdentifiers (Maybe a) where
 
 -- | Collects all identifiers in a module in a set.
 instance HasIdentifiers (S.Module a) where
-  findIdentifiers (S.Module _ _ _ decls) = findIdentifiers decls
+  findIdentifiers (S.Module _ _ _ _ decls) = findIdentifiers decls
 
 -- | Collects all identifiers in a declaration.
 instance HasIdentifiers (S.Decl a) where

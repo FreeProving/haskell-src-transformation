@@ -171,7 +171,7 @@ processInputModules (modul, inputFilename) = do
     Nothing        -> embed $ putStrLn output
  where
   getModuleName :: S.Module a -> Maybe String
-  getModuleName (S.Module _ _ moduleName _) = fmap getModuleName' moduleName
+  getModuleName (S.Module _ _ moduleName _ _) = fmap getModuleName' moduleName
 
   -- | Unwraps the given 'S.ModuleName'.
   getModuleName' :: S.ModuleName a -> String

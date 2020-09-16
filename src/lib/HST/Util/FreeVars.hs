@@ -137,7 +137,7 @@ instance FreeVars S.GuardedRhs where
 -- | The free variables of a module are the names of functions that are used
 --   by the module but not defined in the module itself.
 instance FreeVars S.Module where
-  freeVarOSet (S.Module _ _ _ decls) = withoutBoundVarsUnion decls
+  freeVarOSet (S.Module _ _ _ _ decls) = withoutBoundVarsUnion decls
     (freeVarOSetUnion decls)
 
 -------------------------------------------------------------------------------
