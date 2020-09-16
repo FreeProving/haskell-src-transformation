@@ -1,14 +1,13 @@
 -- | This module applies the main pattern-matching compilation algorithm and
 --   the different features to a Haskell module.
-module HST.Application ( processModule ) where
+module HST.Application ( processModule, createModuleInterface ) where
 
 -- TODO too many variables generated
 -- TODO only tuples supported
 import           Control.Monad                ( replicateM )
 import           Control.Monad.Extra          ( ifM )
-import           Data.Map.Strict              ( Map )
 import qualified Data.Map.Strict              as Map
-import           Data.Maybe                   ( fromMaybe )
+import           Data.Maybe                   ( mapMaybe )
 import           Polysemy                     ( Member, Members, Sem )
 
 import           HST.CoreAlgorithm            ( Eqs, defaultErrorExp, match )
@@ -17,10 +16,10 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.InputModule
-  ( ModuleInterface(ModuleInterface) )
+  ( ConEntry(..), ModuleInterface(ModuleInterface), TypeName )
 import           HST.Effect.Report            ( Report )
 import           HST.Environment
-  ( ConEntry(..), DataEntry(..), insertConEntry, insertDataEntry )
+  ( DataEntry(..), insertConEntry, insertDataEntry )
 import           HST.Environment.Prelude      ( insertPreludeEntries )
 import           HST.Feature.CaseCompletion   ( applyCCModule )
 import           HST.Feature.GuardElimination ( applyGEModule, getMatchName )
@@ -107,17 +106,25 @@ useAlgo ms = do
     expr <- expFromUnguardedRhs rhs
     return (pat : pats, expr)
 
+-------------------------------------------------------------------------------
+-- Module Interface Initialization                                           --
+-------------------------------------------------------------------------------
+-- | Creates a module interface with the data types declared in the given
+--   module.
 createModuleInterface :: S.Module a -> ModuleInterface a
-createModuleInterface (S.Module _ _ modName _ ds) = ModuleInterface name
-  (createModuleMap ds)
- where
-  name = fromMaybe (S.ModuleName S.NoSrcSpan "Main") modName
+createModuleInterface (S.Module _ _ modName _ decls) = ModuleInterface modName
+  (Map.fromList (mapMaybe createModuleInterfaceEntry decls))
 
-createModuleMap :: [S.Decl a] -> Map (S.QName a) [S.QName a]
-createModuleMap [] = Map.empty
-createModuleMap ((S.DataDecl _ _ name cons) : ds) = Map.insert (S.toQName name)
-  (map (S.toQName . S.conDeclName) cons) (createModuleMap ds)
-createModuleMap (_ : ds) = createModuleMap ds
+-- | Creates a module interface entry for the data type and constructors
+--   declared by the given declaration.
+--
+--   Returns @Nothing@ if the given declaration is not a data type declaration.
+createModuleInterfaceEntry :: S.Decl a -> Maybe (TypeName a, [ConEntry a])
+createModuleInterfaceEntry (S.DataDecl _ _ dataName conDecls) =
+  let dataQName  = S.UnQual S.NoSrcSpan dataName
+      conEntries = map (makeConEntry dataQName) conDecls
+  in  Just (dataQName, conEntries)
+createModuleInterfaceEntry _ = Nothing
 
 -------------------------------------------------------------------------------
 -- Environment Initialization                                                --
