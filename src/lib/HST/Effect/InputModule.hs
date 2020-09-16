@@ -49,7 +49,9 @@ data ModuleInterface a = ModuleInterface
     -- ^ The name of the module or @Nothing@, if the module does not have a
     --   name.
   , interfaceDataCons :: Map (TypeName a) [ConEntry a]
-    -- ^ A map that maps data types to their constructors.
+    -- ^ A map that maps data type names to their constructors.
+  , interfaceDataNames :: Map (ConName a) (TypeName a)
+    -- ^ A map that maps constructor names to the names of their data types.
   }
 
 -- | An entry of the 'ModuleInterface' for a data constructor.

@@ -16,7 +16,7 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.InputModule
-  ( ConEntry(..), ModuleInterface(ModuleInterface), TypeName )
+  ( ConEntry(..), ConName, ModuleInterface(ModuleInterface), TypeName )
 import           HST.Effect.Report            ( Report )
 import           HST.Environment
   ( DataEntry(..), insertConEntry, insertDataEntry )
@@ -112,8 +112,21 @@ useAlgo ms = do
 -- | Creates a module interface with the data types declared in the given
 --   module.
 createModuleInterface :: S.Module a -> ModuleInterface a
-createModuleInterface (S.Module _ _ modName _ decls) = ModuleInterface modName
-  (Map.fromList (mapMaybe createModuleInterfaceEntry decls))
+createModuleInterface (S.Module _ _ modName _ decls) =
+  let interfaceEntries = mapMaybe createModuleInterfaceEntry decls
+      revertedEntries = concatMap revertEntry interfaceEntries
+  in ModuleInterface modName
+                     (Map.fromList interfaceEntries)
+                     (Map.fromList revertedEntries)
+ where
+  -- | Converts a map entry mapping a data type name to constructor entries to
+  --   a list of map entries mapping the names of the given constructors to the
+  --   given type name.
+  revertEntry :: (TypeName a, [ConEntry a]) -> [(ConName a, TypeName a)]
+  revertEntry (typeName, conEntry : conEntries) =
+    (conEntryName conEntry, typeName)
+      : revertEntry (typeName, conEntry : conEntries)
+  revertEntry (_, []) = []
 
 -- | Creates a module interface entry for the data type and constructors
 --   declared by the given declaration.
