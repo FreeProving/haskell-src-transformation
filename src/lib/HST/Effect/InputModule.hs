@@ -23,7 +23,7 @@ module HST.Effect.InputModule
 
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
-import           Data.Maybe          ( catMaybes )
+import           Data.Maybe          ( mapMaybe )
 import           Polysemy            ( Member, Sem, makeSem, interpret )
 
 import           HST.Effect.Report   ( Report, reportFatal )
@@ -95,7 +95,7 @@ runInputModule :: Member Report r
 runInputModule moduleList =
   let moduleMap = Map.fromList moduleList
       moduleNameMap =
-        (Map.fromList . catMaybes . map createModuleNameMapEntry) moduleList
+        Map.fromList (mapMaybe createModuleNameMapEntry moduleList)
   in interpret \case
      GetInputModule filePath -> fmap fst (getInputEntry filePath moduleMap)
      GetInputModuleInterface filePath ->
