@@ -32,6 +32,7 @@ import           HST.Options
   , optShowHelp, optionDescriptors, parseFrontend )
 import           HST.Util.Messages
   ( Message, Severity(Debug, Internal), message, msgSeverity )
+import           HST.Util.Selectors      ( findIdentifiers )
 
 -------------------------------------------------------------------------------
 -- Usage Information                                                         --
@@ -131,7 +132,7 @@ processInput :: Members '[Cancel, GetOpt, InputFile, Report] r
 processInput frontend inputFilename input = runWithFrontend frontend $ do
   inputModule <- parseModule inputFilename input
   intermediateModule <- transformModule inputModule
-  outputModule <- runEnv . runFresh $ do
+  outputModule <- runEnv . runFresh (findIdentifiers intermediateModule) $ do
     intermediateModule' <- processModule intermediateModule
     unTransformModule intermediateModule'
   output <- prettyPrintModule outputModule

@@ -3,49 +3,22 @@
 -- | This module contains basic tests for "HST.Application".
 module HST.ApplicationTests ( testApplication ) where
 
-import           Polysemy                  ( Members, Sem, runM )
-import           Polysemy.Embed            ( Embed )
-import           Test.Hspec
-  ( Spec, context, describe, it, shouldBe )
+import           Polysemy                  ( Members, Sem )
+import           Test.Hspec                ( Spec, context, describe, it )
 
 import           HST.Application           ( processModule )
 import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Env            ( runEnv )
 import           HST.Effect.Fresh          ( runFresh )
-import           HST.Effect.GetOpt         ( GetOpt, runWithArgs )
-import           HST.Effect.Report         ( Report, cancelToReport )
-import           HST.Effect.SetExpectation
-  ( SetExpectation, reportToSetExpectation, setExpectation, setExpectationToIO )
-import           HST.Effect.WithFrontend
-  ( WithFrontend, parseModule, prettyPrintModule, runWithAllFrontends
-  , transformModule, unTransformModule )
-import           HST.Frontend.Parser       ( ParsedModule )
+import           HST.Effect.GetOpt         ( GetOpt )
+import           HST.Effect.Report         ( Report )
+import           HST.Effect.SetExpectation ( SetExpectation )
+import           HST.Effect.WithFrontend   ( WithFrontend )
 import qualified HST.Frontend.Syntax       as S
-import           HST.Util.Messages         ( Severity(Info), message )
-
--------------------------------------------------------------------------------
--- Utility Functions                                                         --
--------------------------------------------------------------------------------
--- | Parses a module for testing purposes.
-parseTestModule :: Members '[Cancel, Report, WithFrontend f] r
-                => [String]
-                -> Sem r (ParsedModule f)
-parseTestModule = parseModule "<test-input>" . unlines
-
--- | Runs the given computation with an empty environment and no additional
---   command line arguments.
-runTest
-  :: (forall f.
-      S.EqAST f
-      => Sem '[WithFrontend f, GetOpt, Cancel, Report, SetExpectation, Embed IO]
-      ())
-  -> IO ()
-runTest comp = runM
-  $ setExpectationToIO
-  $ reportToSetExpectation
-  $ cancelToReport (message Info S.NoSrcSpan "The computation was canceled.")
-  $ runWithArgs []
-  $ runWithAllFrontends comp
+import           HST.Test.Expectation      ( prettyModuleShouldBe )
+import           HST.Test.Parser           ( parseTestModule )
+import           HST.Test.Runner           ( runTest )
+import           HST.Util.Selectors        ( findIdentifiers )
 
 -------------------------------------------------------------------------------
 -- Expectation Setters                                                       --
@@ -61,22 +34,10 @@ shouldTransformTo
   -> Sem r ()
 shouldTransformTo input expectedOutput = do
   inputModule <- parseTestModule input
-  inputModule' <- transformModule inputModule
-  outputModule <- runEnv . runFresh $ processModule inputModule'
-  outputModule' <- unTransformModule outputModule
+  outputModule <- runEnv . runFresh (findIdentifiers inputModule)
+    $ processModule inputModule
   expectedOutputModule <- parseTestModule expectedOutput
-  outputModule' `prettyModuleShouldBe` expectedOutputModule
-
--- | Pretty prints both given modules and tests whether the resulting strings
---   are equal modulo whitespace.
-prettyModuleShouldBe :: Members '[SetExpectation, WithFrontend f] r
-                     => ParsedModule f
-                     -> ParsedModule f
-                     -> Sem r ()
-prettyModuleShouldBe m1 m2 = do
-  p1 <- prettyPrintModule m1
-  p2 <- prettyPrintModule m2
-  setExpectation (p1 `shouldBe` p2)
+  outputModule `prettyModuleShouldBe` expectedOutputModule
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
@@ -86,7 +47,7 @@ testApplication :: Spec
 testApplication = describe "HST.Application" $ do
   testProcessModule
 
--- | Test cases for 'processModule'.
+-- | Test cases for 'HST.Application.processModule'.
 testProcessModule :: Spec
 testProcessModule = context "processModule" $ do
   it "should leave functions without pattern matching unchanged"
@@ -145,3 +106,39 @@ testProcessModule = context "processModule" $ do
     , "      a4 = undefined"
     , "  in  a3"
     ]
+  context "substitution in modules" $ do
+    it "avoids capture of variables shadowed in let expressions"
+      $ runTest
+      $ let m        = ["module A where", "f (x, y) = let x = y in x"]
+            expected = [ "module A where"
+                       , "f a0 = case a0 of"
+                       , "  (a1, a2) -> let x = a2 in x"
+                       ]
+        in m `shouldTransformTo` expected
+    {- TODO The following test should be used instead of the replacement that
+        is not commented out, after the corresponding issue has been fixed.
+    it "avoids capture of variables shadowed in case expressions" $ runTest $
+      let m        = [ "module A where"
+                     , "f (x, y) = case x of"
+                     , "             y -> (x, y)"]
+          expected = [ "module A where"
+                     , "f a0 = case a0 of"
+                     , "  (a1, a2) -> case a1 of"
+                     , "    y -> (a1, y)"]
+      in m `shouldTransformTo` expected -}
+    it "avoids capture of variables shadowed in case expressions"
+      $ runTest
+      $ let m        = [ "module A where"
+                       , "f (x, y) ="
+                       , "  let r = case x of"
+                       , "            y -> (x, y)"
+                       , "  in  r"
+                       ]
+            expected = [ "module A where"
+                       , "f a1 = case a1 of"
+                       , "  (a2, a3) ->"
+                       , "    let r = case a2 of"
+                       , "              a0 -> (a2, a0)"
+                       , "    in  r"
+                       ]
+        in m `shouldTransformTo` expected
