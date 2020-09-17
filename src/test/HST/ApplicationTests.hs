@@ -6,11 +6,12 @@ module HST.ApplicationTests ( testApplication ) where
 import           Polysemy                  ( Members, Sem )
 import           Test.Hspec                ( Spec, context, describe, it )
 
-import           HST.Application           ( processModule )
+import           HST.Application           ( createModuleInterface, initializeEnvironment, processModule )
 import           HST.Effect.Cancel         ( Cancel )
-import           HST.Effect.Env            ( runEnv )
+import           HST.Effect.Env            ( runWithEnv )
 import           HST.Effect.Fresh          ( runFresh )
 import           HST.Effect.GetOpt         ( GetOpt )
+import           HST.Effect.InputModule    ( runInputModule )
 import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
@@ -23,8 +24,9 @@ import           HST.Util.Selectors        ( findIdentifiers )
 -------------------------------------------------------------------------------
 -- Expectation Setters                                                       --
 -------------------------------------------------------------------------------
--- | Parses the given modules, processes the input module with 'processModule'
---   and sets the expectation that the given output module is produced.
+-- | Parses the given modules, initializes the environment for the the input
+--   module, processes it with 'processModule' and sets the expectation that
+--   the given output module is produced.
 shouldTransformTo
   :: ( S.EqAST f
      , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
@@ -32,9 +34,12 @@ shouldTransformTo
   => [String]
   -> [String]
   -> Sem r ()
-shouldTransformTo input expectedOutput = do
+shouldTransformTo input expectedOutput = let testFileName = "<test-input>" in do
   inputModule <- parseTestModule input
-  outputModule <- runEnv . runFresh (findIdentifiers inputModule)
+  env <- runInputModule
+    [(testFileName, (inputModule, createModuleInterface inputModule))]
+    $ initializeEnvironment testFileName
+  outputModule <- runWithEnv env . runFresh (findIdentifiers inputModule)
     $ processModule inputModule
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule `prettyModuleShouldBe` expectedOutputModule
@@ -47,7 +52,7 @@ testApplication :: Spec
 testApplication = describe "HST.Application" $ do
   testProcessModule
 
--- | Test cases for 'HST.Application.processModule'.
+-- | Test cases for 'processModule'.
 testProcessModule :: Spec
 testProcessModule = context "processModule" $ do
   it "should leave functions without pattern matching unchanged"
