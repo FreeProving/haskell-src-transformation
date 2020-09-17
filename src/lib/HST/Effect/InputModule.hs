@@ -6,11 +6,12 @@
 -- | This module defines an effect that allows to get modules and module
 --   interfaces by the file path and module interfaces by the module name.
 module HST.Effect.InputModule
-  ( -- * Module Interface types
+  ( -- * Module Interface
     ModuleInterface(..)
   , ConEntry(..)
   , TypeName
   , ConName
+  , revertInterfaceEntry
     -- * Effect
   , InputModule
     -- * Actions
@@ -50,7 +51,7 @@ data ModuleInterface a = ModuleInterface
     --   name.
   , interfaceDataCons :: Map (TypeName a) [ConEntry a]
     -- ^ A map that maps data type names to their constructors.
-  , interfaceDataNames :: Map (ConName a) (TypeName a)
+  , interfaceTypeNames :: Map (ConName a) (TypeName a)
     -- ^ A map that maps constructor names to the names of their data types.
   }
 
@@ -65,6 +66,17 @@ data ConEntry a = ConEntry
   , conEntryType    :: TypeName a
     -- ^ The name of the data type that the constructor belongs to.
   }
+
+-------------------------------------------------------------------------------
+-- Module Interface Utility Functions                                        --
+-------------------------------------------------------------------------------
+-- | Converts a map entry mapping a data type name to constructor entries to
+--   a list of map entries mapping the names of the given constructors to the
+--   given type name.
+revertInterfaceEntry :: (TypeName a, [ConEntry a]) -> [(ConName a, TypeName a)]
+revertInterfaceEntry (typeName, conEntry : conEntries) =
+  (conEntryName conEntry, typeName) : revertInterfaceEntry (typeName, conEntries)
+revertInterfaceEntry (_, []) = []
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
