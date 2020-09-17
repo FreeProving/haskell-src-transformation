@@ -1,9 +1,7 @@
 -- | This module contains an abstract data type for the pattern matching
 --   compiler's environment.
 module HST.Environment
-  ( -- * Environment Entries
-    DataEntry(..)
-    -- * Environment
+  ( -- * Environment
   , Environment(..)
     -- * Lookup
   , lookupConEntries
@@ -16,15 +14,6 @@ import           Data.Maybe             ( mapMaybe )
 import           HST.Effect.InputModule
   ( ConEntry, ConName, ModuleInterface(..), TypeName )
 import qualified HST.Frontend.Syntax    as S
-
--- | An entry of the 'Environment' for a data type whose constructors are in
---   scope.
-data DataEntry a = DataEntry
-  { dataEntryName :: TypeName a
-    -- ^ The name of the data type.
-  , dataEntryCons :: [ConName a]
-    -- ^ The names of the data type's constructors.
-  }
 
 -------------------------------------------------------------------------------
 -- Environment                                                               --
