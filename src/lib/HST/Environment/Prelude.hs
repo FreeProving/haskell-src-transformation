@@ -1,39 +1,35 @@
--- | This module contains environment entries for built-in data types and
---   data constructors.
-module HST.Environment.Prelude ( insertPreludeEntries ) where
+-- | This module contains a module interface containing environment entries for
+--   built-in data types and data constructors.
+module HST.Environment.Prelude ( preludeModuleInterface ) where
 
-import           Polysemy               ( Member, Sem )
+import qualified Data.Map.Strict as Map
 
-import           HST.Effect.Env         ( Env, modifyEnv )
-import           HST.Effect.InputModule ( ConEntry(..) )
-import           HST.Environment
-  ( DataEntry(..), insertConEntry, insertDataEntry )
+import           HST.Effect.InputModule ( ConEntry(..), ModuleInterface(..), TypeName, revertInterfaceEntry )
 import qualified HST.Frontend.Syntax    as S
 
--- | Inserts entries for built-in data types and data constructors into the
---   environment.
-insertPreludeEntries :: Member (Env a) r => Sem r ()
-insertPreludeEntries = do
-  mapM_ (modifyEnv . insertDataEntry) preludeDataEntries
-  mapM_ (modifyEnv . insertConEntry) preludeConEntries
+-- | A module interface for built-in data types.
+preludeModuleInterface :: ModuleInterface a
+preludeModuleInterface =
+  ModuleInterface { interfaceModName = Just (S.ModuleName S.NoSrcSpan "Prelude")
+                  , interfaceDataCons = Map.fromList preludeEnvironmentEntries
+                  , interfaceTypeNames = Map.fromList
+                      (concatMap revertInterfaceEntry preludeEnvironmentEntries)
+                  }
 
 -- | Environment entries for built-in data types.
-preludeDataEntries :: [DataEntry a]
-preludeDataEntries = [unitDataEntry, pairDataEntry, listDataEntry]
-
--- | Environment entries for built-in data constructors.
-preludeConEntries :: [ConEntry a]
-preludeConEntries = [unitConEntry, pairConEntry] ++ listConEntries
+preludeEnvironmentEntries :: [(TypeName a, [ConEntry a])]
+preludeEnvironmentEntries =
+  [ (unitTypeName, [unitConEntry])
+  , (pairTypeName, [pairConEntry])
+  , (listTypeName, listConEntries)
+  ]
 
 -------------------------------------------------------------------------------
 -- Unit                                                                      --
 -------------------------------------------------------------------------------
--- | Environment entry for the unit data type.
-unitDataEntry :: DataEntry a
-unitDataEntry = DataEntry
-  { dataEntryName = S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan)
-  , dataEntryCons = [conEntryName unitConEntry]
-  }
+-- | Environment entry for the unit data type name.
+unitTypeName :: TypeName a
+unitTypeName = S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan)
 
 -- | Environment entry for the unit data constructor.
 unitConEntry :: ConEntry a
@@ -41,18 +37,15 @@ unitConEntry = ConEntry
   { conEntryName    = S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan)
   , conEntryArity   = 0
   , conEntryIsInfix = False
-  , conEntryType    = dataEntryName unitDataEntry
+  , conEntryType    = unitTypeName
   }
 
 -------------------------------------------------------------------------------
 -- Pairs                                                                     --
 -------------------------------------------------------------------------------
--- | Environment entry for the pair data type.
-pairDataEntry :: DataEntry a
-pairDataEntry = DataEntry
-  { dataEntryName = S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan S.Boxed 2)
-  , dataEntryCons = [conEntryName pairConEntry]
-  }
+-- | Environment entry for the pair data type name.
+pairTypeName :: TypeName a
+pairTypeName = S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan S.Boxed 2)
 
 -- | Environment entry for the pair data constructor.
 pairConEntry :: ConEntry a
@@ -60,30 +53,27 @@ pairConEntry = ConEntry
   { conEntryName    = S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan S.Boxed 2)
   , conEntryArity   = 2
   , conEntryIsInfix = False
-  , conEntryType    = dataEntryName pairDataEntry
+  , conEntryType    = pairTypeName
   }
 
 -------------------------------------------------------------------------------
 -- Lists                                                                     --
 -------------------------------------------------------------------------------
--- | Environment entry for the list data type.
-listDataEntry :: DataEntry a
-listDataEntry = DataEntry
-  { dataEntryName = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
-  , dataEntryCons = map conEntryName listConEntries
-  }
+-- | Environment entry for the list data type name.
+listTypeName :: TypeName a
+listTypeName = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
 
--- | Environment entry for the pair data constructor.
+-- | Environment entries for the list data constructors.
 listConEntries :: [ConEntry a]
 listConEntries
   = [ ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
                , conEntryArity   = 0
                , conEntryIsInfix = False
-               , conEntryType    = dataEntryName listDataEntry
+               , conEntryType    = listTypeName
                }
     , ConEntry { conEntryName    = S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
                , conEntryArity   = 2
                , conEntryIsInfix = True
-               , conEntryType    = dataEntryName listDataEntry
+               , conEntryType    = listTypeName
                }
     ]
