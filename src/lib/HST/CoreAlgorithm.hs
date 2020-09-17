@@ -10,19 +10,18 @@ module HST.CoreAlgorithm
 
 import           Control.Monad                  ( replicateM )
 import           Data.Function                  ( on )
-import           Data.List                      ( (\\), groupBy, partition )
+import           Data.List                      ( groupBy, partition )
 import           Polysemy                       ( Members, Sem )
 
 import           HST.Effect.Env                 ( Env )
 import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
-import           HST.Effect.InputModule         ( ConEntry(..) )
+import           HST.Effect.InputModule         ( ConEntry(..), ConName )
 import           HST.Effect.Report
   ( Report, failToReport, reportFatal )
-import           HST.Environment                ( DataEntry, dataEntryCons )
 import           HST.Environment.LookupOrReport
-  ( lookupConEntryOrReport, lookupDataEntryOrReport )
+  ( lookupConEntriesOrReport, lookupTypeNameOrReport )
 import qualified HST.Frontend.Syntax            as S
 import           HST.Options                    ( optTrivialCase )
 import           HST.Util.Messages
@@ -171,15 +170,13 @@ identifyMissingCons []   = reportFatal
   ++ "Empty case expressions are not supported."
 identifyMissingCons alts = do
   matchedConNames <- mapM getAltConName alts
-  dataEntry <- findDataEntry (head matchedConNames)
-  let missingConNames = dataEntryCons dataEntry \\ matchedConNames
-  mapM lookupConEntryOrReport missingConNames
+  conEntries <- findConEntries (head matchedConNames)
+  return $ filter (flip all matchedConNames . (/=) . conEntryName) conEntries
 
--- | Looks up the data type for the given constructor in the given environment.
-findDataEntry :: Members '[Env a, Report] r => S.QName a -> Sem r (DataEntry a)
-findDataEntry conName = do
-  dataName <- conEntryType <$> lookupConEntryOrReport conName
-  lookupDataEntryOrReport dataName
+-- | Looks up the data constructor entries of the data type that the given data
+--   constructor name belongs to in the current environment.
+findConEntries :: Members '[Env a, Report] r => ConName a -> Sem r [ConEntry a]
+findConEntries conName = lookupTypeNameOrReport conName >>= lookupConEntriesOrReport
 
 -- TODO refactor with smartcons
 -- | Creates new @case@ expression alternatives for the given missing
