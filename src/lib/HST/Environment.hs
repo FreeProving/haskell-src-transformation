@@ -47,20 +47,25 @@ data Environment a = Environment
 -- Lookup                                                                    --
 -------------------------------------------------------------------------------
 -- | Looks up the constructors belonging to the the given data type name in the
---   given environment.
+--   given environment. The result includes the names of the modules the
+--   constructors came from, if available.
 --   
 --   Returns an empty list if the data type name is not in scope.
---   Returns multiple constructor lists if the data type name is ambiguous.
-lookupConEntries :: TypeName a -> Environment a -> [[ConEntry a]]
-lookupConEntries typeName env = mapMaybe (Map.lookup typeName . interfaceDataCons)
+--   Returns multiple module names and constructor lists if the data type name
+--   is ambiguous.
+lookupConEntries :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), [ConEntry a])]
+lookupConEntries typeName env = mapMaybe
+  (\x -> fmap ((,) (interfaceModName x)) (Map.lookup typeName (interfaceDataCons x)))
   (envCurrentModule env : envOtherEntries env : map snd (envImportedModules env))
 
 -- | Looks up the data type names belonging to the the given data constructor
---   name in the given environment.
+--   name in the given environment. The result includes the names of the
+--   modules the types came from, if available.
 --   
 --   Returns an empty list if the data constructor name is not in scope.
---   Returns multiple data type names if the data constructor name is
---   ambiguous.
-lookupTypeName :: ConName a -> Environment a -> [TypeName a]
-lookupTypeName conName env = mapMaybe (Map.lookup conName . interfaceTypeNames)
+--   Returns multiple module and data type names if the data constructor name
+--   is ambiguous.
+lookupTypeName :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
+lookupTypeName conName env = mapMaybe
+  (\x -> fmap ((,) (interfaceModName x)) (Map.lookup conName (interfaceTypeNames x)))
   (envCurrentModule env : envOtherEntries env : map snd (envImportedModules env))
