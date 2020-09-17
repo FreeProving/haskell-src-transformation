@@ -8,26 +8,26 @@ module HST.Environment.LookupOrReport
   , lookupTypeNameOrReport
   ) where
 
-import           Data.Maybe             ( fromMaybe )
 import           Data.List              ( intercalate )
+import           Data.Maybe             ( fromMaybe )
 import           Polysemy               ( Members, Sem )
 
 import           HST.Effect.Env         ( Env, inEnv )
-import           HST.Effect.InputModule ( ConName, ConEntry, TypeName )
+import           HST.Effect.InputModule ( ConEntry, ConName, TypeName )
 import           HST.Effect.Report      ( Report, reportFatal )
-import           HST.Environment
-  ( lookupConEntries, lookupTypeName )
+import           HST.Environment        ( lookupConEntries, lookupTypeName )
 import qualified HST.Frontend.Syntax    as S
 import           HST.Util.Messages      ( Severity(Error), message )
 import           HST.Util.PrettyName    ( prettyName )
 
 -- | Looks up the constructors belonging to the the given data type name in the
 --   current environment.
---   
+--
 --   Reports a fatal error if the data type could not be found or if it could
 --   be found in multiple modules. In the latter case, the names of
 --   these modules are displayed as part of the error message.
-lookupConEntriesOrReport :: Members '[Env a, Report] r => TypeName a -> Sem r [ConEntry a]
+lookupConEntriesOrReport
+  :: Members '[Env a, Report] r => TypeName a -> Sem r [ConEntry a]
 lookupConEntriesOrReport typeName = do
   conEntriess <- inEnv $ lookupConEntries typeName
   case conEntriess of
@@ -37,17 +37,19 @@ lookupConEntriesOrReport typeName = do
     [(_, conEntries)] -> return conEntries
     _                 -> reportFatal
       $ message Error (S.getSrcSpan typeName)
-      $    "Ambiguous data type `" ++ prettyName typeName
-        ++ "` could refer to one of the following modules: "
-        ++ displayModuleNames conEntriess
+      $ "Ambiguous data type `"
+      ++ prettyName typeName
+      ++ "` could refer to one of the following modules: "
+      ++ displayModuleNames conEntriess
 
 -- | Looks up the data type names belonging to the the given data constructor
 --   name in the current environment.
---   
+--
 --   Reports a fatal error if the data constructor could not be found or if it
 --   could be found in multiple modules. In the latter case, the names of these
 --   modules are displayed as part of the error message.
-lookupTypeNameOrReport :: Members '[Env a, Report] r => ConName a -> Sem r (TypeName a)
+lookupTypeNameOrReport
+  :: Members '[Env a, Report] r => ConName a -> Sem r (TypeName a)
 lookupTypeNameOrReport conName = do
   typeNames <- inEnv $ lookupTypeName conName
   case typeNames of
@@ -57,9 +59,10 @@ lookupTypeNameOrReport conName = do
     [(_, typeName)] -> return typeName
     _               -> reportFatal
       $ message Error (S.getSrcSpan conName)
-      $    "Ambiguous data constructor `" ++ prettyName conName
-        ++ "` could refer to one of the following modules: "
-        ++ displayModuleNames typeNames
+      $ "Ambiguous data constructor `"
+      ++ prettyName conName
+      ++ "` could refer to one of the following modules: "
+      ++ displayModuleNames typeNames
 
 -- | Display the module names contained in the first pair entries of the given
 --   list.
@@ -67,5 +70,5 @@ lookupTypeNameOrReport conName = do
 --   As no modules without a module name should be able to be imported
 --   successfully, missing module names are replaced with @This module@.
 displayModuleNames :: [(Maybe (S.ModuleName a), b)] -> String
-displayModuleNames = intercalate ", " . map
-                     (fromMaybe "This module" . fmap prettyName . fst)
+displayModuleNames = intercalate ", "
+  . map (fromMaybe "This module" . fmap prettyName . fst)

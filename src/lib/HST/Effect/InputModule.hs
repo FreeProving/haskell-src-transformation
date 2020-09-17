@@ -46,10 +46,10 @@ type ConName a = S.QName a
 -- | A data type for module interfaces that stores the name and the data types
 --   of a module.
 data ModuleInterface a = ModuleInterface
-  { interfaceModName  :: Maybe (S.ModuleName a)
+  { interfaceModName   :: Maybe (S.ModuleName a)
     -- ^ The name of the module or @Nothing@, if the module does not have a
     --   name.
-  , interfaceDataCons :: Map (TypeName a) [ConEntry a]
+  , interfaceDataCons  :: Map (TypeName a) [ConEntry a]
     -- ^ A map that maps data type names to their constructors.
   , interfaceTypeNames :: Map (ConName a) (TypeName a)
     -- ^ A map that maps constructor names to the names of their data types.
@@ -74,8 +74,9 @@ data ConEntry a = ConEntry
 --   a list of map entries mapping the names of the given constructors to the
 --   given type name.
 revertInterfaceEntry :: (TypeName a, [ConEntry a]) -> [(ConName a, TypeName a)]
-revertInterfaceEntry (typeName, conEntry : conEntries) =
-  (conEntryName conEntry, typeName) : revertInterfaceEntry (typeName, conEntries)
+revertInterfaceEntry (typeName, conEntry : conEntries)
+  = (conEntryName conEntry, typeName)
+  : revertInterfaceEntry (typeName, conEntries)
 revertInterfaceEntry (_, []) = []
 
 -------------------------------------------------------------------------------

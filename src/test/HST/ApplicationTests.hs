@@ -6,7 +6,8 @@ module HST.ApplicationTests ( testApplication ) where
 import           Polysemy                  ( Members, Sem )
 import           Test.Hspec                ( Spec, context, describe, it )
 
-import           HST.Application           ( createModuleInterface, initializeEnvironment, processModule )
+import           HST.Application
+  ( createModuleInterface, initializeEnvironment, processModule )
 import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Env            ( runWithEnv )
 import           HST.Effect.Fresh          ( runFresh )
@@ -34,15 +35,18 @@ shouldTransformTo
   => [String]
   -> [String]
   -> Sem r ()
-shouldTransformTo input expectedOutput = let testFileName = "<test-input>" in do
-  inputModule <- parseTestModule input
-  env <- runInputModule
-    [(testFileName, (inputModule, createModuleInterface inputModule))]
-    $ initializeEnvironment testFileName
-  outputModule <- runWithEnv env . runFresh (findIdentifiers inputModule)
-    $ processModule inputModule
-  expectedOutputModule <- parseTestModule expectedOutput
-  outputModule `prettyModuleShouldBe` expectedOutputModule
+shouldTransformTo input expectedOutput
+  = let testFileName = "<test-input>"
+    in do
+         inputModule <- parseTestModule input
+         env <- runInputModule
+           [(testFileName, (inputModule, createModuleInterface inputModule))]
+           $ initializeEnvironment testFileName
+         outputModule <- runWithEnv env
+           . runFresh (findIdentifiers inputModule)
+           $ processModule inputModule
+         expectedOutputModule <- parseTestModule expectedOutput
+         outputModule `prettyModuleShouldBe` expectedOutputModule
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --

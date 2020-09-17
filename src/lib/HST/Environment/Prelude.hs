@@ -2,27 +2,27 @@
 --   built-in data types and data constructors.
 module HST.Environment.Prelude ( preludeModuleInterface ) where
 
-import qualified Data.Map.Strict as Map
+import qualified Data.Map.Strict        as Map
 
-import           HST.Effect.InputModule ( ConEntry(..), ModuleInterface(..), TypeName, revertInterfaceEntry )
+import           HST.Effect.InputModule
+  ( ConEntry(..), ModuleInterface(..), TypeName, revertInterfaceEntry )
 import qualified HST.Frontend.Syntax    as S
 
 -- | A module interface for built-in data types.
 preludeModuleInterface :: ModuleInterface a
-preludeModuleInterface =
-  ModuleInterface { interfaceModName = Just (S.ModuleName S.NoSrcSpan "Prelude")
-                  , interfaceDataCons = Map.fromList preludeEnvironmentEntries
-                  , interfaceTypeNames = Map.fromList
-                      (concatMap revertInterfaceEntry preludeEnvironmentEntries)
-                  }
+preludeModuleInterface = ModuleInterface
+  { interfaceModName   = Just (S.ModuleName S.NoSrcSpan "Prelude")
+  , interfaceDataCons  = Map.fromList preludeEnvironmentEntries
+  , interfaceTypeNames = Map.fromList
+      (concatMap revertInterfaceEntry preludeEnvironmentEntries)
+  }
 
 -- | Environment entries for built-in data types.
 preludeEnvironmentEntries :: [(TypeName a, [ConEntry a])]
-preludeEnvironmentEntries =
-  [ (unitTypeName, [unitConEntry])
-  , (pairTypeName, [pairConEntry])
-  , (listTypeName, listConEntries)
-  ]
+preludeEnvironmentEntries = [ (unitTypeName, [unitConEntry])
+                            , (pairTypeName, [pairConEntry])
+                            , (listTypeName, listConEntries)
+                            ]
 
 -------------------------------------------------------------------------------
 -- Unit                                                                      --

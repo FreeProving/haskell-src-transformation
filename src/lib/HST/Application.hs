@@ -1,6 +1,10 @@
 -- | This module applies the main pattern-matching compilation algorithm and
 --   the different features to a Haskell module.
-module HST.Application ( createModuleInterface, initializeEnvironment, processModule ) where
+module HST.Application
+  ( createModuleInterface
+  , initializeEnvironment
+  , processModule
+  ) where
 
 -- TODO too many variables generated
 -- TODO only tuples supported
@@ -16,10 +20,10 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPat, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.InputModule
-  ( ConEntry(..), InputModule, ModuleInterface(..), TypeName, getInputModule, getInputModuleInterface, getInputModuleInterfaceByName, revertInterfaceEntry )
+  ( ConEntry(..), InputModule, ModuleInterface(..), TypeName, getInputModule
+  , getInputModuleInterface, getInputModuleInterfaceByName, revertInterfaceEntry )
 import           HST.Effect.Report            ( Report, report )
-import           HST.Environment
-  ( Environment(..) )
+import           HST.Environment              ( Environment(..) )
 import           HST.Environment.Prelude      ( preludeModuleInterface )
 import           HST.Feature.CaseCompletion   ( applyCCModule )
 import           HST.Feature.GuardElimination ( applyGEModule, getMatchName )
@@ -112,13 +116,13 @@ useAlgo ms = do
 -- | Creates a module interface with the data types declared in the given
 --   module.
 createModuleInterface :: S.Module a -> ModuleInterface a
-createModuleInterface (S.Module _ _ modName _ decls) =
-  let interfaceEntries = mapMaybe createModuleInterfaceEntry decls
-      revertedEntries = concatMap revertInterfaceEntry interfaceEntries
-  in ModuleInterface { interfaceModName = modName
-                     , interfaceDataCons = Map.fromList interfaceEntries
-                     , interfaceTypeNames = Map.fromList revertedEntries
-                     }
+createModuleInterface (S.Module _ _ modName _ decls)
+  = let interfaceEntries = mapMaybe createModuleInterfaceEntry decls
+        revertedEntries  = concatMap revertInterfaceEntry interfaceEntries
+    in ModuleInterface { interfaceModName   = modName
+                       , interfaceDataCons  = Map.fromList interfaceEntries
+                       , interfaceTypeNames = Map.fromList revertedEntries
+                       }
 
 -- | Creates a module interface entry for the data type and constructors
 --   declared by the given declaration.
@@ -148,8 +152,8 @@ makeConEntry dataQName conDecl = ConEntry
 --   The module interfaces of imported modules are added to the environment.
 --   If such a module is unavailable, the import is skipped and the user is
 --   informed about the skip.
-initializeEnvironment :: Members '[InputModule a, Report] r
-                      => FilePath -> Sem r (Environment a)
+initializeEnvironment
+  :: Members '[InputModule a, Report] r => FilePath -> Sem r (Environment a)
 initializeEnvironment filePath = do
   S.Module _ _ _ imports _ <- getInputModule filePath
   currentModule <- getInputModuleInterface filePath
@@ -163,13 +167,16 @@ initializeEnvironment filePath = do
   -- | Returns the given import declaration and module interface, if the module
   --   could be successfully be imported, or reports the skip of the missing
   --   module and returns @Nothing@.
-  reportMissingModule
-    :: Member Report r => S.ImportDecl a -> Maybe (ModuleInterface a)
-                       -> Sem r (Maybe (S.ImportDecl a, ModuleInterface a))
-  reportMissingModule importDecl Nothing = do
-    report $ message Info (S.importSrcSpan importDecl) $
-          "The module `" ++ prettyName (S.importModule importDecl)
-       ++ "` could not be found and the import is skipped!"
+  reportMissingModule :: Member Report r
+                      => S.ImportDecl a
+                      -> Maybe (ModuleInterface a)
+                      -> Sem r (Maybe (S.ImportDecl a, ModuleInterface a))
+  reportMissingModule importDecl Nothing                = do
+    report
+      $ message Info (S.importSrcSpan importDecl)
+      $ "The module `"
+      ++ prettyName (S.importModule importDecl)
+      ++ "` could not be found and the import is skipped!"
     return Nothing
-  reportMissingModule importDecl (Just moduleInterface) =
-    return $ Just (importDecl, moduleInterface)
+  reportMissingModule importDecl (Just moduleInterface)
+    = return $ Just (importDecl, moduleInterface)

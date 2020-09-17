@@ -15,7 +15,7 @@ module HST.Effect.Env
   , runWithEnv
   ) where
 
-import           Polysemy        ( Member, Sem, makeSem, interpret )
+import           Polysemy        ( Member, Sem, interpret, makeSem )
 
 import           HST.Environment ( Environment )
 
@@ -39,4 +39,4 @@ inEnv f = f <$> getEnv
 -- | Handles a computation by providing the supplied environment to read from.
 runWithEnv :: Environment a -> Sem (Env a ': r) b -> Sem r b
 runWithEnv env = interpret \case
-    GetEnv -> return env
+  GetEnv -> return env

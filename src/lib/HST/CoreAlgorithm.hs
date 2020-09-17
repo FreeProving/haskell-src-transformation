@@ -176,7 +176,8 @@ identifyMissingCons alts = do
 -- | Looks up the data constructor entries of the data type that the given data
 --   constructor name belongs to in the current environment.
 findConEntries :: Members '[Env a, Report] r => ConName a -> Sem r [ConEntry a]
-findConEntries conName = lookupTypeNameOrReport conName >>= lookupConEntriesOrReport
+findConEntries conName
+  = lookupTypeNameOrReport conName >>= lookupConEntriesOrReport
 
 -- TODO refactor with smartcons
 -- | Creates new @case@ expression alternatives for the given missing
