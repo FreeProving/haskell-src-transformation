@@ -9,7 +9,6 @@ module HST.Environment.LookupOrReport
   ) where
 
 import           Data.List              ( intercalate )
-import           Data.Maybe             ( fromMaybe )
 import           Polysemy               ( Members, Sem )
 
 import           HST.Effect.Env         ( Env, inEnv )
@@ -71,4 +70,4 @@ lookupTypeNameOrReport conName = do
 --   successfully, missing module names are replaced with @This module@.
 displayModuleNames :: [(Maybe (S.ModuleName a), b)] -> String
 displayModuleNames = intercalate ", "
-  . map (fromMaybe "This module" . fmap prettyName . fst)
+  . map (maybe "This module" prettyName . fst)

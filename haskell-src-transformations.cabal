@@ -64,6 +64,7 @@ common deps
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TemplateHaskell
+                     , TupleSections
                      , TypeApplications
                      , TypeFamilies
   ghc-options:         -Wall

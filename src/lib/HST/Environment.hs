@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | This module contains an abstract data type for the pattern matching
 --   compiler's environment.
 module HST.Environment
@@ -45,8 +47,8 @@ data Environment a = Environment
 lookupConEntries
   :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), [ConEntry a])]
 lookupConEntries typeName env = mapMaybe
-  (\x -> fmap ((,) (interfaceModName x))
-   (Map.lookup typeName (interfaceDataCons x)))
+  (\x ->
+   fmap (interfaceModName x, ) (Map.lookup typeName (interfaceDataCons x)))
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
@@ -61,8 +63,8 @@ lookupConEntries typeName env = mapMaybe
 lookupTypeName
   :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
 lookupTypeName conName env = mapMaybe
-  (\x -> fmap ((,) (interfaceModName x))
-   (Map.lookup conName (interfaceTypeNames x)))
+  (\x ->
+   fmap (interfaceModName x, ) (Map.lookup conName (interfaceTypeNames x)))
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
