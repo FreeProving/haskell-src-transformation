@@ -4,14 +4,13 @@ module HST.Application ( processModule ) where
 
 -- TODO too many variables generated
 -- TODO only tuples supported
-import           Control.Monad                ( replicateM )
 import           Control.Monad.Extra          ( ifM )
 import           Polysemy                     ( Member, Members, Sem )
 
 import           HST.CoreAlgorithm            ( Eqs, defaultErrorExp, match )
 import           HST.Effect.Env               ( Env, modifyEnv )
 import           HST.Effect.Fresh
-  ( Fresh, freshVarPat, genericFreshPrefix )
+  ( Fresh, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.Report            ( Report )
 import           HST.Environment
@@ -84,10 +83,10 @@ useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
         -> Sem r (S.Match a)
 useAlgo s ms = do
   eqs <- mapM matchToEquation ms
-  let name    = S.matchName (head ms)
-      arity   = length (fst (head eqs))
-      isInfix = all S.matchIsInfix ms
-  nVars <- replicateM arity (freshVarPat genericFreshPrefix)
+  let name     = S.matchName (head ms)
+      srcSpans = (map S.getSrcSpan) . S.matchPats . head $ ms
+      isInfix  = all S.matchIsInfix ms
+  nVars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   nExp <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return $ S.Match s isInfix name nVars (S.UnGuardedRhs s nExp') Nothing

@@ -15,7 +15,7 @@ import           Polysemy                       ( Member, Members, Sem )
 
 import           HST.Effect.Env                 ( Env )
 import           HST.Effect.Fresh
-  ( Fresh, freshVarPat, genericFreshPrefix )
+  ( Fresh, freshVarPat, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.Report
   ( Message(Message), Report, Severity(Error, Internal), failToReport
@@ -143,7 +143,7 @@ computeAlts x xs eqs er = do
   if null missingCons then return alts else do
     b <- getOpt optTrivialCase
     if b
-      then 
+      then
         -- TODO is 'defaultErrorExp' correct? Why not 'er'?
         return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
       else do
@@ -308,10 +308,12 @@ decomposeConPat :: Members '[Fresh, Report] r
                 => S.Pat a
                 -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
 decomposeConPat (S.PApp s qname ps)         = do
-  nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
+  let srcSpans = map S.getSrcSpan ps
+  nvars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   return (S.PApp s qname nvars, nvars, ps)
 decomposeConPat (S.PInfixApp s p1 qname p2) = failToReport $ do
-  nvars@[nv1, nv2] <- replicateM 2 (freshVarPat genericFreshPrefix)
+  let spans = [S.getSrcSpan p1, S.getSrcSpan p2]
+  nvars@[nv1, nv2] <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) spans
   let ps = [p1, p2]
   return (S.PInfixApp s nv1 qname nv2, nvars, ps)
 -- Decompose patterns with special syntax.
@@ -323,7 +325,8 @@ decomposeConPat (S.PList s ps)
         listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
     decomposeConPat (S.PInfixApp s n listCon (S.PList s nv))
 decomposeConPat (S.PTuple s bxd ps)         = do
-  nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
+  let srcSpans = map S.getSrcSpan ps
+  nvars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   return (S.PTuple s bxd nvars, nvars, ps)
 -- Decompose patterns with parentheses recursively.
 decomposeConPat (S.PParen _ p)              = decomposeConPat p
