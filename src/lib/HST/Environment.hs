@@ -72,17 +72,14 @@ lookupWith :: (ModuleInterface a -> Map (S.QName a) v)
            -> Environment a
            -> [(Maybe (S.ModuleName a), v)]
 lookupWith getMap qName env = mapMaybe
-  (\i ->
-    fmap (interfaceModName i, ) (Map.lookup (unQualifyName qName) (getMap i)))
-  (possibleInterfaces qName env)
+  (\i -> fmap (interfaceModName i, )
+   (Map.lookup (unQualifyName qName) (getMap i))) (possibleInterfaces qName env)
 
 -- | Returns the list of all module interfaces in the given environment the
 --   given possibly qualified name could refer to.
 possibleInterfaces :: S.QName a -> Environment a -> [ModuleInterface a]
-possibleInterfaces qName env =
-     filter
-       (fitsToInterface qName)
-       [envCurrentModule env, envOtherEntries env]
+possibleInterfaces qName env = filter (fitsToInterface qName)
+  [envCurrentModule env, envOtherEntries env]
   ++ map snd (filter (fitsToImport qName . fst) (envImportedModules env))
 
 -- | Checks if the given possibly qualified name could refer to an entry of the
@@ -94,14 +91,14 @@ possibleInterfaces qName env =
 --   interface name and all unqualified names.
 fitsToInterface :: S.QName a -> ModuleInterface a -> Bool
 fitsToInterface (S.Qual _ modName _) = elem modName . interfaceModName
-fitsToInterface _ = const True
+fitsToInterface _                    = const True
 
 -- | Checks if the given possibly qualified name could refer to an entry of a
 --   module imported with the given import declaration.
 fitsToImport :: S.QName a -> S.ImportDecl a -> Bool
-fitsToImport (S.Qual _ modName _) importDecl = modName ==
-  fromMaybe (S.importModule importDecl) (S.importAsName importDecl)
-fitsToImport _ importDecl = not (S.importIsQual importDecl)
+fitsToImport (S.Qual _ modName _) importDecl = modName
+  == fromMaybe (S.importModule importDecl) (S.importAsName importDecl)
+fitsToImport _ importDecl                    = not (S.importIsQual importDecl)
 
 -- | Removes the possible qualification of the given 'S.QName'.
 --
@@ -109,4 +106,4 @@ fitsToImport _ importDecl = not (S.importIsQual importDecl)
 --   are returned as given.
 unQualifyName :: S.QName a -> S.QName a
 unQualifyName (S.Qual s _ name) = S.UnQual s name
-unQualifyName uqName = uqName
+unQualifyName uqName            = uqName
