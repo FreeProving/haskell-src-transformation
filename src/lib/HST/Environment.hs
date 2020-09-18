@@ -11,7 +11,7 @@ module HST.Environment
   ) where
 
 import qualified Data.Map.Strict        as Map
-import           Data.Maybe             ( mapMaybe )
+import           Data.Maybe             ( fromMaybe, mapMaybe )
 
 import           HST.Effect.InputModule
   ( ConEntry, ConName, ModuleInterface(..), TypeName )
@@ -68,3 +68,32 @@ lookupTypeName conName env = mapMaybe
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
+
+-------------------------------------------------------------------------------
+-- Lookup Utility Functions                                                  --
+-------------------------------------------------------------------------------
+-- | Checks if the given qualified name could refer to an entry of the given
+--   module interface.
+--
+--   It is assumed that the given module interface is imported unqualified
+--   since it should either belong to the current module or implicitly imported
+--   modules. It therefore returns @True@ for names qualified with the module
+--   interface name and all unqualified names.
+fitsToInterface :: S.QName a -> ModuleInterface a -> Bool
+fitsToInterface (S.Qual _ modName _) = elem modName . interfaceModName
+fitsToInterface _ = const True
+
+-- | Checks if the given qualified name could refer to an entry of a module
+--   imported with the given import declaration.
+fitsToImport :: S.QName a -> S.ImportDecl a -> Bool
+fitsToImport (S.Qual _ modName _) importDecl = modName ==
+  fromMaybe (S.importModule importDecl) (S.importAsName importDecl)
+fitsToImport _ importDecl = not (S.importIsQual importDecl)
+
+-- | Removes the possible qualification of the given 'S.QName'.
+--
+--   Other 'S.QName's, including special names for built-in data constructors
+--   are returned as given.
+unQualifyName :: S.QName a -> S.QName a
+unQualifyName (S.Qual s _ name) = S.UnQual s name
+unQualifyName uqName = uqName
