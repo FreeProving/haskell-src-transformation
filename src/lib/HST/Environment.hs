@@ -15,7 +15,7 @@ import qualified Data.Map.Strict        as Map
 import           Data.Maybe             ( fromMaybe, mapMaybe )
 
 import           HST.Effect.InputModule
-  ( ConEntry, ConName, ModuleInterface(..), TypeName )
+  ( ConEntry(..), ConName, ModuleInterface(..), TypeName )
 import qualified HST.Frontend.Syntax    as S
 
 -------------------------------------------------------------------------------
@@ -47,7 +47,9 @@ data Environment a = Environment
 --   is ambiguous.
 lookupConEntries
   :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), [ConEntry a])]
-lookupConEntries = lookupWith interfaceDataCons
+lookupConEntries typeName env =
+  map (qualifyLookupResult (\x -> map (qualifyConEntry env x)))
+      (lookupWith interfaceDataCons typeName env)
 
 -- | Looks up the data type names belonging to the the given data constructor
 --   name in the given environment. The result includes the names of the
@@ -58,11 +60,14 @@ lookupConEntries = lookupWith interfaceDataCons
 --   is ambiguous.
 lookupTypeName
   :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
-lookupTypeName = lookupWith interfaceTypeNames
+lookupTypeName conName env =
+  map (qualifyLookupResult (qualifyQNameEnv interfaceDataCons env))
+      (lookupWith interfaceTypeNames conName env)
 
 -------------------------------------------------------------------------------
 -- Lookup Utility Functions                                                  --
 -------------------------------------------------------------------------------
+-- TODO
 -- | A generic version of 'lookupConEntries' and 'lookupTypeName' that
 --   additionally takes a function mapping a module interface to the desired
 --   map, i. e. one of the field names of 'ModuleInterface', as its first
@@ -70,17 +75,20 @@ lookupTypeName = lookupWith interfaceTypeNames
 lookupWith :: (ModuleInterface a -> Map (S.QName a) v)
            -> S.QName a
            -> Environment a
-           -> [(Maybe (S.ModuleName a), v)]
+           -> [((Maybe (S.ImportDecl a), ModuleInterface a), v)]
 lookupWith getMap qName env = mapMaybe
-  (\i -> fmap (interfaceModName i, )
-   (Map.lookup (unQualifyName qName) (getMap i))) (possibleInterfaces qName env)
+  (\x -> fmap (x, ) (Map.lookup (unQualifyName qName) (getMap (snd x))))
+  (possibleInterfaces qName env)
 
+-- TODO
 -- | Returns the list of all module interfaces in the given environment the
 --   given possibly qualified name could refer to.
-possibleInterfaces :: S.QName a -> Environment a -> [ModuleInterface a]
-possibleInterfaces qName env = filter (fitsToInterface qName)
-  [envCurrentModule env, envOtherEntries env]
-  ++ map snd (filter (fitsToImport qName . fst) (envImportedModules env))
+possibleInterfaces
+  :: S.QName a -> Environment a -> [(Maybe (S.ImportDecl a), ModuleInterface a)]
+possibleInterfaces qName env = filter (fitsToInterface qName . snd)
+  [(Nothing, envCurrentModule env), (Nothing, envOtherEntries env)]
+  ++ map (\(x, y) -> (Just x, y))
+         (filter (fitsToImport qName . fst) (envImportedModules env))
 
 -- | Checks if the given possibly qualified name could refer to an entry of the
 --   given module interface.
@@ -96,9 +104,12 @@ fitsToInterface _                    = const True
 -- | Checks if the given possibly qualified name could refer to an entry of a
 --   module imported with the given import declaration.
 fitsToImport :: S.QName a -> S.ImportDecl a -> Bool
-fitsToImport (S.Qual _ modName _) importDecl = modName
-  == fromMaybe (S.importModule importDecl) (S.importAsName importDecl)
-fitsToImport _ importDecl                    = not (S.importIsQual importDecl)
+fitsToImport (S.Qual _ modName _) = (==) modName . getImportQualifier
+fitsToImport _ = not . S.importIsQual
+
+getImportQualifier :: S.ImportDecl a -> S.ModuleName a
+getImportQualifier importDecl =
+  fromMaybe (S.importModule importDecl) (S.importAsName importDecl)
 
 -- | Removes the possible qualification of the given 'S.QName'.
 --
@@ -107,3 +118,43 @@ fitsToImport _ importDecl                    = not (S.importIsQual importDecl)
 unQualifyName :: S.QName a -> S.QName a
 unQualifyName (S.Qual s _ name) = S.UnQual s name
 unQualifyName uqName            = uqName
+
+qualifyLookupResult :: ((Bool, S.ModuleName a) -> v -> v)
+                    -> ((Maybe (S.ImportDecl a), ModuleInterface a), v)
+                    -> (Maybe (S.ModuleName a), v)
+qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult) =
+  (interfaceModName interface, ) $
+   case transformQualInfo qualInfo of
+     Just qualInfo' -> qualify qualInfo' lookupResult
+     Nothing -> lookupResult
+ where
+  transformQualInfo :: (Maybe (S.ImportDecl a), ModuleInterface a)
+                    -> Maybe (Bool, S.ModuleName a)
+  transformQualInfo (Just importDecl, _) =
+    Just (S.importIsQual importDecl, getImportQualifier importDecl)
+  transformQualInfo (Nothing, interface') =
+    fmap (False, ) (interfaceModName interface')
+
+qualifyConEntry
+  :: Environment a -> (Bool, S.ModuleName a) -> ConEntry a -> ConEntry a
+qualifyConEntry env qualInfo conEntry =
+  conEntry { conEntryName = qualifyQNameEnv
+               interfaceTypeNames env qualInfo (conEntryName conEntry)
+           , conEntryType = qualifyQNameEnv
+               interfaceDataCons env qualInfo (conEntryType conEntry)
+           }
+
+qualifyQNameEnv :: (ModuleInterface a -> Map (S.QName a) v)
+                -> Environment a
+                -> (Bool, S.ModuleName a)
+                -> S.QName a
+                -> S.QName a
+qualifyQNameEnv _ _ (True, modName) qName = qualifyQName qName modName
+qualifyQNameEnv getMap env (False, modName) qName =
+  if length (lookupWith getMap qName env) == 1
+    then qName
+    else qualifyQName qName modName
+
+qualifyQName :: S.QName a -> S.ModuleName a -> S.QName a
+qualifyQName (S.UnQual s name) modName = S.Qual s modName name
+qualifyQName qName _ = qName
