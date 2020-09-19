@@ -33,7 +33,13 @@ lookupConEntriesOrReport typeName = do
     []                -> reportFatal
       $ message Error (S.getSrcSpan typeName)
       $ "Data type not in scope: " ++ prettyName typeName
-    [(_, conEntries)] -> return conEntries
+    [(_, Nothing)] -> reportFatal
+      $ message Error (S.getSrcSpan typeName)
+      $ "Constructor entries for the data type `"
+      ++ prettyName typeName
+      ++ "` could not be returned, because at least one of them cannot be "
+      ++ "identified unambiguously."
+    [(_, Just conEntries)] -> return conEntries
     _                 -> reportFatal
       $ message Error (S.getSrcSpan typeName)
       $ "Ambiguous data type `"
@@ -55,7 +61,13 @@ lookupTypeNameOrReport conName = do
     []              -> reportFatal
       $ message Error (S.getSrcSpan conName)
       $ "Data constructor not in scope: " ++ prettyName conName
-    [(_, typeName)] -> return typeName
+    [(_, Nothing)] -> reportFatal
+      $ message Error (S.getSrcSpan conName)
+      $ "The name of the data type that the constructor `"
+      ++ prettyName conName
+      ++ "` belongs to could not be returned, because it cannot be identified "
+      ++ "unambiguously."
+    [(_, Just typeName)] -> return typeName
     _               -> reportFatal
       $ message Error (S.getSrcSpan conName)
       $ "Ambiguous data constructor `"

@@ -46,9 +46,9 @@ data Environment a = Environment
 --   Returns multiple module names and constructor lists if the data type name
 --   is ambiguous.
 lookupConEntries
-  :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), [ConEntry a])]
+  :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
 lookupConEntries typeName env =
-  map (qualifyLookupResult (\x -> map (qualifyConEntry env x)))
+  map (qualifyLookupResult (\x -> sequence . map (qualifyConEntry env x)))
       (lookupWith interfaceDataCons typeName env)
 
 -- | Looks up the data type names belonging to the the given data constructor
@@ -59,7 +59,7 @@ lookupConEntries typeName env =
 --   Returns multiple module and data type names if the data constructor name
 --   is ambiguous.
 lookupTypeName
-  :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
+  :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
 lookupTypeName conName env =
   map (qualifyLookupResult (qualifyQNameEnv interfaceDataCons env))
       (lookupWith interfaceTypeNames conName env)
@@ -119,14 +119,11 @@ unQualifyName :: S.QName a -> S.QName a
 unQualifyName (S.Qual s _ name) = S.UnQual s name
 unQualifyName uqName            = uqName
 
-qualifyLookupResult :: ((Bool, S.ModuleName a) -> v -> v)
-                    -> ((Maybe (S.ImportDecl a), ModuleInterface a), v)
-                    -> (Maybe (S.ModuleName a), v)
+qualifyLookupResult :: (Maybe (Bool, S.ModuleName a) -> b -> c)
+                    -> ((Maybe (S.ImportDecl a), ModuleInterface a), b)
+                    -> (Maybe (S.ModuleName a), c)
 qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult) =
-  (interfaceModName interface, ) $
-   case transformQualInfo qualInfo of
-     Just qualInfo' -> qualify qualInfo' lookupResult
-     Nothing -> lookupResult
+  (interfaceModName interface, qualify (transformQualInfo qualInfo) lookupResult)
  where
   transformQualInfo :: (Maybe (S.ImportDecl a), ModuleInterface a)
                     -> Maybe (Bool, S.ModuleName a)
@@ -136,24 +133,30 @@ qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult) =
     fmap (False, ) (interfaceModName interface')
 
 qualifyConEntry
-  :: Environment a -> (Bool, S.ModuleName a) -> ConEntry a -> ConEntry a
+  :: Environment a -> Maybe (Bool, S.ModuleName a) -> ConEntry a -> Maybe (ConEntry a)
 qualifyConEntry env qualInfo conEntry =
-  conEntry { conEntryName = qualifyQNameEnv
-               interfaceTypeNames env qualInfo (conEntryName conEntry)
-           , conEntryType = qualifyQNameEnv
-               interfaceDataCons env qualInfo (conEntryType conEntry)
-           }
+  case ( qualifyQNameEnv interfaceTypeNames env qualInfo (conEntryName conEntry)
+       , qualifyQNameEnv interfaceDataCons env qualInfo (conEntryType conEntry)
+       ) of
+    (Just conName, Just typeName) -> Just conEntry { conEntryName = conName
+                                                   , conEntryType = typeName
+                                                   }
+    _ -> Nothing
 
 qualifyQNameEnv :: (ModuleInterface a -> Map (S.QName a) v)
                 -> Environment a
-                -> (Bool, S.ModuleName a)
+                -> Maybe (Bool, S.ModuleName a)
                 -> S.QName a
-                -> S.QName a
-qualifyQNameEnv _ _ (True, modName) qName = qualifyQName qName modName
-qualifyQNameEnv getMap env (False, modName) qName =
-  if length (lookupWith getMap qName env) == 1
-    then qName
-    else qualifyQName qName modName
+                -> Maybe (S.QName a)
+qualifyQNameEnv getMap env Nothing uqName = 
+  if length (lookupWith getMap uqName env) == 1 then Just uqName else Nothing
+qualifyQNameEnv getMap env (Just (mustBeQual, modName)) uqName =
+  if not mustBeQual && length (lookupWith getMap uqName env) == 1
+    then Just uqName
+    else let qName = qualifyQName uqName modName
+         in if length (lookupWith getMap qName env) == 1
+              then Just qName
+              else Nothing
 
 qualifyQName :: S.QName a -> S.ModuleName a -> S.QName a
 qualifyQName (S.UnQual s name) modName = S.Qual s modName name
