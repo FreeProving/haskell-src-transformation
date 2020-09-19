@@ -35,7 +35,7 @@ lookupConEntriesOrReport
 lookupConEntriesOrReport typeName = do
   conEntriess <- inEnv $ lookupConEntries typeName
   case conEntriess of
-    []                -> reportFatal
+    [] -> reportFatal
       $ message Error (S.getSrcSpan typeName)
       $ "Data type not in scope: " ++ prettyName typeName
     [(_, Nothing)] -> reportFatal
@@ -45,7 +45,7 @@ lookupConEntriesOrReport typeName = do
       ++ "` could not be returned, because at least one of them cannot be "
       ++ "identified unambiguously."
     [(_, Just conEntries)] -> return conEntries
-    _                 -> reportFatal
+    _ -> reportFatal
       $ message Error (S.getSrcSpan typeName)
       $ "Ambiguous data type `"
       ++ prettyName typeName
@@ -65,17 +65,17 @@ lookupTypeNameOrReport
 lookupTypeNameOrReport conName = do
   typeNames <- inEnv $ lookupTypeName conName
   case typeNames of
-    []              -> reportFatal
+    []                   -> reportFatal
       $ message Error (S.getSrcSpan conName)
       $ "Data constructor not in scope: " ++ prettyName conName
-    [(_, Nothing)] -> reportFatal
+    [(_, Nothing)]       -> reportFatal
       $ message Error (S.getSrcSpan conName)
       $ "The name of the data type that the constructor `"
       ++ prettyName conName
       ++ "` belongs to could not be returned, because it cannot be identified "
       ++ "unambiguously."
     [(_, Just typeName)] -> return typeName
-    _               -> reportFatal
+    _                    -> reportFatal
       $ message Error (S.getSrcSpan conName)
       $ "Ambiguous data constructor `"
       ++ prettyName conName

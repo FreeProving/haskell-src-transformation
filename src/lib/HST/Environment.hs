@@ -50,11 +50,12 @@ data Environment a = Environment
 --   identified unambiguously.
 --   Returns multiple pairs of module names and constructor lists if the data
 --   type name is ambiguous.
-lookupConEntries
-  :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
-lookupConEntries typeName env =
-  map (qualifyLookupResult (\x -> sequence . map (qualifyConEntry env x)))
-      (lookupWith interfaceDataCons typeName env)
+lookupConEntries :: TypeName a
+                 -> Environment a
+                 -> [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
+lookupConEntries typeName env = map
+  (qualifyLookupResult (\x -> sequence . map (qualifyConEntry env x)))
+  (lookupWith interfaceDataCons typeName env)
 
 -- | Looks up the data type names belonging to the the given data constructor
 --   name in the given environment and qualifies them so that they are
@@ -67,11 +68,12 @@ lookupConEntries typeName env =
 --   cannot be identified unambiguously.
 --   Returns multiple pairs of module and data type names if the data
 --   constructor name is ambiguous.
-lookupTypeName
-  :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
-lookupTypeName conName env =
-  map (qualifyLookupResult (qualifyQNameEnv interfaceDataCons env))
-      (lookupWith interfaceTypeNames conName env)
+lookupTypeName :: ConName a
+               -> Environment a
+               -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
+lookupTypeName conName env = map
+  (qualifyLookupResult (qualifyQNameEnv interfaceDataCons env))
+  (lookupWith interfaceTypeNames conName env)
 
 -------------------------------------------------------------------------------
 -- Lookup Utility Functions                                                  --
@@ -101,12 +103,13 @@ lookupWith getMap qName env = mapMaybe
 -- | Returns the list of all module interfaces in the given environment with
 --   their import declarations, where available, that the given possibly
 --   qualified name could refer to.
-possibleInterfaces
-  :: S.QName a -> Environment a -> [(Maybe (S.ImportDecl a), ModuleInterface a)]
+possibleInterfaces :: S.QName a
+                   -> Environment a
+                   -> [(Maybe (S.ImportDecl a), ModuleInterface a)]
 possibleInterfaces qName env = filter (fitsToInterface qName . snd)
   [(Nothing, envCurrentModule env), (Nothing, envOtherEntries env)]
   ++ map (\(x, y) -> (Just x, y))
-         (filter (fitsToImport qName . fst) (envImportedModules env))
+  (filter (fitsToImport qName . fst) (envImportedModules env))
  where
   -- | Checks if the given possibly qualified name could refer to an entry of
   --   the given module interface.
@@ -123,13 +126,13 @@ possibleInterfaces qName env = filter (fitsToInterface qName . snd)
   --   module imported with the given import declaration.
   fitsToImport :: S.QName a -> S.ImportDecl a -> Bool
   fitsToImport (S.Qual _ modName _) = (==) modName . getImportQualifier
-  fitsToImport _ = not . S.importIsQual
+  fitsToImport _                    = not . S.importIsQual
 
 -- | Gets the qualifier that identifiers referring to a module imported by the
 --   given import declaration are possibly qualified by.
 getImportQualifier :: S.ImportDecl a -> S.ModuleName a
-getImportQualifier importDecl =
-  fromMaybe (S.importModule importDecl) (S.importAsName importDecl)
+getImportQualifier importDecl = fromMaybe (S.importModule importDecl)
+  (S.importAsName importDecl)
 
 -------------------------------------------------------------------------------
 -- Qualification of Lookup Results                                           --
@@ -143,8 +146,10 @@ getImportQualifier importDecl =
 qualifyLookupResult :: (Maybe (Bool, S.ModuleName a) -> b -> c)
                     -> ((Maybe (S.ImportDecl a), ModuleInterface a), b)
                     -> (Maybe (S.ModuleName a), c)
-qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult) =
-  (interfaceModName interface, qualify (simplifyQualInfo qualInfo) lookupResult)
+qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult)
+  = ( interfaceModName interface
+    , qualify (simplifyQualInfo qualInfo) lookupResult
+    )
  where
   -- | Simplifies qualification information consisting of a module interface
   --   and possibly an import declaration in the following way:
@@ -154,24 +159,27 @@ qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult) =
   --   the module name that could be used as a qualifier are returned.
   simplifyQualInfo :: (Maybe (S.ImportDecl a), ModuleInterface a)
                    -> Maybe (Bool, S.ModuleName a)
-  simplifyQualInfo (Just importDecl, _) =
-    Just (S.importIsQual importDecl, getImportQualifier importDecl)
-  simplifyQualInfo (Nothing, interface') =
-    fmap (False, ) (interfaceModName interface')
+  simplifyQualInfo (Just importDecl, _)
+    = Just (S.importIsQual importDecl, getImportQualifier importDecl)
+  simplifyQualInfo (Nothing, interface') = fmap (False, )
+    (interfaceModName interface')
 
 -- | Qualifies the given data constructor entry based on the given
 --   qualification information so that neither the data constructor name nor
 --   the data type name of the constructor entry are ambiguous in the given
 --   environment. Returns @Nothing@ if that is not possible.
-qualifyConEntry
-  :: Environment a -> Maybe (Bool, S.ModuleName a) -> ConEntry a -> Maybe (ConEntry a)
-qualifyConEntry env qualInfo conEntry =
-  case ( qualifyQNameEnv interfaceTypeNames env qualInfo (conEntryName conEntry)
-       , qualifyQNameEnv interfaceDataCons env qualInfo (conEntryType conEntry)
-       ) of
-    (Just conName, Just typeName) -> Just conEntry { conEntryName = conName
-                                                   , conEntryType = typeName
-                                                   }
+qualifyConEntry :: Environment a
+                -> Maybe (Bool, S.ModuleName a)
+                -> ConEntry a
+                -> Maybe (ConEntry a)
+qualifyConEntry env qualInfo conEntry
+  = case ( qualifyQNameEnv interfaceTypeNames env qualInfo
+             (conEntryName conEntry)
+         , qualifyQNameEnv interfaceDataCons env qualInfo
+             (conEntryType conEntry)
+         ) of
+    (Just conName, Just typeName) ->
+      Just conEntry { conEntryName = conName, conEntryType = typeName }
     _ -> Nothing
 
 -- | Qualifies the given possibly qualified name based on the given
@@ -183,10 +191,10 @@ qualifyQNameEnv :: (ModuleInterface a -> Map (S.QName a) v)
                 -> Maybe (Bool, S.ModuleName a)
                 -> S.QName a
                 -> Maybe (S.QName a)
-qualifyQNameEnv getMap env Nothing uqName = 
-  if length (lookupWith getMap uqName env) == 1 then Just uqName else Nothing
-qualifyQNameEnv getMap env (Just (mustBeQual, modName)) uqName =
-  if not mustBeQual && length (lookupWith getMap uqName env) == 1
+qualifyQNameEnv getMap env Nothing uqName
+  = if length (lookupWith getMap uqName env) == 1 then Just uqName else Nothing
+qualifyQNameEnv getMap env (Just (mustBeQual, modName)) uqName
+  = if not mustBeQual && length (lookupWith getMap uqName env) == 1
     then Just uqName
     else let qName = qualifyQName uqName modName
          in if length (lookupWith getMap qName env) == 1
@@ -199,4 +207,4 @@ qualifyQNameEnv getMap env (Just (mustBeQual, modName)) uqName =
   --   are returned as given.
   qualifyQName :: S.QName a -> S.ModuleName a -> S.QName a
   qualifyQName (S.UnQual s name) modName' = S.Qual s modName' name
-  qualifyQName qName _ = qName
+  qualifyQName qName _                    = qName
