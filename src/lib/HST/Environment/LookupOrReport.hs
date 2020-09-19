@@ -1,8 +1,10 @@
 -- | This module contains variations of the "HST.Environment" lookup functions
---   that remove the list and pair constructor wrapping the return type.
+--   that remove the list, pair and @Maybe@ type wrapping the desired return
+--   type.
 --
---   If the original function does not return a singleton list, a fatal error
---   mentioning the out-of-scope or ambiguous entry is reported.
+--   If the original lookup function does not return a singleton list
+--   containing @Just@ the desired return type, a fatal error mentioning the
+--   problem case is reported.
 module HST.Environment.LookupOrReport
   ( lookupConEntriesOrReport
   , lookupTypeNameOrReport
@@ -19,12 +21,15 @@ import qualified HST.Frontend.Syntax    as S
 import           HST.Util.Messages      ( Severity(Error), message )
 import           HST.Util.PrettyName    ( prettyName )
 
--- | Looks up the constructors belonging to the the given data type name in the
---   current environment.
+-- | Looks up the data constructor entries belonging to the the given data type
+--   name in the current environment and qualifies them so that they are
+--   unambiguous.
 --
 --   Reports a fatal error if the data type could not be found or if it could
 --   be found in multiple modules. In the latter case, the names of
---   these modules are displayed as part of the error message.
+--   these modules are displayed as part of the error message. A fatal error is
+--   also reported if not all constructors found could be identified
+--   unambiguously.
 lookupConEntriesOrReport
   :: Members '[Env a, Report] r => TypeName a -> Sem r [ConEntry a]
 lookupConEntriesOrReport typeName = do
@@ -47,12 +52,14 @@ lookupConEntriesOrReport typeName = do
       ++ "` could refer to one of the following modules: "
       ++ displayModuleNames conEntriess
 
--- | Looks up the data type names belonging to the the given data constructor
---   name in the current environment.
+-- | Looks up the data type name belonging to the the given data constructor
+--   name in the current environment and qualifies it so that it is
+--   unambiguous.
 --
 --   Reports a fatal error if the data constructor could not be found or if it
 --   could be found in multiple modules. In the latter case, the names of these
---   modules are displayed as part of the error message.
+--   modules are displayed as part of the error message. A fatal error is also
+--   reported if the data type found could not be identified unambiguously.
 lookupTypeNameOrReport
   :: Members '[Env a, Report] r => ConName a -> Sem r (TypeName a)
 lookupTypeNameOrReport conName = do
@@ -75,7 +82,7 @@ lookupTypeNameOrReport conName = do
       ++ "` could refer to one of the following modules: "
       ++ displayModuleNames typeNames
 
--- | Display the module names contained in the first pair entries of the given
+-- | Displays the module names contained in the first pair entries of the given
 --   list.
 --
 --   As no modules without a module name should be able to be imported
