@@ -5,7 +5,7 @@ module HST.Environment.Prelude ( preludeModuleInterface ) where
 import qualified Data.Map.Strict        as Map
 
 import           HST.Effect.InputModule
-  ( ConEntry(..), ModuleInterface(..), TypeName, revertInterfaceEntry )
+  ( ConEntry(..), ModuleInterface(..), TypeName, invertInterfaceEntry )
 import qualified HST.Frontend.Syntax    as S
 
 -- | A module interface for built-in data types.
@@ -14,7 +14,7 @@ preludeModuleInterface = ModuleInterface
   { interfaceModName   = Just (S.ModuleName S.NoSrcSpan "Prelude")
   , interfaceDataCons  = Map.fromList preludeEnvironmentEntries
   , interfaceTypeNames = Map.fromList
-      (concatMap revertInterfaceEntry preludeEnvironmentEntries)
+      (concatMap (map invertInterfaceEntry . snd) preludeEnvironmentEntries)
   }
 
 -- | Environment entries for built-in data types.

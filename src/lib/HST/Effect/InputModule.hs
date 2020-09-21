@@ -11,7 +11,7 @@ module HST.Effect.InputModule
   , ConEntry(..)
   , TypeName
   , ConName
-  , revertInterfaceEntry
+  , invertInterfaceEntry
     -- * Effect
   , InputModule
     -- * Actions
@@ -70,14 +70,13 @@ data ConEntry a = ConEntry
 -------------------------------------------------------------------------------
 -- Module Interface Utility Functions                                        --
 -------------------------------------------------------------------------------
--- | Converts a map entry mapping a data type name to constructor entries to
---   a list of map entries mapping the names of the given constructors to the
---   given type name.
-revertInterfaceEntry :: (TypeName a, [ConEntry a]) -> [(ConName a, TypeName a)]
-revertInterfaceEntry (typeName, conEntry : conEntries)
-  = (conEntryName conEntry, typeName)
-  : revertInterfaceEntry (typeName, conEntries)
-revertInterfaceEntry (_, []) = []
+-- | Converts a data constructor entry to a pair of the constructor's and the
+--   data type's name.
+--
+--   Can be used to generate the entries for the 'interfaceTypeNames' map of a
+--   'ModuleInterface'.
+invertInterfaceEntry :: ConEntry a -> (ConName a, TypeName a)
+invertInterfaceEntry conEntry = (conEntryName conEntry, conEntryType conEntry)
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
