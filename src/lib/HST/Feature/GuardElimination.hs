@@ -195,7 +195,7 @@ applyGEModule (S.Module s origModuleHead moduleName decls) = do
 --   Non-function declarations are returned unchanged.
 applyGEDecl :: Member Fresh r => S.Decl a -> Sem r (S.Decl a)
 applyGEDecl (S.FunBind s ms)          = do
-  ms' <- applyGEMatches ms
+  ms' <- applyGEMatches s ms
   return (S.FunBind s ms')
 applyGEDecl decl@(S.DataDecl _ _ _ _) = return decl
 applyGEDecl decl@(S.OtherDecl _ _)    = return decl
@@ -207,25 +207,24 @@ applyGEDecl decl@(S.OtherDecl _ _)    = return decl
 --
 --   TODO only apply to the parts with guards (not on matches if in case)
 --        not false by semantics
-applyGEMatches :: Member Fresh r => [S.Match a] -> Sem r [S.Match a]
-applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
-                  | otherwise = return ms
+applyGEMatches :: Member Fresh r => S.SrcSpan a -> [S.Match a] -> Sem r [S.Match a]
+applyGEMatches s ms | any hasGuards ms = return <$> applyGE s ms
+                    | otherwise = return ms
 
 -- | Applies guard elimination to the rules of a function declaration.
-applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
-applyGE ms = do
+applyGE :: Member Fresh r => S.SrcSpan a -> [S.Match a] -> Sem r (S.Match a)
+applyGE s ms = do
   let name     = S.matchName (head ms)
-      lhsSpan  = S.getSrcSpan (head ms)
       gexps    = map matchToGExp ms
       srcSpans = map S.getSrcSpan (gExpPats (head gexps))
   varPats <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
-    $ S.Match { S.matchSrcSpan = lhsSpan
+    $ S.Match { S.matchSrcSpan = s
               , S.matchIsInfix = False
               , S.matchName    = name
               , S.matchPats    = varPats
-              , S.matchRhs     = S.UnGuardedRhs S.NoSrcSpan expr'
+              , S.matchRhs     = S.UnGuardedRhs s expr'
               , S.matchBinds   = Nothing
               }
 
