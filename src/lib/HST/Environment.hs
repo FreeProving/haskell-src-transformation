@@ -55,7 +55,7 @@ lookupConEntries :: TypeName a
                  -> Environment a
                  -> [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
 lookupConEntries typeName env = map
-  (qualifyLookupResult (\x -> mapM (qualifyConEntry env x)))
+  (qualifyLookupResult (mapM . qualifyConEntry env))
   (lookupWith interfaceDataCons typeName env)
 
 -- | Looks up the data type names belonging to the the given data constructor
