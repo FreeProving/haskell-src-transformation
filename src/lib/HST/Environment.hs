@@ -11,6 +11,7 @@ module HST.Environment
   , lookupTypeName
   ) where
 
+import           Data.Bifunctor         ( first )
 import           Data.Map.Strict        ( Map )
 import qualified Data.Map.Strict        as Map
 import           Data.Maybe             ( fromMaybe, mapMaybe )
@@ -54,7 +55,7 @@ lookupConEntries :: TypeName a
                  -> Environment a
                  -> [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
 lookupConEntries typeName env = map
-  (qualifyLookupResult (\x -> sequence . map (qualifyConEntry env x)))
+  (qualifyLookupResult (\x -> mapM (qualifyConEntry env x)))
   (lookupWith interfaceDataCons typeName env)
 
 -- | Looks up the data type names belonging to the the given data constructor
@@ -100,7 +101,7 @@ possibleInterfaces :: S.QName a
                    -> [(Maybe (S.ImportDecl a), ModuleInterface a)]
 possibleInterfaces qName env = filter (fitsToInterface qName . snd)
   [(Nothing, envCurrentModule env), (Nothing, envOtherEntries env)]
-  ++ map (\(x, y) -> (Just x, y))
+  ++ map (first Just)
   (filter (fitsToImport qName . fst) (envImportedModules env))
  where
   -- | Checks if the given possibly qualified name could refer to an entry of
