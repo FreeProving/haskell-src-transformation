@@ -84,7 +84,7 @@ useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
 useAlgo s ms = do
   eqs <- mapM matchToEquation ms
   let name     = S.matchName (head ms)
-      srcSpans = (map S.getSrcSpan) . S.matchPats . head $ ms
+      srcSpans = map S.getSrcSpan . S.matchPats . head $ ms
       isInfix  = all S.matchIsInfix ms
   nVars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   nExp <- match nVars eqs defaultErrorExp
