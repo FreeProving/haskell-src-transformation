@@ -89,16 +89,8 @@ lookupWith :: (ModuleInterface a -> Map (S.QName a) v)
            -> Environment a
            -> [((Maybe (S.ImportDecl a), ModuleInterface a), v)]
 lookupWith getMap qName env = mapMaybe
-  (\x -> fmap (x, ) (Map.lookup (unQualifyName qName) (getMap (snd x))))
+  (\x -> fmap (x, ) (Map.lookup (S.unQualifyQName qName) (getMap (snd x))))
   (possibleInterfaces qName env)
- where
-  -- | Removes the possible qualification of the given 'S.QName'.
-  --
-  --   Other 'S.QName's, including special names for built-in data
-  --   constructors, are returned as given.
-  unQualifyName :: S.QName a -> S.QName a
-  unQualifyName (S.Qual s _ name) = S.UnQual s name
-  unQualifyName uqName            = uqName
 
 -- | Returns the list of all module interfaces in the given environment with
 --   their import declarations, where available, that the given possibly
