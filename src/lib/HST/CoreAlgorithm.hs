@@ -321,8 +321,7 @@ decomposeConPat (S.PList s ps)
   | null ps = return (S.PList s [], [], [])
   | otherwise = do
     let (n : nv) = ps
-        nspan    = S.getSrcSpan n
-        listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
+        listCon  = S.Special s $ S.ConsCon s
     decomposeConPat (S.PInfixApp s n listCon (S.PList s nv))
 decomposeConPat (S.PTuple s bxd ps)         = do
   let srcSpans = map S.getSrcSpan ps
