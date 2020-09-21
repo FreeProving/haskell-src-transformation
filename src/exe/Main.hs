@@ -97,10 +97,9 @@ application = do
       -- is no input file.
       showHelp <- getOpt optShowHelp
       inputFiles <- getOpt optInputFiles
-      frontend <- parseFrontend =<< getOpt optFrontend
-      if showHelp || null inputFiles
-        then embed putUsageInfo
-        else runWithFrontend frontend $ do
+      if showHelp || null inputFiles then embed putUsageInfo else do
+        frontend <- parseFrontend =<< getOpt optFrontend
+        runWithFrontend frontend $ do
           mods <- mapM performTransformation inputFiles
           runInputModule (zip inputFiles mods)
             $ mapM_ processInputModule inputFiles

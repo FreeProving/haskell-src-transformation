@@ -21,7 +21,7 @@ import           HST.Effect.Fresh
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.InputModule
   ( ConEntry(..), InputModule, ModuleInterface(..), TypeName, getInputModule
-  , getInputModuleInterface, getInputModuleInterfaceByName, revertInterfaceEntry )
+  , getInputModuleInterface, getInputModuleInterfaceByName, invertInterfaceEntry )
 import           HST.Effect.Report            ( Report, report )
 import           HST.Environment              ( Environment(..) )
 import           HST.Environment.Prelude      ( preludeModuleInterface )
@@ -118,10 +118,11 @@ useAlgo ms = do
 createModuleInterface :: S.Module a -> ModuleInterface a
 createModuleInterface (S.Module _ _ modName _ decls)
   = let interfaceEntries = mapMaybe createModuleInterfaceEntry decls
-        revertedEntries  = concatMap revertInterfaceEntry interfaceEntries
+        invertedEntries  = concatMap (map invertInterfaceEntry . snd)
+          interfaceEntries
     in ModuleInterface { interfaceModName   = modName
                        , interfaceDataCons  = Map.fromList interfaceEntries
-                       , interfaceTypeNames = Map.fromList revertedEntries
+                       , interfaceTypeNames = Map.fromList invertedEntries
                        }
 
 -- | Creates a module interface entry for the data type and constructors
