@@ -25,6 +25,7 @@ import           HST.Effect.Report                 ( Report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(OriginalModuleHead), TypeWrapper(SigType) )
+import           HST.Frontend.GHC.Util.AnyMatch    ( AnyMatch(..) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
   ( notSupported, skipNotSupported )
@@ -64,8 +65,29 @@ transformDecl decl@(GHC.L s (GHC.TyClD _ dataDecl@GHC.DataDecl {})) = do
       name <- transformRdrNameUnqual (GHC.tcdLName dataDecl)
       return $ S.DataDecl (transformSrcSpan s) (Decl decl) name dataDefn
 -- Function declarations are supported.
-transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind {}))
-  = S.FunBind (transformSrcSpan s) <$> transformMatchGroup (GHC.fun_matches fb)
+transformDecl (GHC.L s (GHC.ValD _ fb@GHC.FunBind {})) = do
+  anyMatches' <- transformMatchGroup (GHC.fun_matches fb)
+  matches' <- mapM funMatchToMatch anyMatches'
+  return $ S.FunBind (transformSrcSpan s) matches'
+ where
+  -- | Completes the translation of a match for a function declaration.
+  funMatchToMatch :: Member Report r => AnyMatch -> Sem r (S.Match GHC)
+  funMatchToMatch (AnyMatch s' ctxt@GHC.FunRhs {} pats' rhs' mBinds')
+    = case GHC.mc_strictness ctxt of
+      GHC.NoSrcStrict -> do
+        name' <- transformRdrNameUnqual (GHC.mc_fun ctxt)
+        return
+          $ S.Match { S.matchSrcSpan = s'
+                    , S.matchName    = name'
+                    , S.matchIsInfix = GHC.mc_fixity ctxt == GHC.Infix
+                    , S.matchPats    = pats'
+                    , S.matchRhs     = rhs'
+                    , S.matchBinds   = mBinds'
+                    }
+      _               ->
+        notSupported "Function declarations with strictness annotations" s'
+  funMatchToMatch (AnyMatch s' _ _ _ _)
+    = notSupported "Non-function matches in function declarations" s'
 -- Type and data families, type declarations, type classes and extension
 -- declarations are not supported and therefore skipped. The user is explicitly
 -- informed about skipped type classes since they might contain pattern
@@ -223,30 +245,29 @@ transformValBinds (GHC.ValBinds _ binds sigs) = mapM transformDecl
 transformValBinds (GHC.XValBindsLR _)
   = notSupported "Value bindings extensions" S.NoSrcSpan
 
--- | Transforms a GHC match group into HST matches.
+-- | Transforms a GHC match group into HST matches without transforming the
+--   match context.
 transformMatchGroup :: Member Report r
                     => GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
-                    -> Sem r [S.Match GHC]
+                    -> Sem r [AnyMatch]
 transformMatchGroup GHC.MG { GHC.mg_alts = GHC.L _ matches }
   = mapM transformMatch matches
 transformMatchGroup (GHC.XMatchGroup x) = GHC.noExtCon x
 
--- | Transforms a GHC located match into an HST match.
+-- | Transforms a GHC located match into an HST match without transforming the
+--   match context.
 transformMatch :: Member Report r
                => GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
-               -> Sem r (S.Match GHC)
+               -> Sem r AnyMatch
 transformMatch (GHC.L s match@GHC.Match {}) = do
-  let s' = transformSrcSpan s
-  (name', fixity) <- case GHC.m_ctxt match of
-    ctxt@GHC.FunRhs {} -> do
-      name <- transformRdrNameUnqual (GHC.mc_fun ctxt)
-      return (name, GHC.mc_fixity ctxt)
-    _                  -> return $ (S.Ident S.NoSrcSpan "", GHC.Prefix)
   pats <- mapM transformPat (GHC.m_pats match)
   (rhs, mBinds) <- transformGRHSs (GHC.m_grhss match)
-  return $ case fixity of
-    GHC.Prefix -> S.Match s' name' pats rhs mBinds
-    GHC.Infix  -> S.InfixMatch s' (head pats) name' (tail pats) rhs mBinds
+  return AnyMatch { anyMatchSrcSpan  = transformSrcSpan s
+                  , anyMatchContext  = GHC.m_ctxt match
+                  , anyMatchPatterns = pats
+                  , anyMatchRhs      = rhs
+                  , anyMatchBinds    = mBinds
+                  }
 transformMatch (GHC.L _ (GHC.XMatch x))     = GHC.noExtCon x
 
 -- | Transforms GHC guarded right-hand sides into an HST right-hand side and
@@ -262,8 +283,8 @@ transformGRHSs grhss@GHC.GRHSs {} = do
       return (S.UnGuardedRhs (transformSrcSpan s) body', binds)
     grhss' -> do
       grhss'' <- mapM transformGRHS grhss'
-      return (S.GuardedRhss S.NoSrcSpan grhss'', binds)
-        -- The source span here seems to be missing in the GHC AST
+      let srcSpan = combineSrcSpans (map S.getSrcSpan grhss'')
+      return (S.GuardedRhss srcSpan grhss'', binds)
 transformGRHSs (GHC.XGRHSs x)     = GHC.noExtCon x
 
 -- | Transforms a GHC guarded right-hand side into an HST guarded right-hand
@@ -341,19 +362,18 @@ transformExpr (GHC.L s (GHC.HsApp _ e1 e2))
 transformExpr (GHC.L s (GHC.NegApp _ e _)) = S.NegApp (transformSrcSpan s)
   <$> transformExpr e
 transformExpr (GHC.L s (GHC.HsLam _ mg)) = do
+  let s' = transformSrcSpan s
   mg' <- transformMatchGroup mg
   case mg' of
-    [S.Match _ _ pats (S.UnGuardedRhs _ e) Nothing] -> return
-      $ S.Lambda (transformSrcSpan s) pats e
-    [S.Match _ _ _ _ (Just _)] -> notSupported
-      "Lambda abstractions with bindings" (transformSrcSpan s)
-    [S.Match _ _ _ (S.GuardedRhss _ _) _] -> notSupported
-      "Lambda abstractions with guards" (transformSrcSpan s)
-    [S.InfixMatch _ _ _ _ _ _] -> notSupported "Infix lambda abstractions"
-      (transformSrcSpan s)
-    [] -> notSupported "Empty lambda abstractions" (transformSrcSpan s)
-    (_ : _ : _) -> notSupported "Lambda abstractions with multiple matches"
-      (transformSrcSpan s)
+    [ AnyMatch _ GHC.LambdaExpr pats' (S.UnGuardedRhs _ e') Nothing
+      ] -> return $ S.Lambda s' pats' e'
+    [ AnyMatch _ GHC.LambdaExpr _ _ (Just _)
+      ] -> notSupported "Lambda abstractions with bindings" s'
+    [ AnyMatch _ GHC.LambdaExpr _ (S.GuardedRhss _ _) _
+      ] -> notSupported "Lambda abstractions with guards" s'
+    [] -> notSupported "Empty lambda abstractions" s'
+    [_] -> notSupported "Non-lambda matches in lambda expressions" s'
+    _ -> notSupported "Lambda abstractions with multiple matches" s'
 transformExpr (GHC.L s (GHC.HsLet _ binds e)) = do
   mBinds <- transformLocalBinds binds
   case mBinds of
@@ -370,12 +390,16 @@ transformExpr (GHC.L s (GHC.HsCase _ e mg)) = do
   alts <- mapM matchToAlt mg'
   return $ S.Case (transformSrcSpan s) e' alts
  where
-  matchToAlt :: Member Report r => S.Match GHC -> Sem r (S.Alt GHC)
-  matchToAlt (S.Match s' _ [pat] rhs mBinds) = return $ S.Alt s' pat rhs mBinds
-  matchToAlt (S.Match s' _ _ _ _)
-    = notSupported "Case alternatives without exactly one pattern" s'
-  matchToAlt (S.InfixMatch s' _ _ _ _ _)
-    = notSupported "Infix matches in case alternatives" s'
+  -- | Completes the transformation of a match to an alternative.
+  matchToAlt :: Member Report r => AnyMatch -> Sem r (S.Alt GHC)
+  matchToAlt (AnyMatch s' GHC.CaseAlt [pat'] rhs' mBinds')
+    = return $ S.Alt s' pat' rhs' mBinds'
+  matchToAlt (AnyMatch s' GHC.CaseAlt [] _ _)
+    = notSupported "Case alternatives without patterns" s'
+  matchToAlt (AnyMatch s' GHC.CaseAlt _ _ _)
+    = notSupported "Case alternatives with multiple patterns" s'
+  matchToAlt (AnyMatch s' _ _ _ _)
+    = notSupported "Non-case expression matches in case expressions" s'
 transformExpr (GHC.L s (GHC.ExplicitTuple _ tArgs boxity)) = S.Tuple
   (transformSrcSpan s) (transformBoxity boxity)
   <$> mapM transformTupleArg tArgs
@@ -594,3 +618,9 @@ transformSrcSpan srcSpan@(GHC.RealSrcSpan realSrcSpan) = S.SrcSpan srcSpan
   , S.msgSrcSpanEndColumn   = GHC.srcSpanEndCol realSrcSpan
   }
 transformSrcSpan (GHC.UnhelpfulSpan _)                 = S.NoSrcSpan
+
+-- | Combines multiple source spans into a source span that spans at least
+--   all characters within the individual spans.
+combineSrcSpans :: [S.SrcSpan GHC] -> S.SrcSpan GHC
+combineSrcSpans = transformSrcSpan
+  . foldr (GHC.combineSrcSpans . S.originalSrcSpan) GHC.noSrcSpan
