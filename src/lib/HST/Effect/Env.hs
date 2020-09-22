@@ -7,7 +7,7 @@
 --   matching compiler's environment.
 module HST.Effect.Env
   ( -- * Effect
-    Env
+    Env(..)
     -- * Actions
   , getEnv
   , inEnv

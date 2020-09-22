@@ -13,7 +13,7 @@
 --   instead of the modules that define the type classes.
 module HST.Effect.WithFrontend
   ( -- * Effect
-    WithFrontend
+    WithFrontend(..)
     -- * Actions
   , parseModule
   , transformModule

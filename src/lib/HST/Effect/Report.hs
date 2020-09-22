@@ -12,7 +12,7 @@
 --   the computation to be 'cancel'ed.
 module HST.Effect.Report
   ( -- * Effect
-    Report
+    Report(..)
     -- * Actions
   , report
   , reportFatal

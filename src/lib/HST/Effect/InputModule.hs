@@ -13,7 +13,7 @@ module HST.Effect.InputModule
   , ConName
   , invertInterfaceEntry
     -- * Effect
-  , InputModule
+  , InputModule(..)
     -- * Actions
   , getInputModule
   , getInputModuleInterface

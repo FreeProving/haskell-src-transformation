@@ -7,7 +7,7 @@
 --   that variables have been matched against on a stack.
 module HST.Effect.PatternStack
   ( -- * Effect
-    PatternStack
+    PatternStack(..)
     -- * Actions
   , pushPattern
   , peekPattern
