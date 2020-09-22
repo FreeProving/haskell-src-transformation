@@ -25,10 +25,22 @@
       Avoid `NoSrcSpan`. Try to annotate all source spans explicitly or
       add an exception to the `.hlint.yaml` file for this module.
     within:
+      # In main, we have errors that have no source span.
+    - Main
+      # Messages when asking for options do not have a source span so they have
+      # to be annotated with no souce span.
+    - HST.Options
       # Many artificial nodes are generated in the core algorithm and during
       # guard elimination. There is not a good source span for all of them.
     - HST.CoreAlgorithm
     - HST.Feature.GuardElimination
+      # In the environment, we do not have report
+    - HST.Environment.LookupOrReport
+      # When reporting, we have to handle errors that do not have a source span.
+    - HST.Effect.Report
+      # While parsing, the error message contains the source span so it does not
+      # have to be displayed.
+    - HST.Frontend.Parser
       # The `NoSrcSpan` constructor is allowed in its definition.
     - HST.Frontend.Syntax
       # Entries for predefined data types and their constructors don't have
@@ -38,10 +50,27 @@
       # `NoSrcSpan` such that users of the effect are forced to discard
       # location information explicitly.
     - HST.Effect.Fresh
+    # During the transformation, given source spans have to be converted to
+    # HST syntax
+    - HST.Frontend.HSE.From
+    - HST.Frontend.GHC.From
     # During the back-transformation, missing source spans have to be converted
     # to the original AST data type.
     - HST.Frontend.GHC.To
     - HST.Frontend.HSE.To
+    # In tests, it is necessary to use `NoSrcSpan`.
+    - HST.ApplicationTests
+    - HST.CoreAlgorithmTests
+    - HST.Effect.CancelTests
+    - HST.Effect.FreshTests
+    - HST.Effect.ReportTests
+    - HST.Effect.SetExpectation
+    - HST.Test.Expectation
+    - HST.Test.Parser
+    - HST.Test.Runner
+    - HST.Util.FreeVarsTests
+    - HST.Util.SelectorTests
+    - HST.Util.SubstTests
 
 # Aliases for qualified imports.
 - modules:

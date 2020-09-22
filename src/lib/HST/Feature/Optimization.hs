@@ -79,7 +79,7 @@ optimizeCase :: Members '[PatternStack a, Fresh, Report] r
 optimizeCase sc (S.Var sv varName) alts = do
   mpat <- peekPattern varName
   case mpat of
-    Just pat -> renameAndOpt pat alts
+    Just pat -> renameAndOpt sc pat alts
     Nothing  -> addAndOpt sc sv varName alts
 optimizeCase s e alts                   = do
   e' <- optimize' e
@@ -93,14 +93,17 @@ optimizeCase s e alts                   = do
 --   given pattern and applies 'optimize''.
 renameAndOpt
   :: Members '[PatternStack a, Fresh, Report] r
-  => S.Pat a   -- ^ Pattern of a parent @case@ expression on the same scrutinee.
-  -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
+  => S.SrcSpan a -- ^ The source span of the case expression which we are
+                 --   modifying.
+  -> S.Pat a     -- ^ Pattern of a parent @case@ expression on the same
+                 --   scrutinee.
+  -> [S.Alt a]   -- ^ The alternatives of the current @case@ expression.
   -> Sem r (S.Exp a)
-renameAndOpt pat alts = do
+renameAndOpt s pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
     Nothing                   -> reportFatal
-      $ message Error S.NoSrcSpan
+      $ message Error s
       $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
@@ -128,8 +131,8 @@ cheatEq q1 q2 = q1 == q2
 selectPats :: Member Report r => S.Pat a -> Sem r [S.Pat a]
 selectPats (S.PApp _ _ pats) = return pats
 selectPats (S.PInfixApp _ p1 _ p2) = return [p1, p2]
-selectPats _ = reportFatal
-  $ message Error S.NoSrcSpan
+selectPats pat = reportFatal
+  $ message Error (S.getSrcSpan pat)
   $ "Expected prefix or infix constructor pattern."
 
 -- | Renames the corresponding pairs of variable patterns in the given

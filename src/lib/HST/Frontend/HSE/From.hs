@@ -26,10 +26,10 @@ transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
   <$> mapM transformModuleHead moduleHead
   <*> mapM transformDecl decls
-transformModule (HSE.XmlPage _ _ _ _ _ _ _)
-  = notSupported "XML Modules" S.NoSrcSpan
-transformModule (HSE.XmlHybrid _ _ _ _ _ _ _ _ _)
-  = notSupported "XML Modules" S.NoSrcSpan
+transformModule (HSE.XmlPage s _ _ _ _ _ _)
+  = notSupported "XML Modules" (transformSrcSpan s)
+transformModule (HSE.XmlHybrid s _ _ _ _ _ _ _ _)
+  = notSupported "XML Modules" (transformSrcSpan s)
 
 -- | Extracts the name of a module from a module head.
 transformModuleHead :: Member Report r
