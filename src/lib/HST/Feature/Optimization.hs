@@ -102,9 +102,8 @@ renameAndOpt
 renameAndOpt s pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
-    Nothing                   -> reportFatal
-      $ message Error s
-      $ "Found no possible alternative."
+    Nothing                   ->
+      reportFatal $ message Error s $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
       pats <- selectPats pat
@@ -129,9 +128,9 @@ cheatEq q1 q2 = q1 == q2
 
 -- | Gets the argument patterns of the given constructor pattern.
 selectPats :: Member Report r => S.Pat a -> Sem r [S.Pat a]
-selectPats (S.PApp _ _ pats) = return pats
+selectPats (S.PApp _ _ pats)       = return pats
 selectPats (S.PInfixApp _ p1 _ p2) = return [p1, p2]
-selectPats pat = reportFatal
+selectPats pat                     = reportFatal
   $ message Error (S.getSrcSpan pat)
   $ "Expected prefix or infix constructor pattern."
 

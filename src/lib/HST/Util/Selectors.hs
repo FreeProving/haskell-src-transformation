@@ -30,9 +30,8 @@ import           HST.Util.Messages   ( Severity(Error, Internal), message )
 --   Reports a fatal internal error if the given right-hand side has a guard.
 expFromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
 expFromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
-expFromUnguardedRhs (S.GuardedRhss s _)     = reportFatal
-  $ message Internal s
-  $ "Expected unguarded right-hand side."
+expFromUnguardedRhs (S.GuardedRhss s _)
+  = reportFatal $ message Internal s $ "Expected unguarded right-hand side."
 
 -------------------------------------------------------------------------------
 -- Pattern Names                                                             --
