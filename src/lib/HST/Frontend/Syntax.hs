@@ -463,10 +463,9 @@ class HasSrcSpan node where
 --
 --   Only the original source span is used when transforming a source span
 --   back, all other data is used for displaying input code excerpts.
-data SrcSpan a = SrcSpan (SrcSpanType a) MsgSrcSpan | NoSrcSpan
-
-originalSrcSpan :: SrcSpan a -> SrcSpanType a
-originalSrcSpan (SrcSpan s _) = s
+data SrcSpan a
+  = SrcSpan { originalSrcSpan :: SrcSpanType a, actualSrcSpan :: MsgSrcSpan }
+  | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 
