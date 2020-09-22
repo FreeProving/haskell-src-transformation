@@ -121,7 +121,7 @@ instance HasIdentifiers (S.Decl a) where
 
 -- | Collects all identifiers in a pattern matching rule.
 instance HasIdentifiers (S.Match a) where
-  findIdentifiers (S.Match _ _ name pats rhs binds)        = Set.unions
+  findIdentifiers (S.Match _ _ name pats rhs binds) = Set.unions
     [ findIdentifiers name
     , findIdentifiers pats
     , findIdentifiers rhs

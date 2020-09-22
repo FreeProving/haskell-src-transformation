@@ -115,7 +115,7 @@ instance FreeVars S.Decl where
 --   The variables that are bound by the arguments, the local declarations
 --   and the function itself are not free.
 instance FreeVars S.Match where
-  freeVarOSet (S.Match _ _ name args rhs mBinds)        = withoutBoundVar name
+  freeVarOSet (S.Match _ _ name args rhs mBinds) = withoutBoundVar name
     (withoutBoundVarsUnion args (withoutBoundVarsUnion mBinds (freeVarOSet rhs)
                                  `union` freeVarOSetUnion mBinds))
 
@@ -209,10 +209,10 @@ instance BoundVars S.Decl where
 --   The arguments and local declarations of the function are not visible to
 --   the outside and thus, not considered to be bound by the function.
 instance BoundVars S.Match where
-  boundVars (S.Match _ _ name _ _ _)        = [name]
+  boundVars (S.Match _ _ name _ _ _) = [name]
 
-  withBoundVars' (S.Match srcSpan isInfix _ args rhs mBinds)          = S.Match srcSpan isInfix
-    <$> nextName
+  withBoundVars' (S.Match srcSpan isInfix _ args rhs mBinds)
+    = S.Match srcSpan isInfix <$> nextName
     <*> return args
     <*> return rhs
     <*> return mBinds

@@ -151,7 +151,7 @@ computeAlts x xs eqs er = do
   if null missingCons then return alts else do
     b <- getOpt optTrivialCase
     if b
-      then
+      then 
         -- TODO is 'defaultErrorExp' correct? Why not 'er'?
         return $ alts ++ [S.alt (S.PWildCard S.NoSrcSpan) defaultErrorExp]
       else do
@@ -203,15 +203,14 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
     conPatArgs <- replicateM (conEntryArity conEntry)
       (freshVarPat genericFreshPrefix)
     varName <- getPatVarName varPat
-    let conPat | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan varPat)
-                 (head conPatArgs) (conEntryName conEntry) (conPatArgs !! 1)
-               | otherwise = S.PApp (S.getSrcSpan varPat) (conEntryName conEntry)
-                 conPatArgs
+    let conPat  | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan varPat)
+                  (head conPatArgs) (conEntryName conEntry) (conPatArgs !! 1)
+                | otherwise = S.PApp (S.getSrcSpan varPat)
+                  (conEntryName conEntry) conPatArgs
         conExpr = S.patToExp conPat
         subst   = singleSubst (S.unQual varName) conExpr
         e'      = applySubst subst e
     return (S.alt conPat e')
-
 
 -------------------------------------------------------------------------------
 -- Grouping                                                                  --

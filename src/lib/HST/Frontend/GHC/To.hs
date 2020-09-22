@@ -22,19 +22,17 @@ import qualified SrcLoc                         as GHC
 import qualified TcEvidence                     as GHC
 import qualified TysWiredIn                     as GHC
 
-import           HST.Effect.Report       ( Report, reportFatal )
+import           HST.Effect.Report              ( Report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(originalModuleName, originalModuleExports,
                    originalModuleImports, originalModuleDeprecMessage,
                    originalModuleHaddockModHeader)
   , TypeWrapper(SigType) )
-
+import qualified HST.Frontend.GHC.From          as FromGHC
 import           HST.Frontend.GHC.Util.AnyMatch
-import qualified HST.Frontend.GHC.From   as FromGHC
-import qualified HST.Frontend.Syntax     as S
-import           HST.Util.Messages       ( Severity(Internal), message )
-
+import qualified HST.Frontend.Syntax            as S
+import           HST.Util.Messages              ( Severity(Internal), message )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
