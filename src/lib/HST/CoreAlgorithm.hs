@@ -11,27 +11,27 @@ module HST.CoreAlgorithm
 import           Control.Monad                  ( replicateM )
 import           Data.Function                  ( on )
 import           Data.List                      ( (\\), groupBy, partition )
-import           Polysemy                       ( Member, Members, Sem )
+import           Polysemy                       ( Members, Sem )
 
 import           HST.Effect.Env                 ( Env )
 import           HST.Effect.Fresh
   ( Fresh, freshVarPat, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error, Internal), failToReport
-  , reportFatal )
+  ( Report, failToReport, reportFatal )
 import           HST.Environment
   ( ConEntry, DataEntry, conEntryArity, conEntryIsInfix, conEntryName
   , conEntryType, dataEntryCons )
 import           HST.Environment.LookupOrReport
   ( lookupConEntryOrReport, lookupDataEntryOrReport )
-import           HST.Environment.Renaming
-  ( rename, subst, substitute, tSubst )
 import qualified HST.Frontend.Syntax            as S
 import           HST.Options                    ( optTrivialCase )
+import           HST.Util.Messages
+  ( Severity(Error, Internal), message )
 import           HST.Util.Predicates            ( isConPat, isVarPat )
 import           HST.Util.Selectors
   ( getAltConName, getMaybePatConName, getPatVarName )
+import           HST.Util.Subst                 ( applySubst, singleSubst )
 
 -------------------------------------------------------------------------------
 -- Equations                                                                 --
@@ -80,11 +80,19 @@ match vars@(x : xs) eqs er
     -- Rule 4: Pattern lists of some equations start with a variable pattern
     -- and others start with a constructor pattern.
     --
-    -- TODO This is probably causing the infinite loops when there are
-    --      unsupported patterns.
-    otherwise = createRekMatch vars er (groupByFirstPatType eqs)
+    -- If all patterns are in the same group (i.e., there is only one group),
+    -- the recursive call to 'match' in 'createRekMatch' would cause an
+    -- infinite loop. An internal error is reported in this case to ensure
+    -- termination.
+    otherwise = let groups = groupByFirstPatType eqs
+                in if length groups == 1
+                     then reportFatal
+                       $ message Internal S.NoSrcSpan
+                       $ "Failed to group equations by pattern type. "
+                       ++ "All patterns are in the same group."
+                     else createRekMatch vars er groups
 match [] _ _               = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Equations have different number of arguments."
 
 -- | Substitutes all occurrences of the variable bound by the first pattern
@@ -92,13 +100,13 @@ match [] _ _               = reportFatal
 --   fresh variable bound by the given variable pattern on the right-hand side
 --   of the equation.
 substVars :: Members '[Fresh, Report] r => S.Pat a -> Eqs a -> Sem r (Eqs a)
-substVars pv (p : ps, e) = do
-  s1 <- getPatVarName p
-  s2 <- getPatVarName pv
-  let sub = subst s1 s2
-  return (ps, rename sub e)
-substVars _ ([], _)      = reportFatal
-  $ Message Internal
+substVars varPat' (p : ps, e) = do
+  varName <- getPatVarName p
+  let varExp' = S.patToExp varPat'
+      subst   = singleSubst (S.unQual varName) varExp'
+  return (ps, applySubst subst e)
+substVars _ ([], _)           = reportFatal
+  $ message Internal S.NoSrcSpan
   $ "Expected equation with at least one pattern."
 
 -- | Applies 'match' to every group of equations where the error expression
@@ -159,7 +167,7 @@ computeAlts x xs eqs er = do
 identifyMissingCons
   :: Members '[Env a, Report] r => [S.Alt a] -> Sem r [ConEntry a]
 identifyMissingCons []   = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Could not identify missing constructors: "
   ++ "Empty case expressions are not supported."
 identifyMissingCons alts = do
@@ -178,7 +186,7 @@ findDataEntry conName = do
 -- | Creates new @case@ expression alternatives for the given missing
 --   constructors.
 createAltsForMissingCons
-  :: (Member Fresh r, S.EqAST a)
+  :: (Members '[Fresh, Report] r, S.EqAST a)
   => S.Pat a         -- ^ The fresh variable matched by the @case@ expression.
   -> [ConEntry a]    -- ^ The missing constructors to generate alternatives for.
   -> S.Exp a         -- ^ The error expression for pattern-matching failures.
@@ -186,22 +194,24 @@ createAltsForMissingCons
 createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
  where
   createAltForMissingCon
-    :: (Member Fresh r, S.EqAST a)
+    :: (Members '[Fresh, Report] r, S.EqAST a)
     => S.Pat a
     -> S.Exp a
     -> ConEntry a
     -> Sem r (S.Alt a)
-  createAltForMissingCon pat e conEntry = do
-    nvars <- replicateM (conEntryArity conEntry)
+  createAltForMissingCon varPat e conEntry = do
+    conPatArgs <- replicateM (conEntryArity conEntry)
       (freshVarPat genericFreshPrefix)
-    let p    | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan pat)
-               (head nvars) (conEntryName conEntry) (nvars !! 1)
-             | otherwise = S.PApp (S.getSrcSpan pat) (conEntryName conEntry)
-               nvars
-        p'   = S.patToExp p
-        pat' = S.patToExp pat
-        e'   = substitute (tSubst pat' p') e
-    return (S.alt p e')
+    varName <- getPatVarName varPat
+    let conPat | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan varPat)
+                 (head conPatArgs) (conEntryName conEntry) (conPatArgs !! 1)
+               | otherwise = S.PApp (S.getSrcSpan varPat) (conEntryName conEntry)
+                 conPatArgs
+        conExpr = S.patToExp conPat
+        subst   = singleSubst (S.unQual varName) conExpr
+        e'      = applySubst subst e
+    return (S.alt conPat e')
+
 
 -------------------------------------------------------------------------------
 -- Grouping                                                                  --
@@ -285,9 +295,14 @@ computeAlt pat pats er prps@(p : _) = do
   -- oldpats need to be computed for each pattern
   (capp, nvars, _) <- decomposeConPat (firstPat p)
   nprps <- mapM f prps
-  let sub = tSubst (S.patToExp pat) (S.patToExp capp)
-  res <- match (nvars ++ pats) nprps (substitute sub er)
-  let res' = substitute sub res
+  patName <- getPatVarName pat
+  let subst = singleSubst (S.unQual patName) (S.patToExp capp)
+      -- TODO is it actually needed to apply the substitution to the error
+      -- expression separately when the substitution is applied to the entire
+      -- result anyway?
+      er'   = applySubst subst er
+  res <- match (nvars ++ pats) nprps er'
+  let res' = applySubst subst res
   return (S.alt capp res')
  where
   f :: Members '[Fresh, Report] r => Eqs a -> Sem r (Eqs a)
@@ -295,8 +310,9 @@ computeAlt pat pats er prps@(p : _) = do
   f (v : vs, r) = do
     (_, _, oldpats) <- decomposeConPat v
     return (oldpats ++ vs, r)
-computeAlt _ _ _ []
-  = reportFatal $ Message Internal $ "Expected at least one pattern in group."
+computeAlt _ _ _ [] = reportFatal
+  $ message Internal S.NoSrcSpan
+  $ "Expected at least one pattern in group."
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the
 --      oldpats

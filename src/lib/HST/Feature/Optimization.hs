@@ -2,18 +2,18 @@
 --   unnecessary nested case expressions.
 module HST.Feature.Optimization ( optimize ) where
 
-import           Control.Monad.Extra      ( findM )
-import           Polysemy                 ( Member, Members, Sem )
+import           Control.Monad.Extra     ( findM )
+import           Polysemy                ( Member, Members, Sem )
 
-import           HST.Effect.Fresh         ( Fresh )
+import           HST.Effect.Fresh        ( Fresh )
 import           HST.Effect.PatternStack
   ( PatternStack, peekPattern, popPattern, pushPattern, runPatternStack )
-import           HST.Effect.Report
-  ( Message(..), Report, Severity(Error), reportFatal )
-import           HST.Environment.Renaming ( rename, subst )
-import qualified HST.Frontend.Syntax      as S
+import           HST.Effect.Report       ( Report, reportFatal )
+import qualified HST.Frontend.Syntax     as S
+import           HST.Util.Messages       ( Severity(Error), message )
 import           HST.Util.Selectors
   ( expFromUnguardedRhs, getAltConName, getPatConName, getPatVarName )
+import           HST.Util.Subst          ( applySubst, substFromList )
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
@@ -99,8 +99,9 @@ renameAndOpt
 renameAndOpt pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
-    Nothing                   ->
-      reportFatal $ Message Error $ "Found no possible alternative."
+    Nothing                   -> reportFatal
+      $ message Error S.NoSrcSpan
+      $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
       pats <- selectPats pat
@@ -128,7 +129,7 @@ selectPats :: Member Report r => S.Pat a -> Sem r [S.Pat a]
 selectPats (S.PApp _ _ pats) = return pats
 selectPats (S.PInfixApp _ p1 _ p2) = return [p1, p2]
 selectPats _ = reportFatal
-  $ Message Error
+  $ message Error S.NoSrcSpan
   $ "Expected prefix or infix constructor pattern."
 
 -- | Renames the corresponding pairs of variable patterns in the given
@@ -137,15 +138,12 @@ renameAll :: Members '[Fresh, Report] r
           => [(S.Pat a, S.Pat a)]
           -> S.Exp a
           -> Sem r (S.Exp a)
-
--- TODO refactor higher order foldr
--- TODO generate one Subst and apply only once
-renameAll [] e               = return e
-renameAll ((from, to) : r) e = do
-  f <- getPatVarName from
-  t <- getPatVarName to
-  res <- renameAll r e
-  return $ rename (subst f t) res
+renameAll ps e = do
+  fromNames <- mapM (fmap S.unQual . getPatVarName . fst) ps
+  let toExprs = map (S.patToExp . snd) ps
+      ps'     = zip fromNames toExprs
+      subst   = substFromList ps'
+  return $ applySubst subst e
 
 -- | Applies 'optimizeAlt' to the given @case@ expression alternatives and
 --   constructs a @case@ expression from the optimized alternatives.

@@ -8,11 +8,12 @@ import           Test.Hspec
   ( Expectation, Spec, context, describe, it )
 
 import           HST.CoreAlgorithm       ( compareCons )
-import           HST.Effect.Report
+import           HST.Effect.Report       ( Report, runReport )
 import           HST.Frontend.HSE.Config ( HSE )
 import qualified HST.Frontend.HSE.From   as FromHSE
 import qualified HST.Frontend.HSE.To     as ToHSE
 import qualified HST.Frontend.Syntax     as S
+import           HST.Util.Messages       ( showPrettyMessage )
 
 -- | Tests for the "HST.CoreAlgorithm" module.
 testCoreAlgorithm :: Spec

@@ -22,16 +22,19 @@ import qualified SrcLoc                         as GHC
 import qualified TcEvidence                     as GHC
 import qualified TysWiredIn                     as GHC
 
-import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Internal), reportFatal )
+import           HST.Effect.Report       ( Report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(originalModuleName, originalModuleExports,
                    originalModuleImports, originalModuleDeprecMessage,
                    originalModuleHaddockModHeader)
   , TypeWrapper(SigType) )
+
 import           HST.Frontend.GHC.Util.AnyMatch
-import qualified HST.Frontend.Syntax            as S
+import qualified HST.Frontend.GHC.From   as FromGHC
+import qualified HST.Frontend.Syntax     as S
+import           HST.Util.Messages       ( Severity(Internal), message )
+
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -81,7 +84,7 @@ transformDecl (S.FunBind funSrcSpan matches) = do
   getMatchesName :: Member Report r => [S.Match GHC] -> Sem r (S.Name GHC)
   getMatchesName (match : _) = return (S.matchName match)
   getMatchesName []          = reportFatal
-    $ Message Internal
+    $ message Internal funSrcSpan
     "Encountered empty match group in function binding during retransformation!"
 
   matchToFunMatch :: Member Report r => S.Match GHC -> Sem r AnyMatch
@@ -128,8 +131,8 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
       GHC.L s' (GHC.ValD _ fb@GHC.FunBind {}) ->
         return (GHC.L s' fb : funBinds', sigs')
       GHC.L s' (GHC.SigD _ sig) -> return (funBinds', GHC.L s' sig : sigs')
-      _ -> reportFatal
-        $ Message Internal
+      GHC.L s' _ -> reportFatal
+        $ message Internal (FromGHC.transformSrcSpan s')
         $ "Encountered unexpected declaration in binding group during "
         ++ "retransformation. Only function and signature declarations are "
         ++ "allowed!"
@@ -370,8 +373,8 @@ transformSpecialCon (S.NilCon _)
   = return $ GHC.dataConName GHC.nilDataCon
 transformSpecialCon (S.ConsCon _)
   = return $ GHC.dataConName GHC.consDataCon
-transformSpecialCon (S.ExprHole _)             = reportFatal
-  $ Message Internal
+transformSpecialCon (S.ExprHole s)             = reportFatal
+  $ message Internal s
   $ "Encountered expression hole at name level in retransformation. "
   ++ "Expression holes should be transformed at expression level with "
   ++ "the ghc-lib front end!"
@@ -381,5 +384,5 @@ transformSpecialCon (S.ExprHole _)             = reportFatal
 -------------------------------------------------------------------------------
 -- | Unwraps the HST type for source spans into an GHC source span.
 transformSrcSpan :: S.SrcSpan GHC -> GHC.SrcSpan
-transformSrcSpan (S.SrcSpan s) = s
-transformSrcSpan S.NoSrcSpan   = GHC.noSrcSpan
+transformSrcSpan (S.SrcSpan originalSrcSpan _) = originalSrcSpan
+transformSrcSpan S.NoSrcSpan                   = GHC.noSrcSpan

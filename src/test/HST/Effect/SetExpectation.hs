@@ -24,7 +24,8 @@ import           Polysemy.Embed    ( Embed, embed )
 import qualified Test.HUnit.Base   as HUnit
 import           Test.Hspec        ( Expectation )
 
-import           HST.Effect.Report ( Report, runReport, showPrettyMessage )
+import           HST.Effect.Report ( Report, runReport )
+import           HST.Util.Messages ( showPrettyMessage )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --

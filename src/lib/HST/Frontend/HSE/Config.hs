@@ -22,7 +22,7 @@ import qualified HST.Frontend.Syntax   as S
 --   expressions, additional data from the original module and original
 --   declarations with the concrete types from @haskell-src-exts@ or wrappers
 --   for these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to
---   allow the usage of @==@ and @show@.
+--   allow the usage of @==@ and @show@ for all AST components.
 data HSE
 
 type instance S.SrcSpanType HSE = HSE.SrcSpanInfo
