@@ -6,8 +6,7 @@ import           Test.Hspec                ( shouldBe )
 
 import           HST.Effect.SetExpectation ( SetExpectation, setExpectation )
 import           HST.Effect.WithFrontend
-  ( WithFrontend, prettyPrintExp, prettyPrintModule, unTransformExp
-  , unTransformModule )
+  ( WithFrontend, prettyPrintExp, prettyPrintModule )
 import qualified HST.Frontend.Syntax       as S
 
 -- | Pretty prints both given modules and tests whether the resulting strings
