@@ -1,9 +1,23 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | This module contains functions for transforming parsed Haskell modules and
 --   expressions with the different front ends to the intermediate syntax and
 --   back.
-module HST.Frontend.Transformer ( Transformable(..) ) where
+module HST.Frontend.Transformer
+  ( Transformable(transformModule, unTransformModule, transformExp,
+              unTransformExp)
+  , ModuleType(ModuleHSE, ModuleGHC)
+  , ExpType(ExpHSE, ExpGHC)
+  , getModuleHSE
+  , getModuleGHC
+  , getExpHSE
+  , getExpGHC
+  ) where
 
+import qualified GHC.Hs                  as GHC
+import qualified Language.Haskell.Exts   as HSE
 import           Polysemy                ( Member, Sem )
+import qualified SrcLoc                  as GHC
 
 import           HST.Effect.Report       ( Report )
 import           HST.Frontend.GHC.Config ( GHC )
@@ -12,48 +26,59 @@ import qualified HST.Frontend.GHC.To     as ToGHC
 import           HST.Frontend.HSE.Config ( HSE )
 import qualified HST.Frontend.HSE.From   as FromHSE
 import qualified HST.Frontend.HSE.To     as ToHSE
-import           HST.Frontend.Parser
-  ( ParsedExp(ParsedExpHSE, ParsedExpGHC)
-  , ParsedModule(ParsedModuleGHC, ParsedModuleHSE), getParsedExpGHC
-  , getParsedExpHSE, getParsedModuleGHC, getParsedModuleHSE )
 import qualified HST.Frontend.Syntax     as S
 
 -- | Type class for "HST.Frontend.Syntax" configurations whose 'ParsedModule's
 --   and 'ParsedExp's can be transformed to and from the intermediate
 --   syntax.
 class Transformable a where
+  -- | Type family for the argument and return type of 'transformModule'
+  --   and 'unTransformModule', respectively.
+  data ModuleType a :: *
+
+  -- | Type family for the argument and return type of 'transformExp'
+  --   and 'unTransformExp', respectively.
+  data ExpType a :: *
+
   -- | Transforms a parsed module to the intermediate syntax.
-  transformModule :: Member Report r
-                  => ParsedModule a -- ^ The parsed module to transform.
-                  -> Sem r (S.Module a)
+  transformModule :: Member Report r => ModuleType a -> Sem r (S.Module a)
 
   -- | Transforms a module from the intermediate syntax back to a pretty
   --   printable module.
-  unTransformModule :: Member Report r
-                    => S.Module a     -- ^ The module to transform.
-                    -> Sem r (ParsedModule a)
+  unTransformModule :: Member Report r => S.Module a -> Sem r (ModuleType a)
 
   -- | Transforms a parsed expression to the intermediate syntax.
-  transformExp :: Member Report r => ParsedExp a -> Sem r (S.Exp a)
+  transformExp :: Member Report r => ExpType a -> Sem r (S.Exp a)
 
   -- | Transforms an expression from the intermediate syntax back to a pretty
   --   printable expression.
-  unTransformExp :: Member Report r => S.Exp a -> Sem r (ParsedExp a)
+  unTransformExp :: Member Report r => S.Exp a -> Sem r (ExpType a)
 
-instance Transformable HSE where
-  transformModule   = FromHSE.transformModule . getParsedModuleHSE
+instance (ToHSE.TransformSrcSpan srcSpan, FromHSE.TransformSrcSpan srcSpan)
+  => Transformable (HSE srcSpan) where
+  data ModuleType (HSE srcSpan)
+    = ModuleHSE { getModuleHSE :: HSE.Module srcSpan }
 
-  unTransformModule = return . ParsedModuleHSE . ToHSE.transformModule
+  data ExpType (HSE srcSpan) = ExpHSE { getExpHSE :: HSE.Exp srcSpan }
 
-  transformExp      = FromHSE.transformExp . getParsedExpHSE
+  transformModule = FromHSE.transformModule . getModuleHSE
 
-  unTransformExp    = return . ParsedExpHSE . ToHSE.transformExp
+  unTransformModule = return . ModuleHSE . ToHSE.transformModule
+
+  transformExp = FromHSE.transformExp . getExpHSE
+
+  unTransformExp = return . ExpHSE . ToHSE.transformExp
 
 instance Transformable GHC where
-  transformModule   = FromGHC.transformModule . getParsedModuleGHC
+  data ModuleType GHC
+    = ModuleGHC { getModuleGHC :: GHC.Located (GHC.HsModule GHC.GhcPs) }
 
-  unTransformModule = fmap ParsedModuleGHC . ToGHC.transformModule
+  data ExpType GHC = ExpGHC { getExpGHC :: GHC.Located (GHC.HsExpr GHC.GhcPs) }
 
-  transformExp      = FromGHC.transformExpr . getParsedExpGHC
+  transformModule = FromGHC.transformModule . getModuleGHC
 
-  unTransformExp    = fmap ParsedExpGHC . ToGHC.transformExp
+  unTransformModule = fmap ModuleGHC . ToGHC.transformModule
+
+  transformExp = FromGHC.transformExpr . getExpGHC
+
+  unTransformExp = fmap ExpGHC . ToGHC.transformExp

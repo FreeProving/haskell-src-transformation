@@ -1,29 +1,19 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- | This module contains functions for parsing Haskell modules and expressions
 --   with the different front ends.
-module HST.Frontend.Parser
-  ( Parsable(parseModule, parseExp)
-  , ParsedModule(ParsedModuleHSE, ParsedModuleGHC)
-  , ParsedExp(ParsedExpHSE, ParsedExpGHC)
-  , getParsedModuleHSE
-  , getParsedModuleGHC
-  , getParsedExpHSE
-  , getParsedExpGHC
-  ) where
+module HST.Frontend.Parser ( Parsable(parseModule, parseExp) ) where
 
 import qualified Bag                                        as GHC
 import           Control.Monad                              ( unless )
 import           Data.List                                  ( intercalate )
 import qualified ErrUtils                                   as GHC
-import qualified GHC.Hs                                     as GHC
 import qualified Language.Haskell.Exts                      as HSE
 import qualified Language.Haskell.GhclibParserEx.GHC.Parser as GHC
 import qualified Lexer                                      as GHC
 import qualified Outputable                                 as GHC
 import           Polysemy
   ( Member, Members, Sem )
-import qualified SrcLoc                                     as GHC
 
 import           HST.Effect.Cancel                          ( Cancel, cancel )
 import           HST.Effect.Report
@@ -32,18 +22,17 @@ import           HST.Frontend.GHC.Config
   ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config                    ( HSE )
 import qualified HST.Frontend.Syntax                        as S
+import           HST.Frontend.Transformer
+  ( ExpType(ExpHSE, ExpGHC), ModuleType(ModuleHSE, ModuleGHC), Transformable(..) )
 import           HST.Util.Messages
   ( Severity(Error, Warning), message )
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   and 'S.Exp'ressions can be parsed.
-class Parsable a where
-  -- | Type family for the return type of 'parseModule'.
-  data ParsedModule a :: *
-
-  -- | Type family for the return type of 'parseExp'.
-  data ParsedExp a :: *
-
+--
+--   Modules are always transformed into our internal representation after
+--   parsing.
+class Transformable a => Parsable a where
   -- | Parses the given Haskell file.
   --
   --   Syntax errors are reported. The computation can be canceled even if
@@ -51,31 +40,26 @@ class Parsable a where
   parseModule :: Members '[Report, Cancel] r
               => FilePath -- ^ The name of the input file.
               -> String   -- ^ The contents of the input file.
-              -> Sem r (ParsedModule a)
+              -> Sem r (S.Module a)
 
   -- | Parses the given Haskell expression.
   --
   --   Syntax errors are reported. The computation can be canceled even if
   --   there is no fatal error.
-  parseExp :: Members '[Report, Cancel] r => String -> Sem r (ParsedExp a)
+  parseExp :: Members '[Report, Cancel] r => String -> Sem r (S.Exp a)
 
 -- | Parses a Haskell module or expression with the parser of
 --   @haskell-src-exts@.
-instance Parsable HSE where
-  data ParsedModule HSE
-    = ParsedModuleHSE { getParsedModuleHSE :: HSE.Module HSE.SrcSpanInfo }
-
-  data ParsedExp HSE
-    = ParsedExpHSE { getParsedExpHSE :: HSE.Exp HSE.SrcSpanInfo }
-
-  parseModule inputFilename input = ParsedModuleHSE
-    <$> handleParseResultHSE (HSE.parseModuleWithMode parseMode input)
+instance Parsable (HSE HSE.SrcSpanInfo) where
+  parseModule inputFilename input = transformModule . ModuleHSE
+    =<< handleParseResultHSE (HSE.parseModuleWithMode parseMode input)
    where
     -- | Configuration of the @haskell-src-exts@ parser.
     parseMode :: HSE.ParseMode
     parseMode = HSE.defaultParseMode { HSE.parseFilename = inputFilename }
 
-  parseExp input = ParsedExpHSE <$> handleParseResultHSE (HSE.parseExp input)
+  parseExp input = transformExp . ExpHSE
+    =<< handleParseResultHSE (HSE.parseExp input)
 
 -- | Handles a parse result of the HSE front end, i. e. returns the AST node
 --   contained in the parse result or reports an error if parsing failed.
@@ -94,18 +78,11 @@ handleParseResultHSE (HSE.ParseFailed srcLoc msg) = reportFatal
 
 -- | Parses a Haskell module or expression with the parser of @ghc-lib-parser@.
 instance Parsable GHC where
-  data ParsedModule GHC = ParsedModuleGHC
-    { getParsedModuleGHC :: GHC.Located (GHC.HsModule GHC.GhcPs)
-    }
+  parseModule inputFilename input = transformModule . ModuleGHC
+    =<< handleParseResultGHC (GHC.parseFile inputFilename defaultDynFlags input)
 
-  data ParsedExp GHC
-    = ParsedExpGHC { getParsedExpGHC :: GHC.Located (GHC.HsExpr GHC.GhcPs) }
-
-  parseModule inputFilename input = ParsedModuleGHC
-    <$> handleParseResultGHC (GHC.parseFile inputFilename defaultDynFlags input)
-
-  parseExp input = ParsedExpGHC
-    <$> handleParseResultGHC (GHC.parseExpression input defaultDynFlags)
+  parseExp input = transformExp . ExpGHC
+    =<< handleParseResultGHC (GHC.parseExpression input defaultDynFlags)
 
 -- | Handles a parse result of the GHC front end, i. e. returns the AST node
 --   contained in the parse result, if available, and reports all errors and

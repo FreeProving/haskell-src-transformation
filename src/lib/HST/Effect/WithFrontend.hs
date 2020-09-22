@@ -30,19 +30,20 @@ module HST.Effect.WithFrontend
   ) where
 
 import qualified Data.Map                   as Map
+import qualified Language.Haskell.Exts      as HSE
 import           Polysemy                   ( Members, Sem, interpret, makeSem )
 
 import           HST.Effect.Cancel          ( Cancel )
 import           HST.Effect.Report          ( Report )
 import           HST.Frontend.GHC.Config    ( GHC )
 import           HST.Frontend.HSE.Config    ( HSE )
-import           HST.Frontend.Parser
-  ( Parsable, ParsedExp, ParsedModule )
+import           HST.Frontend.Parser        ( Parsable )
 import qualified HST.Frontend.Parser
 import           HST.Frontend.PrettyPrinter ( PrettyPrintable )
 import qualified HST.Frontend.PrettyPrinter
 import qualified HST.Frontend.Syntax        as S
-import           HST.Frontend.Transformer   ( Transformable )
+import           HST.Frontend.Transformer
+  ( ExpType, ModuleType, Transformable )
 import qualified HST.Frontend.Transformer
 import           HST.Options
   ( Frontend(GHClib, HSE), frontendMap )
@@ -56,24 +57,24 @@ data WithFrontend f m a where
   -- | Action for parsing a module.
   ParseModule :: FilePath -- ^ The name of the input file.
     -> String             -- ^ The contents of the input file.
-    -> WithFrontend f m (ParsedModule f)
+    -> WithFrontend f m (S.Module f)
   -- | Action for transforming a module to the intermediate syntax.
-  TransformModule :: ParsedModule f -- ^ The parsed module to transform.
+  TransformModule :: ModuleType f -- ^ The parsed module to transform.
     -> WithFrontend f m (S.Module f)
   -- | Action for transforming a module back.
   UnTransformModule :: S.Module f    -- ^ The module to transform back.
-    -> WithFrontend f m (ParsedModule f)
+    -> WithFrontend f m (ModuleType f)
   -- | Action for pretty printing a module.
-  PrettyPrintModule :: ParsedModule f -- ^ The module to pretty-print.
+  PrettyPrintModule :: S.Module f -- ^ The module to pretty-print.
     -> WithFrontend f m String
   -- | Action for parsing an expression.
-  ParseExp :: String -> WithFrontend f m (ParsedExp f)
+  ParseExp :: String -> WithFrontend f m (S.Exp f)
   -- | Action for transforming an expression to the intermediate syntax.
-  TransformExp :: ParsedExp f -> WithFrontend f m (S.Exp f)
+  TransformExp :: ExpType f -> WithFrontend f m (S.Exp f)
   -- | Action for transforming an expression back.
-  UnTransformExp :: S.Exp f -> WithFrontend f m (ParsedExp f)
+  UnTransformExp :: S.Exp f -> WithFrontend f m (ExpType f)
   -- | Action for pretty printing an expression.
-  PrettyPrintExp :: ParsedExp f -> WithFrontend f m String
+  PrettyPrintExp :: S.Exp f -> WithFrontend f m String
 
 makeSem ''WithFrontend
 
@@ -94,13 +95,13 @@ runWithFrontendInstances = interpret \case
   UnTransformModule transformedModule ->
     HST.Frontend.Transformer.unTransformModule transformedModule
   PrettyPrintModule parsedModule ->
-    return $ HST.Frontend.PrettyPrinter.prettyPrintModule parsedModule
+    HST.Frontend.PrettyPrinter.prettyPrintModule parsedModule
   ParseExp input -> HST.Frontend.Parser.parseExp input
   TransformExp parsedExp -> HST.Frontend.Transformer.transformExp parsedExp
   UnTransformExp transformedExp ->
     HST.Frontend.Transformer.unTransformExp transformedExp
   PrettyPrintExp parsedExp ->
-    return $ HST.Frontend.PrettyPrinter.prettyPrintExp parsedExp
+    HST.Frontend.PrettyPrinter.prettyPrintExp parsedExp
 
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running
 --   the computation with the type class instances for the configuration data
@@ -117,7 +118,7 @@ runWithFrontend
       (Parsable f, Transformable f, PrettyPrintable f, S.EqAST f, S.ShowAST f)
       => Sem (WithFrontend f ': r) a)
   -> Sem r a
-runWithFrontend HSE    = runWithFrontendInstances @HSE
+runWithFrontend HSE    = runWithFrontendInstances @(HSE HSE.SrcSpanInfo)
 runWithFrontend GHClib = runWithFrontendInstances @GHC
 
 -- | Handles the 'WithFrontend' effect of a polymorphic computation by running

@@ -22,7 +22,7 @@ testCoreAlgorithm = describe "HST.CoreAlgorithm" $ do
 
 -- | Parse a pattern from the given string and sets the expectation that
 --   parsing is successful.
-parseTestPat :: String -> IO (S.Pat HSE)
+parseTestPat :: String -> IO (S.Pat (HSE HSE.SrcSpanInfo))
 parseTestPat patStr = case HSE.parsePat patStr of
   HSE.ParseOk pat          ->
     runM . reportToExpectation $ FromHSE.transformPat pat
@@ -44,7 +44,8 @@ reportToExpectation comp = do
 
 -- | Sets the expectation that the given patterns should have matching
 --   constructors.
-shouldMatchCons :: S.Pat HSE -> S.Pat HSE -> Expectation
+shouldMatchCons
+  :: S.Pat (HSE HSE.SrcSpanInfo) -> S.Pat (HSE HSE.SrcSpanInfo) -> Expectation
 shouldMatchCons pat1 pat2
   | compareCons pat1 pat2 = return ()
   | otherwise = assertFailure
@@ -56,7 +57,8 @@ shouldMatchCons pat1 pat2
 
 -- | Sets the expectation that the given patterns should not have matching
 --   constructors.
-shouldNotMatchCons :: S.Pat HSE -> S.Pat HSE -> Expectation
+shouldNotMatchCons
+  :: S.Pat (HSE HSE.SrcSpanInfo) -> S.Pat (HSE HSE.SrcSpanInfo) -> Expectation
 shouldNotMatchCons pat1 pat2
   | compareCons pat1 pat2 = assertFailure
     $ "\""
