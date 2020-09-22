@@ -12,12 +12,14 @@ module HST.Effect.InputFile
   , getInputFile
     -- * Interpretations
   , runInputFile
+  , runInputFileNoIO
   ) where
 
 import           Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as Map
 import           Polysemy        ( Member, Sem, makeSem, reinterpret )
 import           Polysemy.Embed  ( Embed, embed )
+import           Polysemy.Reader ( asks, runReader )
 import           Polysemy.State  ( State, evalState, gets, modify )
 
 -------------------------------------------------------------------------------
@@ -59,3 +61,14 @@ runWithInputFile initialFileMap = evalState initialFileMap . inputFileToState
           modify $ Map.insert filePath contents
           return contents
         Just contents -> return contents
+
+-- | Handles a computation by providing a map that maps file paths to contents.
+--   This handler does not use IO actions but returns the empty string if the
+--   given file was not found.
+runInputFileNoIO :: Map FilePath String -> Sem (InputFile ': r) a -> Sem r a
+runInputFileNoIO fileMap = runReader fileMap . reinterpret \case
+  GetInputFile filePath -> do
+    maybeContents <- asks $ Map.lookup filePath
+    case maybeContents of
+      Nothing       -> return ""
+      Just contents -> return contents

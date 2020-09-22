@@ -4,6 +4,7 @@
 module HST.Util.Messages
   ( Severity(..)
   , Message(..)
+  , displayCodeExcerpt
   , message
   , showPrettyMessage
   , showPrettyMessageWithExcerpt
