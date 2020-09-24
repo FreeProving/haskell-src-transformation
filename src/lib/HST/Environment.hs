@@ -14,7 +14,7 @@ import qualified Data.Map.Strict        as Map
 import           Data.Maybe             ( mapMaybe )
 
 import           HST.Effect.InputModule
-  ( ConEntry, ConName, ModuleInterface(..), TypeName )
+  ( ConEntry(..), ConName, DataEntry(..), ModuleInterface(..), TypeName )
 import qualified HST.Frontend.Syntax    as S
 
 -------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ lookupConEntries
   :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), [ConEntry a])]
 lookupConEntries typeName env = mapMaybe
   (\x ->
-   fmap (interfaceModName x, ) (Map.lookup typeName (interfaceDataCons x)))
+   fmap (interfaceModName x, ) (fmap dataEntryCons (Map.lookup typeName (interfaceDataEntries x))))
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
@@ -64,7 +64,7 @@ lookupTypeName
   :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
 lookupTypeName conName env = mapMaybe
   (\x ->
-   fmap (interfaceModName x, ) (Map.lookup conName (interfaceTypeNames x)))
+   fmap (interfaceModName x, ) (fmap conEntryName (Map.lookup conName (interfaceConEntries x))))
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
