@@ -9,11 +9,11 @@ module HST.Environment.LookupOrReport
 import           Polysemy            ( Members, Sem )
 
 import           HST.Effect.Env      ( Env, inEnv )
-import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error), reportFatal )
+import           HST.Effect.Report   ( Report, reportFatal )
 import           HST.Environment
   ( ConEntry, DataEntry, lookupConEntry, lookupDataEntry )
 import qualified HST.Frontend.Syntax as S
+import           HST.Util.Messages   ( Severity(Error), message )
 import           HST.Util.PrettyName ( prettyName )
 
 -- | Looks up the entry of a data constructor with the given name in the
@@ -26,7 +26,7 @@ lookupConEntryOrReport conName = do
   maybeConEntry <- inEnv $ lookupConEntry conName
   case maybeConEntry of
     Nothing       -> reportFatal
-      $ Message Error
+      $ message Error S.NoSrcSpan
       $ "Data constructor not in scope: " ++ prettyName conName
     Just conEntry -> return conEntry
 
@@ -40,6 +40,6 @@ lookupDataEntryOrReport dataName = do
   maybeDataEntry <- inEnv $ lookupDataEntry dataName
   case maybeDataEntry of
     Nothing        -> reportFatal
-      $ Message Error
+      $ message Error S.NoSrcSpan
       $ "Type constructor not in scope: " ++ prettyName dataName
     Just dataEntry -> return dataEntry

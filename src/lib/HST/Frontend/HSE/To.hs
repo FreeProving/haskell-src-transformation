@@ -55,12 +55,12 @@ transformBinds (S.BDecls s decls) = HSE.BDecls (transformSrcSpan s)
 
 -- | Transforms an HST match into an HSE match.
 transformMatch :: S.Match HSE -> HSE.Match HSE.SrcSpanInfo
-transformMatch (S.Match s name pats rhs mBinds)          = HSE.Match
-  (transformSrcSpan s) (transformName name) (map transformPat pats)
-  (transformRhs rhs) (fmap transformBinds mBinds)
-transformMatch (S.InfixMatch s pat name pats rhs mBinds) = HSE.InfixMatch
-  (transformSrcSpan s) (transformPat pat) (transformName name)
-  (map transformPat pats) (transformRhs rhs) (fmap transformBinds mBinds)
+transformMatch (S.Match s isInfix name pats rhs mBinds)
+  | not isInfix = HSE.Match (transformSrcSpan s) (transformName name)
+    (map transformPat pats) (transformRhs rhs) (fmap transformBinds mBinds)
+  | otherwise = HSE.InfixMatch (transformSrcSpan s) (transformPat (head pats))
+    (transformName name) (map transformPat (tail pats)) (transformRhs rhs)
+    (fmap transformBinds mBinds)
 
 -- | Transforms an HST right hand side into an HSE right hand side.
 transformRhs :: S.Rhs HSE -> HSE.Rhs HSE.SrcSpanInfo
@@ -185,6 +185,5 @@ transformSpecialCon (S.ExprHole s)         = HSE.ExprHole (transformSrcSpan s)
 -------------------------------------------------------------------------------
 -- | Unwraps the HST type for source spans into an HSE source span.
 transformSrcSpan :: S.SrcSpan HSE -> HSE.SrcSpanInfo
-transformSrcSpan s = case s of
-  S.SrcSpan srcSpan -> srcSpan
-  S.NoSrcSpan       -> HSE.noSrcSpan
+transformSrcSpan (S.SrcSpan originalSrcSpan _) = originalSrcSpan
+transformSrcSpan S.NoSrcSpan                   = HSE.noSrcSpan

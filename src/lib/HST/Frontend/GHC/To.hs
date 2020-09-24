@@ -9,27 +9,30 @@
 --   expressions.
 module HST.Frontend.GHC.To where
 
-import qualified Bag                     as GHC
-import qualified BasicTypes              as GHC
-import qualified DataCon                 as GHC
-import qualified GHC.Hs                  as GHC
-import qualified Module                  as GHC
-import qualified Name                    as GHC
-import           Polysemy                ( Member, Sem )
-import qualified RdrName                 as GHC
-import qualified SrcLoc                  as GHC
-import qualified TcEvidence              as GHC
-import qualified TysWiredIn              as GHC
+import qualified Bag                            as GHC
+import qualified BasicTypes                     as GHC
+import           Control.Monad                  ( (>=>) )
+import qualified DataCon                        as GHC
+import qualified GHC.Hs                         as GHC
+import qualified Module                         as GHC
+import qualified Name                           as GHC
+import           Polysemy                       ( Member, Sem )
+import qualified RdrName                        as GHC
+import qualified SrcLoc                         as GHC
+import qualified TcEvidence                     as GHC
+import qualified TysWiredIn                     as GHC
 
-import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Internal), reportFatal )
+import           HST.Effect.Report              ( Report, reportFatal )
 import           HST.Frontend.GHC.Config
   ( DeclWrapper(Decl), GHC, LitWrapper(Lit, OverLit)
   , OriginalModuleHead(originalModuleName, originalModuleExports,
                    originalModuleImports, originalModuleDeprecMessage,
                    originalModuleHaddockModHeader)
   , TypeWrapper(SigType) )
-import qualified HST.Frontend.Syntax     as S
+import qualified HST.Frontend.GHC.From          as FromGHC
+import           HST.Frontend.GHC.Util.AnyMatch
+import qualified HST.Frontend.Syntax            as S
+import           HST.Util.Messages              ( Severity(Internal), message )
 
 -------------------------------------------------------------------------------
 -- Modules                                                                   --
@@ -61,26 +64,42 @@ transformModule (S.Module s omh _ decls) = do
 -- | Transforms an HST declaration into an GHC located declaration.
 transformDecl :: Member Report r => S.Decl GHC -> Sem r (GHC.LHsDecl GHC.GhcPs)
 transformDecl (S.DataDecl _ (Decl oDecl) _ _) = return oDecl
-transformDecl (S.FunBind s matches) = do
+transformDecl (S.FunBind funSrcSpan matches) = do
   matchesName <- getMatchesName matches
-  let funId = transformName GHC.varName matchesName
-      s'    = transformSrcSpan s
-  matches' <- transformMatches Function s' matches
+  let funId       = transformName GHC.varName matchesName
+      funSrcSpan' = transformSrcSpan funSrcSpan
+  matches' <- mapM (matchToFunMatch >=> transformMatch) matches
   return
-    $ GHC.L s' (GHC.ValD GHC.NoExtField GHC.FunBind
-                { GHC.fun_ext     = GHC.NoExtField
-                , GHC.fun_id      = funId
-                , GHC.fun_matches = matches'
-                , GHC.fun_co_fn   = GHC.WpHole
-                , GHC.fun_tick    = []
-                })
+    $ GHC.L funSrcSpan'
+    (GHC.ValD GHC.NoExtField GHC.FunBind
+     { GHC.fun_ext     = GHC.NoExtField
+     , GHC.fun_id      = funId
+     , GHC.fun_matches = makeMatchGroup funSrcSpan' matches'
+     , GHC.fun_co_fn   = GHC.WpHole
+     , GHC.fun_tick    = []
+     })
  where
   getMatchesName :: Member Report r => [S.Match GHC] -> Sem r (S.Name GHC)
-  getMatchesName (S.Match _ name _ _ _ : _) = return name
-  getMatchesName (S.InfixMatch _ _ name _ _ _ : _) = return name
-  getMatchesName [] = reportFatal
-    $ Message Internal
+  getMatchesName (match : _) = return (S.matchName match)
+  getMatchesName []          = reportFatal
+    $ message Internal funSrcSpan
     "Encountered empty match group in function binding during retransformation!"
+
+  matchToFunMatch :: Member Report r => S.Match GHC -> Sem r AnyMatch
+  matchToFunMatch (S.Match matchSrcSpan isInfix name pats rhs mBinds) = do
+    let name' = transformName GHC.varName name
+    return
+      $ AnyMatch
+      { anyMatchSrcSpan  = matchSrcSpan
+      , anyMatchContext  = GHC.FunRhs
+          { GHC.mc_fun        = name'
+          , GHC.mc_fixity     = if isInfix then GHC.Infix else GHC.Prefix
+          , GHC.mc_strictness = GHC.NoSrcStrict
+          }
+      , anyMatchPatterns = pats
+      , anyMatchRhs      = rhs
+      , anyMatchBinds    = mBinds
+      }
 transformDecl (S.OtherDecl _ (Decl oDecl)) = return oDecl
 
 -------------------------------------------------------------------------------
@@ -110,58 +129,37 @@ transformMaybeBinds (Just (S.BDecls s decls)) = do
       GHC.L s' (GHC.ValD _ fb@GHC.FunBind {}) ->
         return (GHC.L s' fb : funBinds', sigs')
       GHC.L s' (GHC.SigD _ sig) -> return (funBinds', GHC.L s' sig : sigs')
-      _ -> reportFatal
-        $ Message Internal
+      GHC.L s' _ -> reportFatal
+        $ message Internal (FromGHC.transformSrcSpan s')
         $ "Encountered unexpected declaration in binding group during "
         ++ "retransformation. Only function and signature declarations are "
         ++ "allowed!"
 
--- | Type for the contexts where a match or match group can occur in the GHC
---   AST data structure.
-data MatchContext = Function | LambdaExp | CaseAlt
- deriving ( Eq, Show )
-
--- | Transforms a match context, a GHC source span of the matches and a list of
---   HST matches with into a GHC match group.
-transformMatches :: Member Report r
-                 => MatchContext
-                 -> GHC.SrcSpan
-                 -> [S.Match GHC]
-                 -> Sem r (GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
-transformMatches ctxt s matches = do
-  matches' <- mapM (transformMatch ctxt) matches
-  return GHC.MG { GHC.mg_ext    = GHC.NoExtField
-                , GHC.mg_alts   = GHC.L s matches'
-                , GHC.mg_origin = GHC.FromSource
-                }
+-- | Creates a GHC match group with the given source span that contains the
+--   given matches.
+makeMatchGroup :: GHC.SrcSpan
+               -> [GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)]
+               -> GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs)
+makeMatchGroup s matches = GHC.MG
+  { GHC.mg_ext    = GHC.NoExtField
+  , GHC.mg_alts   = GHC.L s matches
+  , GHC.mg_origin = GHC.FromSource
+  }
 
 -- | Transforms an HST match with a match context into a GHC located match.
 transformMatch :: Member Report r
-               => MatchContext
-               -> S.Match GHC
+               => AnyMatch
                -> Sem r (GHC.LMatch GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
-transformMatch ctxt match = do
-  let (s, name, pats, rhs, mBinds, fixity) = case match of
-        S.Match s' name' pats' rhs' mBinds'          ->
-          (s', name', pats', rhs', mBinds', GHC.Prefix)
-        S.InfixMatch s' pat name' pats' rhs' mBinds' ->
-          (s', name', pat : pats', rhs', mBinds', GHC.Infix)
-      ctxt' = case ctxt of
-        Function  -> GHC.FunRhs
-          { GHC.mc_fun        = transformName GHC.varName name
-          , GHC.mc_fixity     = fixity
-          , GHC.mc_strictness = GHC.NoSrcStrict
-          }
-        LambdaExp -> GHC.LambdaExpr
-        CaseAlt   -> GHC.CaseAlt
+transformMatch (AnyMatch s ctxt pats rhs mBinds) = do
+  let s' = transformSrcSpan s
   pats' <- mapM transformPat pats
-  grhss <- transformRhs rhs mBinds
+  grhss' <- transformRhs rhs mBinds
   return
-    $ GHC.L (transformSrcSpan s) GHC.Match
+    $ GHC.L s' GHC.Match
     { GHC.m_ext   = GHC.NoExtField
-    , GHC.m_ctxt  = ctxt'
+    , GHC.m_ctxt  = ctxt
     , GHC.m_pats  = pats'
-    , GHC.m_grhss = grhss
+    , GHC.m_grhss = grhss'
     }
 
 -- | Transforms an HST right-hand side and binding group into GHC guarded
@@ -232,12 +230,16 @@ transformExp (S.App s e1 e2) = GHC.L (transformSrcSpan s)
   <$> (GHC.HsApp GHC.NoExtField <$> transformExp e1 <*> transformExp e2)
 transformExp (S.NegApp s e) = GHC.L (transformSrcSpan s)
   <$> (GHC.NegApp GHC.NoExtField <$> transformExp e <*> return GHC.noSyntaxExpr)
-transformExp (S.Lambda s pats e)
-  = let s'    = transformSrcSpan s
-        match = S.Match s (S.Ident S.NoSrcSpan "") pats
-          (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing
-    in GHC.L s'
-       <$> (GHC.HsLam GHC.NoExtField <$> transformMatches LambdaExp s' [match])
+transformExp (S.Lambda s pats e) = do
+  let s'    = transformSrcSpan s
+      match = AnyMatch { anyMatchSrcSpan  = s
+                       , anyMatchContext  = GHC.LambdaExpr
+                       , anyMatchPatterns = pats
+                       , anyMatchRhs      = S.UnGuardedRhs (S.getSrcSpan e) e
+                       , anyMatchBinds    = Nothing
+                       }
+  match' <- transformMatch match
+  return $ GHC.L s' (GHC.HsLam GHC.NoExtField (makeMatchGroup s' [match']))
 transformExp (S.Let s binds e) = GHC.L (transformSrcSpan s)
   <$> (GHC.HsLet GHC.NoExtField <$> transformMaybeBinds (Just binds)
        <*> transformExp e)
@@ -267,19 +269,28 @@ transformExp (S.Paren s e) = GHC.L (transformSrcSpan s)
 transformExp (S.ExpTypeSig s e (SigType typ)) = GHC.L (transformSrcSpan s)
   <$> (GHC.ExprWithTySig GHC.NoExtField <$> transformExp e <*> return typ)
 
+-- | Transforms HST @case@-expression alternatives to a GHC match group.
+--
+--   The source span information of the group of case alternatives seems to be
+--   missing in the HSE syntax and therefore in our syntax, so the source span
+--   of the entire case construct (first argument) is inserted instead.
 transformAlts :: Member Report r
               => GHC.SrcSpan
               -> [S.Alt GHC]
               -> Sem r (GHC.MatchGroup GHC.GhcPs (GHC.LHsExpr GHC.GhcPs))
-
--- The source span information of the group of case alternatives seems to be
--- missing in the HSE syntax and therefore in our syntax, so the source span
--- of the entire case construct is inserted instead
-transformAlts s alts = transformMatches CaseAlt s (map altToMatch alts)
+transformAlts s alts = do
+  let matches = map altToMatch alts
+  matches' <- mapM transformMatch matches
+  return $ makeMatchGroup s matches'
  where
-  altToMatch :: S.Alt GHC -> S.Match GHC
-  altToMatch (S.Alt s' pat rhs mBinds) = S.Match s' (S.Ident S.NoSrcSpan "")
-    [pat] rhs mBinds
+  altToMatch :: S.Alt GHC -> AnyMatch
+  altToMatch (S.Alt s' pat rhs mBinds) = AnyMatch
+    { anyMatchSrcSpan  = s'
+    , anyMatchContext  = GHC.CaseAlt
+    , anyMatchPatterns = [pat]
+    , anyMatchRhs      = rhs
+    , anyMatchBinds    = mBinds
+    }
 
 -------------------------------------------------------------------------------
 -- Patterns                                                                  --
@@ -360,8 +371,8 @@ transformSpecialCon (S.NilCon _)
   = return $ GHC.dataConName GHC.nilDataCon
 transformSpecialCon (S.ConsCon _)
   = return $ GHC.dataConName GHC.consDataCon
-transformSpecialCon (S.ExprHole _)             = reportFatal
-  $ Message Internal
+transformSpecialCon (S.ExprHole s)             = reportFatal
+  $ message Internal s
   $ "Encountered expression hole at name level in retransformation. "
   ++ "Expression holes should be transformed at expression level with "
   ++ "the ghc-lib front end!"
@@ -371,5 +382,5 @@ transformSpecialCon (S.ExprHole _)             = reportFatal
 -------------------------------------------------------------------------------
 -- | Unwraps the HST type for source spans into an GHC source span.
 transformSrcSpan :: S.SrcSpan GHC -> GHC.SrcSpan
-transformSrcSpan (S.SrcSpan s) = s
-transformSrcSpan S.NoSrcSpan   = GHC.noSrcSpan
+transformSrcSpan (S.SrcSpan originalSrcSpan _) = originalSrcSpan
+transformSrcSpan S.NoSrcSpan                   = GHC.noSrcSpan

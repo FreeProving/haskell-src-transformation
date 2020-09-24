@@ -147,9 +147,14 @@ instance HasSrcSpan Binds where
   getSrcSpan (BDecls srcSpan _) = srcSpan
 
 -- | A match belonging to a function binding declaration.
-data Match a
-  = Match (SrcSpan a) (Name a) [Pat a] (Rhs a) (Maybe (Binds a))
-  | InfixMatch (SrcSpan a) (Pat a) (Name a) [Pat a] (Rhs a) (Maybe (Binds a))
+data Match a = Match
+  { matchSrcSpan :: SrcSpan a
+  , matchIsInfix :: Bool
+  , matchName    :: Name a
+  , matchPats    :: [Pat a]
+  , matchRhs     :: Rhs a
+  , matchBinds   :: Maybe (Binds a)
+  }
 
 deriving instance EqAST a => Eq (Match a)
 
@@ -157,8 +162,7 @@ deriving instance ShowAST a => Show (Match a)
 
 -- | Gets the source span information of a match of a function declaration.
 instance HasSrcSpan Match where
-  getSrcSpan (Match srcSpan _ _ _ _)        = srcSpan
-  getSrcSpan (InfixMatch srcSpan _ _ _ _ _) = srcSpan
+  getSrcSpan = matchSrcSpan
 
 -- | A right hand side belonging to a 'Match'.
 data Rhs a
@@ -242,6 +246,34 @@ var name = Var (getSrcSpan name) (toQName name)
 --   The additional source span information is taken from the given name.
 con :: (HasSrcSpan name, QNameLike name) => name a -> Exp a
 con name = Con (getSrcSpan name) (toQName name)
+
+-- | Creates an application expression.
+--
+--   The given source span is inserted into every generated application node.
+app :: SrcSpan a -- ^ The source span to insert.
+    -> Exp a     -- ^ The expression to apply.
+    -> [Exp a]   -- ^ The arguments to apply the expression to.
+    -> Exp a
+app srcSpan = foldl (App srcSpan)
+
+-- | Creates an application expression in infix notation if possible.
+--
+--   If the second given expression is a variable or constructor, an infix
+--   application is created. Otherwise, a regular application expression is
+--   created instead.
+infixApp :: SrcSpan a -- ^ The source span to insert.
+         -> Exp a     -- ^ The left operand.
+         -> Exp a     -- ^ The expression to apply.
+         -> Exp a     -- ^ The right operand.
+         -> Exp a
+infixApp appSrcSpan e1 opExpr e2 = case exprToQOp opExpr of
+  Nothing -> app appSrcSpan opExpr [e1, e2]
+  Just op -> InfixApp appSrcSpan e1 op e2
+ where
+  exprToQOp :: Exp a -> Maybe (QOp a)
+  exprToQOp (Var opSrcSpan opName) = Just (QVarOp opSrcSpan opName)
+  exprToQOp (Con opSrcSpan opName) = Just (QVarOp opSrcSpan opName)
+  exprToQOp _ = Nothing
 
 -- | An alternative in a @case@ expression.
 data Alt a = Alt (SrcSpan a) (Pat a) (Rhs a) (Maybe (Binds a))
@@ -412,9 +444,9 @@ instance HasSrcSpan SpecialCon where
   getSrcSpan (ExprHole srcSpan)         = srcSpan
 
 -- | 'SpecialCon'structors can be used everywhere where 'QName's are expected
---    by wrapping them with 'Special'.
+--   by wrapping them with 'Special'.
 --
---    The source span information of the 'SpecialCon' is copied to the 'QName'.
+--   The source span information of the 'SpecialCon' is copied to the 'QName'.
 instance QNameLike SpecialCon where
   toQName = special
 
@@ -426,8 +458,14 @@ class HasSrcSpan node where
   getSrcSpan :: node a -> SrcSpan a
 
 -- | A wrapper for source span information with the option to not specify a
---   source span.
-data SrcSpan a = SrcSpan (SrcSpanType a) | NoSrcSpan
+--   source span. Good source spans contain a 'MsgSrcSpan' which stores basic
+--   data about the source span.
+--
+--   Only the original source span is used when transforming a source span
+--   back, all other data is used for displaying input code excerpts.
+data SrcSpan a
+  = SrcSpan { originalSrcSpan :: SrcSpanType a, actualSrcSpan :: MsgSrcSpan }
+  | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 
@@ -438,3 +476,27 @@ instance Eq (SrcSpan a) where
 -- | Custom order for 'SrcSpan' which treats all source spans as equal.
 instance Ord (SrcSpan a) where
   _ `compare` _ = EQ
+
+-- | Type for storing basic data of a source span, i. e. the file path and the
+--   line and column of the start and end of the spanned source code.
+--
+--   The data contained in this type is used for displaying input code
+--   excerpts. This additional type is necessary in order to have a type for
+--   source spans without type variables, which would cause problems in the
+--   "HST.Effect.Report" module.
+data MsgSrcSpan = MsgSrcSpan
+  { msgSrcSpanFilePath    :: FilePath
+  , msgSrcSpanStartLine   :: Int
+  , msgSrcSpanStartColumn :: Int
+  , msgSrcSpanEndLine     :: Int
+  , msgSrcSpanEndColumn   :: Int
+  }
+ deriving ( Eq, Show )
+
+-- | Extracts the 'MsgSrcSpan' of a 'SrcSpan'.
+--
+--   The result is wrapped inside the @Maybe@ type, so that @Nothing@ can be
+--   returned for bad source spans.
+toMsgSrcSpan :: SrcSpan a -> Maybe MsgSrcSpan
+toMsgSrcSpan (SrcSpan _ msgSrcSpan) = Just msgSrcSpan
+toMsgSrcSpan NoSrcSpan              = Nothing

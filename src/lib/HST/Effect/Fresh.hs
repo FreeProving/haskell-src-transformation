@@ -11,9 +11,13 @@ module HST.Effect.Fresh
     -- * Actions
   , freshIdent
   , freshName
+  , freshNameWithSrcSpan
   , freshQName
+  , freshQNameWithSrcSpan
   , freshVar
+  , freshVarWithSrcSpan
   , freshVarPat
+  , freshVarPatWithSrcSpan
     -- * Interpretations
   , runFresh
     -- * Backward Compatibility
@@ -22,6 +26,8 @@ module HST.Effect.Fresh
 
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
+import           Data.Set            ( Set )
+import qualified Data.Set            as Set
 import           Polysemy            ( Member, Sem, makeSem, reinterpret )
 import           Polysemy.State      ( State, evalState, gets, modify )
 
@@ -38,35 +44,63 @@ makeSem ''Fresh
 
 -- | Generates a name for a fresh variable.
 freshName :: Member Fresh r => String -> Sem r (S.Name a)
-freshName prefix = S.Ident S.NoSrcSpan <$> freshIdent prefix
+freshName = flip freshNameWithSrcSpan S.NoSrcSpan
+
+-- | Generates a name for a fresh variable and sets the 'S.SrcSpan' to the
+--   given value.
+freshNameWithSrcSpan
+  :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Name a)
+freshNameWithSrcSpan prefix s = S.Ident s <$> freshIdent prefix
 
 -- | Generates an unqualified name for a fresh variable.
 freshQName :: Member Fresh r => String -> Sem r (S.QName a)
-freshQName prefix = S.UnQual S.NoSrcSpan <$> freshName prefix
+freshQName = flip freshQNameWithSrcSpan S.NoSrcSpan
+
+-- | Generates an unqualified name for a fresh variable and sets the
+--   'S.SrcSpan' to the given value.
+freshQNameWithSrcSpan
+  :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.QName a)
+freshQNameWithSrcSpan prefix s = S.UnQual s <$> freshNameWithSrcSpan prefix s
 
 -- | Generates a fresh variable expression.
 freshVar :: Member Fresh r => String -> Sem r (S.Exp a)
-freshVar prefix = S.Var S.NoSrcSpan <$> freshQName prefix
+freshVar = flip freshVarWithSrcSpan S.NoSrcSpan
+
+-- | Generates a fresh variable expression and sets the 'S.SrcSpan' to the
+--   given value.
+freshVarWithSrcSpan
+  :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Exp a)
+freshVarWithSrcSpan prefix s = S.Var s <$> freshQNameWithSrcSpan prefix s
 
 -- | Generates a fresh variable pattern.
 freshVarPat :: Member Fresh r => String -> Sem r (S.Pat a)
-freshVarPat prefix = S.PVar S.NoSrcSpan <$> freshName prefix
+freshVarPat = flip freshVarPatWithSrcSpan S.NoSrcSpan
+
+-- | Generates a fresh variable pattern whose 'S.SrcSpan' is identical to the
+--   given one.
+freshVarPatWithSrcSpan
+  :: Member Fresh r => String -> S.SrcSpan a -> Sem r (S.Pat a)
+freshVarPatWithSrcSpan prefix s = S.PVar s <$> freshNameWithSrcSpan prefix s
 
 -------------------------------------------------------------------------------
 -- Interpretations                                                           --
 -------------------------------------------------------------------------------
 -- | Interprets a computation that needs fresh variables by generating
---   identifiers of the form @<prefix><N>@.
-runFresh :: Sem (Fresh ': r) a -> Sem r a
-runFresh = evalState Map.empty . freshToState
+--   identifiers of the form @<prefix><N>@ that do not collide with the given
+--   set of used identifiers.
+runFresh :: Set String -> Sem (Fresh ': r) a -> Sem r a
+runFresh usedIdentifiers = evalState Map.empty . freshToState
  where
   -- | Reinterprets 'Fresh' in terms of 'State'.
   freshToState :: Sem (Fresh ': r) a -> Sem (State (Map String Int) ': r) a
   freshToState = reinterpret \case
     FreshIdent prefix -> do
       nextId <- gets $ Map.findWithDefault (0 :: Int) prefix
-      modify $ Map.insert prefix (nextId + 1)
-      return (prefix ++ show nextId)
+      let newId = until
+            (\n -> (prefix ++ show n) `Set.notMember` usedIdentifiers) (+ 1)
+            nextId
+      modify $ Map.insert prefix (newId + 1)
+      return (prefix ++ show newId)
 
 -------------------------------------------------------------------------------
 -- Backward Compatibility                                                    --

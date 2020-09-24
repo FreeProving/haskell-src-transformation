@@ -11,12 +11,8 @@
 --   fatal or non-fatal. The usual interpretation of a fatal message is for
 --   the computation to be 'cancel'ed.
 module HST.Effect.Report
-  ( -- * Messages
-    Severity(..)
-  , Message(..)
-  , showPrettyMessage
-    -- * Effect
-  , Report
+  ( -- * Effect
+    Report
     -- * Actions
   , report
   , reportFatal
@@ -33,34 +29,23 @@ module HST.Effect.Report
   , failToReport
   ) where
 
-import           Control.Exception ( Exception )
-import           Control.Monad     ( (>=>), when )
+import           Control.Exception    ( Exception )
+import           Control.Monad        ( (>=>), when )
 import           Polysemy
   ( Member, Members, Sem, intercept, interpret, makeSem, raise, raiseUnder2 )
-import           Polysemy.Embed    ( Embed, embed )
-import           Polysemy.Error    ( Error, fromExceptionSem, runError )
-import           Polysemy.Fail     ( Fail, runFail )
-import           Polysemy.Final    ( Final )
+import           Polysemy.Embed       ( Embed, embed )
+import           Polysemy.Error       ( Error, fromExceptionSem, runError )
+import           Polysemy.Fail        ( Fail, runFail )
+import           Polysemy.Final       ( Final )
 import           Polysemy.Output
   ( Output, ignoreOutput, output, runOutputList )
-import           System.IO         ( Handle, hPutStrLn )
+import           System.IO            ( Handle, hPutStrLn )
 
-import           HST.Effect.Cancel ( Cancel, cancel, runCancel )
-
--------------------------------------------------------------------------------
--- Messages                                                                  --
--------------------------------------------------------------------------------
--- | The severity of a 'Message'.
-data Severity = Internal | Error | Warning | Info | Debug
- deriving ( Show, Eq )
-
--- | A messages that can be 'report'ed.
-data Message = Message { msgSeverity :: Severity, msgText :: String }
- deriving ( Show, Eq )
-
--- TODO Add @Pretty@ instance for messages.
-showPrettyMessage :: Message -> String
-showPrettyMessage (Message severity msg) = show severity ++ ": " ++ msg
+import           HST.Effect.Cancel    ( Cancel, cancel, runCancel )
+import           HST.Effect.InputFile ( InputFile )
+import qualified HST.Frontend.Syntax  as S
+import           HST.Util.Messages
+  ( Message, Severity(Internal), message, showPrettyMessageWithExcerpt )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
@@ -108,15 +93,19 @@ reportToOutputOrCancel = interpret \case
 --
 --   If a fatal message is reported, the computation is 'cancel'ed
 --   prematurely.
-reportToHandleOrCancel
-  :: Members '[Embed IO, Cancel] r => Handle -> Sem (Report ': r) a -> Sem r a
+reportToHandleOrCancel :: Members '[Embed IO, Cancel, InputFile] r
+                       => Handle
+                       -> Sem (Report ': r) a
+                       -> Sem r a
 reportToHandleOrCancel h = interpret \case
-  Report msg      -> embed (hPutMessage msg)
-  ReportFatal msg -> embed (hPutMessage msg) >> cancel
+  Report msg      -> hPutMessage msg
+  ReportFatal msg -> hPutMessage msg >> cancel
  where
   -- | Prints the given message to the file handle given to the effect handler.
-  hPutMessage :: Message -> IO ()
-  hPutMessage = hPutStrLn h . showPrettyMessage
+  hPutMessage :: Members '[Embed IO, InputFile] r => Message -> Sem r ()
+  hPutMessage msg = do
+    msg' <- showPrettyMessageWithExcerpt msg
+    embed (hPutStrLn h msg')
 
 -- | Intercepts all non-fatal messages reported by the given computation and
 --   forwards them only if they satisfy the given predicate.
@@ -164,4 +153,5 @@ exceptionToReport exceptionToMessage
 --   >   (x, y) <- bar
 --   >   …
 failToReport :: Member Report r => Sem (Fail ': r) a -> Sem r a
-failToReport = runFail >=> either (reportFatal . Message Internal) return
+failToReport = runFail
+  >=> either (reportFatal . message Internal S.NoSrcSpan) return

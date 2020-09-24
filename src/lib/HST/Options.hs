@@ -21,8 +21,9 @@ import           Polysemy              ( Member, Sem )
 import           System.Console.GetOpt
   ( ArgDescr(NoArg, ReqArg), ArgOrder(Permute), OptDescr(Option), getOpt )
 
-import           HST.Effect.Report
-  ( Message(Message), Report, Severity(Error), report, reportFatal )
+import           HST.Effect.Report     ( Report, report, reportFatal )
+import qualified HST.Frontend.Syntax   as S
+import           HST.Util.Messages     ( Severity(Error), message )
 
 -- | A data type for all front ends that can be used for parsing the given input
 --   program in @haskell-src-transformations@.
@@ -47,7 +48,7 @@ frontendMap
 parseFrontend :: Member Report r => String -> Sem r Frontend
 parseFrontend s = case Map.lookup s frontendMap of
   Nothing -> reportFatal
-    $ Message Error
+    $ message Error S.NoSrcSpan
     $ "Unavailable front end.\n" ++ "Use '--help' for allowed values."
   Just f  -> return f
 
@@ -127,9 +128,9 @@ parseArgs args
     let opts = foldr ($) defaultOptions optSetters
     return opts { optInputFiles = nonOpts }
   | otherwise = do
-    mapM_ (report . Message Error) errors
+    mapM_ (report . message Error S.NoSrcSpan) errors
     reportFatal
-      $ Message Error
+      $ message Error S.NoSrcSpan
       $ "Failed to parse command line arguments.\n"
       ++ "Use '--help' for usage information."
  where
