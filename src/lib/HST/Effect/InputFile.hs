@@ -17,9 +17,9 @@ module HST.Effect.InputFile
 
 import           Data.Map.Strict ( Map )
 import qualified Data.Map.Strict as Map
-import           Polysemy        ( Member, Sem, makeSem, reinterpret )
+import           Polysemy
+  ( Member, Sem, interpret, makeSem, reinterpret )
 import           Polysemy.Embed  ( Embed, embed )
-import           Polysemy.Reader ( asks, runReader )
 import           Polysemy.State  ( State, evalState, gets, modify )
 
 -------------------------------------------------------------------------------
@@ -66,9 +66,9 @@ runWithInputFile initialFileMap = evalState initialFileMap . inputFileToState
 --   This handler does not use IO actions but returns the empty string if the
 --   given file was not found.
 runInputFileNoIO :: Map FilePath String -> Sem (InputFile ': r) a -> Sem r a
-runInputFileNoIO fileMap = runReader fileMap . reinterpret \case
-  GetInputFile filePath -> do
-    maybeContents <- asks $ Map.lookup filePath
-    case maybeContents of
-      Nothing       -> return ""
-      Just contents -> return contents
+runInputFileNoIO fileMap = interpret \case
+  GetInputFile filePath ->
+    let maybeContents = Map.lookup filePath fileMap
+    in case maybeContents of
+         Nothing       -> error ("File not found: " ++ filePath)
+         Just contents -> return contents
