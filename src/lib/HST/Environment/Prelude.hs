@@ -5,7 +5,8 @@ module HST.Environment.Prelude ( preludeModuleInterface ) where
 import qualified Data.Map.Strict        as Map
 
 import           HST.Effect.InputModule
-  ( ConEntry(..), DataEntry(..), ModuleInterface(..), TypeName, createDataMapEntry , createConMapEntries )
+  ( ConEntry(..), DataEntry(..), ModuleInterface(..), TypeName
+  , createConMapEntries, createDataMapEntry )
 import qualified HST.Frontend.Syntax    as S
 
 -- | A module interface for built-in data types.

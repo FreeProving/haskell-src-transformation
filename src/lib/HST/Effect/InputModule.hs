@@ -93,8 +93,8 @@ createDataMapEntry dataEntry = (dataEntryName dataEntry, dataEntry)
 --   Can be used to generate the entries for the 'interfaceConEntries' map of a
 --   'ModuleInterface'.
 createConMapEntries :: DataEntry a -> [(ConName a, ConEntry a)]
-createConMapEntries =
-  map (\conEntry -> (conEntryName conEntry, conEntry)) . dataEntryCons
+createConMapEntries = map (\conEntry -> (conEntryName conEntry, conEntry))
+  . dataEntryCons
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
