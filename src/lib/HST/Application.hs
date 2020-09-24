@@ -8,7 +8,7 @@ module HST.Application
 
 -- TODO too many variables generated
 -- TODO only tuples supported
-import           Control.Monad                ( replicateM, zipWithM )
+import           Control.Monad                ( zipWithM )
 import           Control.Monad.Extra          ( ifM )
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe                   ( catMaybes, mapMaybe )
@@ -17,20 +17,21 @@ import           Polysemy                     ( Member, Members, Sem )
 import           HST.CoreAlgorithm            ( Eqs, defaultErrorExp, match )
 import           HST.Effect.Env               ( Env )
 import           HST.Effect.Fresh
-  ( Fresh, freshVarPat, genericFreshPrefix )
+  ( Fresh, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.InputModule
-  ( ConEntry(..), InputModule, ModuleInterface(..), TypeName, getInputModule
-  , getInputModuleInterface, getInputModuleInterfaceByName, invertInterfaceEntry )
+  ( ConEntry(..), DataEntry(..), InputModule, ModuleInterface(..)
+  , createConMapEntries, createDataMapEntry, getInputModule
+  , getInputModuleInterface, getInputModuleInterfaceByName )
 import           HST.Effect.Report            ( Report, report )
 import           HST.Environment              ( Environment(..) )
 import           HST.Environment.Prelude      ( preludeModuleInterface )
 import           HST.Feature.CaseCompletion   ( applyCCModule )
-import           HST.Feature.GuardElimination ( applyGEModule, getMatchName )
+import           HST.Feature.GuardElimination ( applyGEModule )
 import           HST.Feature.Optimization     ( optimize )
 import qualified HST.Frontend.Syntax          as S
 import           HST.Options                  ( optOptimizeCase )
-import           HST.Util.Messages            ( Severity(Info), message )
+import           HST.Util.Messages            ( Severity(Warning), message )
 import           HST.Util.Predicates          ( isConPat )
 import           HST.Util.PrettyName          ( prettyName )
 import           HST.Util.Selectors           ( expFromUnguardedRhs )
@@ -63,9 +64,9 @@ useAlgoModule (S.Module s origModuleHead moduleName imports decls) = do
 useAlgoDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
             => S.Decl a
             -> Sem r (S.Decl a)
-useAlgoDecl (S.FunBind _ ms) = do
-  m' <- useAlgoMatches ms
-  return (S.FunBind S.NoSrcSpan [m'])
+useAlgoDecl (S.FunBind s ms) = do
+  m' <- useAlgoMatches s ms
+  return (S.FunBind s [m'])
 useAlgoDecl v                = return v
 
 -- | Applies the core algorithm on a function declaration with the given
@@ -74,41 +75,39 @@ useAlgoDecl v                = return v
 --   If the function has only one rule and no pattern is a constructor
 --   pattern, the function is is left unchanged.
 useAlgoMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => [S.Match a]
+               => S.SrcSpan a
+               -> [S.Match a]
                -> Sem r (S.Match a)
-useAlgoMatches [m] | not (hasCons m) = return m
-useAlgoMatches ms  = useAlgo ms
+useAlgoMatches _ [m] | not (hasCons m) = return m
+useAlgoMatches s ms  = useAlgo s ms
 
 -- | Tests whether the given match of a function declaration contains
 --   a constructor pattern.
 hasCons :: S.Match a -> Bool
-hasCons (S.Match _ _ ps _ _)         = any isConPat ps
-hasCons (S.InfixMatch _ p1 _ ps _ _) = any isConPat (p1 : ps)
+hasCons = any isConPat . S.matchPats
 
 -- | Like 'useAlgoMatches' but applies the algorithm unconditionally.
 useAlgo :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-        => [S.Match a]
+        => S.SrcSpan a
+        -> [S.Match a]
         -> Sem r (S.Match a)
-useAlgo ms = do
+useAlgo s ms = do
   eqs <- mapM matchToEquation ms
-  let name  = getMatchName (head ms)
-      arity = length (fst (head eqs))
-  nVars <- replicateM arity (freshVarPat genericFreshPrefix)
+  let name     = S.matchName (head ms)
+      srcSpans = map S.getSrcSpan . S.matchPats . head $ ms
+      isInfix  = all S.matchIsInfix ms
+  nVars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   nExp <- match nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
-  return
-    $ S.Match S.NoSrcSpan name nVars (S.UnGuardedRhs S.NoSrcSpan nExp') Nothing
+  return $ S.Match s isInfix name nVars (S.UnGuardedRhs s nExp') Nothing
  where
   -- | Converts a rule of a function declaration to an equation.
   --
   --   There must be no guards on the right-hand side.
   matchToEquation :: Member Report r => S.Match a -> Sem r (Eqs a)
-  matchToEquation (S.Match _ _ pats rhs _)          = do
+  matchToEquation (S.Match _ _ _ pats rhs _) = do
     expr <- expFromUnguardedRhs rhs
     return (pats, expr)
-  matchToEquation (S.InfixMatch _ pat _ pats rhs _) = do
-    expr <- expFromUnguardedRhs rhs
-    return (pat : pats, expr)
 
 -------------------------------------------------------------------------------
 -- Module Interface Creation                                                 --
@@ -118,28 +117,28 @@ useAlgo ms = do
 createModuleInterface :: S.Module a -> ModuleInterface a
 createModuleInterface (S.Module _ _ modName _ decls)
   = let interfaceEntries = mapMaybe createModuleInterfaceEntry decls
-        invertedEntries  = concatMap (map invertInterfaceEntry . snd)
-          interfaceEntries
-    in ModuleInterface { interfaceModName   = modName
-                       , interfaceDataCons  = Map.fromList interfaceEntries
-                       , interfaceTypeNames = Map.fromList invertedEntries
+    in ModuleInterface { interfaceModName     = modName
+                       , interfaceDataEntries = Map.fromList
+                           (map createDataMapEntry interfaceEntries)
+                       , interfaceConEntries  = Map.fromList
+                           (concatMap createConMapEntries interfaceEntries)
                        }
 
 -- | Creates a module interface entry for the data type and constructors
 --   declared by the given declaration.
 --
 --   Returns @Nothing@ if the given declaration is not a data type declaration.
-createModuleInterfaceEntry :: S.Decl a -> Maybe (TypeName a, [ConEntry a])
+createModuleInterfaceEntry :: S.Decl a -> Maybe (DataEntry a)
 createModuleInterfaceEntry (S.DataDecl _ _ dataName conDecls)
-  = let dataQName  = S.UnQual S.NoSrcSpan dataName
+  = let dataQName  = S.unQual dataName
         conEntries = map (makeConEntry dataQName) conDecls
-    in Just (dataQName, conEntries)
+    in Just (DataEntry dataQName conEntries)
 createModuleInterfaceEntry _ = Nothing
 
 -- | Creates a module interface entry for a constructor declaration.
 makeConEntry :: S.QName a -> S.ConDecl a -> ConEntry a
 makeConEntry dataQName conDecl = ConEntry
-  { conEntryName    = S.UnQual S.NoSrcSpan (S.conDeclName conDecl)
+  { conEntryName    = S.unQual (S.conDeclName conDecl)
   , conEntryArity   = S.conDeclArity conDecl
   , conEntryIsInfix = S.conDeclIsInfix conDecl
   , conEntryType    = dataQName
@@ -174,7 +173,7 @@ initializeEnvironment filePath = do
                       -> Sem r (Maybe (S.ImportDecl a, ModuleInterface a))
   reportMissingModule importDecl Nothing                = do
     report
-      $ message Info (S.importSrcSpan importDecl)
+      $ message Warning (S.importSrcSpan importDecl)
       $ "The module `"
       ++ prettyName (S.importModule importDecl)
       ++ "` could not be found and the import is skipped!"

@@ -25,41 +25,41 @@ optimize = runPatternStack . optimize'
 --   against.
 optimize'
   :: Members '[PatternStack a, Fresh, Report] r => S.Exp a -> Sem r (S.Exp a)
-optimize' (S.InfixApp _ e1 qop e2) = do
+optimize' (S.InfixApp s e1 qop e2) = do
   e1' <- optimize' e1
   e2' <- optimize' e2
-  return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-optimize' (S.NegApp _ e)           = do
+  return $ S.InfixApp s e1' qop e2'
+optimize' (S.NegApp s e)           = do
   e' <- optimize' e
-  return $ S.NegApp S.NoSrcSpan e'
-optimize' (S.App _ e1 e2)          = do
+  return $ S.NegApp s e'
+optimize' (S.App s e1 e2)          = do
   e1' <- optimize' e1
   e2' <- optimize' e2
-  return $ S.App S.NoSrcSpan e1' e2'
-optimize' (S.Lambda _ ps e)        = do
+  return $ S.App s e1' e2'
+optimize' (S.Lambda s ps e)        = do
   e' <- optimize' e
-  return $ S.Lambda S.NoSrcSpan ps e'
-optimize' (S.Let _ b e)            = do
+  return $ S.Lambda s ps e'
+optimize' (S.Let s b e)            = do
   e' <- optimize' e
-  return $ S.Let S.NoSrcSpan b e'
-optimize' (S.If _ e1 e2 e3)        = do
+  return $ S.Let s b e'
+optimize' (S.If s e1 e2 e3)        = do
   e1' <- optimize' e1
   e2' <- optimize' e2
   e3' <- optimize' e3
-  return $ S.If S.NoSrcSpan e1' e2' e3'
-optimize' (S.Case _ e alts)        = optimizeCase e alts
-optimize' (S.Tuple _ bxd es)       = do
+  return $ S.If s e1' e2' e3'
+optimize' (S.Case s e alts)        = optimizeCase s e alts
+optimize' (S.Tuple s bxd es)       = do
   es' <- mapM optimize' es
-  return $ S.Tuple S.NoSrcSpan bxd es'
-optimize' (S.List _ es)            = do
+  return $ S.Tuple s bxd es'
+optimize' (S.List s es)            = do
   es' <- mapM optimize' es
-  return $ S.List S.NoSrcSpan es'
-optimize' (S.Paren _ e)            = do
+  return $ S.List s es'
+optimize' (S.Paren s e)            = do
   e' <- optimize' e
-  return $ S.Paren S.NoSrcSpan e'
-optimize' (S.ExpTypeSig _ e t)     = do
+  return $ S.Paren s e'
+optimize' (S.ExpTypeSig s e t)     = do
   e' <- optimize' e
-  return $ S.ExpTypeSig S.NoSrcSpan e' t
+  return $ S.ExpTypeSig s e' t
 -- Variables, constructors and literals don't contain expressions to optimize'.
 optimize' e@(S.Var _ _)            = return e
 optimize' e@(S.Con _ _)            = return e
@@ -72,18 +72,19 @@ optimize' e@(S.Lit _ _)            = return e
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
 optimizeCase :: Members '[PatternStack a, Fresh, Report] r
-             => S.Exp a
+             => S.SrcSpan a
+             -> S.Exp a
              -> [S.Alt a]
              -> Sem r (S.Exp a)
-optimizeCase (S.Var _ varName) alts = do
+optimizeCase sc (S.Var sv varName) alts = do
   mpat <- peekPattern varName
   case mpat of
-    Just pat -> renameAndOpt pat alts
-    Nothing  -> addAndOpt varName alts
-optimizeCase e alts                 = do
+    Just pat -> renameAndOpt sc pat alts
+    Nothing  -> addAndOpt sc sv varName alts
+optimizeCase s e alts                   = do
   e' <- optimize' e
   alts' <- mapM optimizeAlt alts
-  return $ S.Case S.NoSrcSpan e' alts'
+  return $ S.Case s e' alts'
 
 -- TODO generalise
 -- | Gets the right-hand side of the alternative that matches the same
@@ -92,15 +93,17 @@ optimizeCase e alts                 = do
 --   given pattern and applies 'optimize''.
 renameAndOpt
   :: Members '[PatternStack a, Fresh, Report] r
-  => S.Pat a   -- ^ Pattern of a parent @case@ expression on the same scrutinee.
-  -> [S.Alt a] -- ^ The alternatives of the current @case@ expression.
+  => S.SrcSpan a -- ^ The source span of the case expression which we are
+                 --   modifying.
+  -> S.Pat a     -- ^ Pattern of a parent @case@ expression on the same
+                 --   scrutinee.
+  -> [S.Alt a]   -- ^ The alternatives of the current @case@ expression.
   -> Sem r (S.Exp a)
-renameAndOpt pat alts = do
+renameAndOpt s pat alts = do
   matchingAlt <- findM (`altMatchesPat` pat) alts
   case matchingAlt of
-    Nothing                   -> reportFatal
-      $ message Error S.NoSrcSpan
-      $ "Found no possible alternative."
+    Nothing                   ->
+      reportFatal $ message Error s $ "Found no possible alternative."
     Just (S.Alt _ pat' rhs _) -> do
       expr <- expFromUnguardedRhs rhs
       pats <- selectPats pat
@@ -128,10 +131,10 @@ cheatEq q1 q2 = q1 == q2
 
 -- | Gets the argument patterns of the given constructor pattern.
 selectPats :: Member Report r => S.Pat a -> Sem r [S.Pat a]
-selectPats (S.PApp _ _ pats) = return pats
+selectPats (S.PApp _ _ pats)       = return pats
 selectPats (S.PInfixApp _ p1 _ p2) = return [p1, p2]
-selectPats _ = reportFatal
-  $ message Error S.NoSrcSpan
+selectPats pat                     = reportFatal
+  $ message Error (S.getSrcSpan pat)
   $ "Expected prefix or infix constructor pattern."
 
 -- | Renames the corresponding pairs of variable patterns in the given
@@ -153,12 +156,14 @@ renameAll ps e = do
 --   While an alternative is optimized, the pattern is pushed to the stack
 --   of matched patterns for the scrutinee in the environment.
 addAndOpt :: Members '[PatternStack a, Fresh, Report] r
-          => S.QName a
+          => S.SrcSpan a  -- ^ The source span for the whole case expression.
+          -> S.SrcSpan a  -- ^ The source span for the matched expression.
+          -> S.QName a
           -> [S.Alt a]
           -> Sem r (S.Exp a)
-addAndOpt v alts = do
+addAndOpt sc sv v alts = do
   alts' <- mapM bindAndOpt alts
-  return $ S.Case S.NoSrcSpan (S.Var S.NoSrcSpan v) alts'
+  return $ S.Case sc (S.Var sv v) alts'
  where
   bindAndOpt a@(S.Alt _ p _ _) = do
     pushPattern v p
@@ -169,7 +174,7 @@ addAndOpt v alts = do
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
 optimizeAlt
   :: Members '[PatternStack a, Fresh, Report] r => S.Alt a -> Sem r (S.Alt a)
-optimizeAlt (S.Alt _ p rhs _) = do
+optimizeAlt (S.Alt s p rhs _) = do
   e <- expFromUnguardedRhs rhs
   e' <- optimize' e
-  return $ S.Alt S.NoSrcSpan p (S.UnGuardedRhs S.NoSrcSpan e') Nothing
+  return $ S.Alt s p (S.UnGuardedRhs (S.getSrcSpan e') e') Nothing

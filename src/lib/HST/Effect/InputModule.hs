@@ -8,10 +8,12 @@
 module HST.Effect.InputModule
   ( -- * Module Interface
     ModuleInterface(..)
+  , DataEntry(..)
   , ConEntry(..)
   , TypeName
   , ConName
-  , invertInterfaceEntry
+  , createDataMapEntry
+  , createConMapEntries
     -- * Effect
   , InputModule
     -- * Actions
@@ -46,13 +48,21 @@ type ConName a = S.QName a
 -- | A data type for module interfaces that stores the name and the data types
 --   of a module.
 data ModuleInterface a = ModuleInterface
-  { interfaceModName   :: Maybe (S.ModuleName a)
-    -- ^ The name of the module or @Nothing@, if the module does not have a
-    --   name.
-  , interfaceDataCons  :: Map (TypeName a) [ConEntry a]
-    -- ^ A map that maps data type names to their constructors.
-  , interfaceTypeNames :: Map (ConName a) (TypeName a)
-    -- ^ A map that maps constructor names to the names of their data types.
+  { interfaceModName     :: Maybe (S.ModuleName a)
+    -- ^ @Just@ the name of the module or @Nothing@, if the module does not
+    --   have a name.
+  , interfaceDataEntries :: Map (TypeName a) (DataEntry a)
+    -- ^ A map that maps data type names to their full entries.
+  , interfaceConEntries  :: Map (ConName a) (ConEntry a)
+    -- ^ A map that maps data constructor names to their full entries.
+  }
+
+-- | An entry of the 'ModuleInterface' for a data type.
+data DataEntry a = DataEntry
+  { dataEntryName :: TypeName a
+    -- ^ The name of the data type.
+  , dataEntryCons :: [ConEntry a]
+    -- ^ The constructors of the data type.
   }
 
 -- | An entry of the 'ModuleInterface' for a data constructor.
@@ -70,13 +80,21 @@ data ConEntry a = ConEntry
 -------------------------------------------------------------------------------
 -- Module Interface Utility Functions                                        --
 -------------------------------------------------------------------------------
--- | Converts a data constructor entry to a pair of the constructor's and the
---   data type's name.
+-- | Converts a data type entry to a pair of its name and its full entry.
 --
---   Can be used to generate the entries for the 'interfaceTypeNames' map of a
+--   Can be used to generate the entries for the 'interfaceDataEntries' map of
+--   a 'ModuleInterface'.
+createDataMapEntry :: DataEntry a -> (TypeName a, DataEntry a)
+createDataMapEntry dataEntry = (dataEntryName dataEntry, dataEntry)
+
+-- | Converts a data type entry to a list of pairs of the names and the full
+--   entries of the constructors of this data type.
+--
+--   Can be used to generate the entries for the 'interfaceConEntries' map of a
 --   'ModuleInterface'.
-invertInterfaceEntry :: ConEntry a -> (ConName a, TypeName a)
-invertInterfaceEntry conEntry = (conEntryName conEntry, conEntryType conEntry)
+createConMapEntries :: DataEntry a -> [(ConName a, ConEntry a)]
+createConMapEntries = map (\conEntry -> (conEntryName conEntry, conEntry))
+  . dataEntryCons
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --

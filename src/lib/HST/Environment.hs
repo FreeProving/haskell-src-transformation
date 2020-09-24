@@ -17,7 +17,7 @@ import qualified Data.Map.Strict        as Map
 import           Data.Maybe             ( fromMaybe, mapMaybe )
 
 import           HST.Effect.InputModule
-  ( ConEntry(..), ConName, ModuleInterface(..), TypeName )
+  ( ConEntry(..), ConName, DataEntry(..), ModuleInterface(..), TypeName )
 import qualified HST.Frontend.Syntax    as S
 
 -------------------------------------------------------------------------------
