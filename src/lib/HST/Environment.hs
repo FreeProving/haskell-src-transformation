@@ -11,7 +11,7 @@ module HST.Environment
   , lookupTypeName
   ) where
 
-import           Data.Bifunctor         ( first )
+import           Data.Bifunctor         ( first, second )
 import           Data.Map.Strict        ( Map )
 import qualified Data.Map.Strict        as Map
 import           Data.Maybe             ( fromMaybe, mapMaybe )
@@ -55,8 +55,8 @@ lookupConEntries :: TypeName a
                  -> Environment a
                  -> [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
 lookupConEntries typeName env = map
-  (qualifyLookupResult (mapM . qualifyConEntry env))
-  (lookupWith interfaceDataCons typeName env)
+  (qualifyLookupResult (mapM . qualifyConEntry env) . second dataEntryCons)
+  (lookupWith interfaceDataEntries typeName env)
 
 -- | Looks up the data type names belonging to the the given data constructor
 --   name in the given environment and qualifies them so that they are
@@ -73,8 +73,8 @@ lookupTypeName :: ConName a
                -> Environment a
                -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
 lookupTypeName conName env = map
-  (qualifyLookupResult (qualifyQNameEnv interfaceDataCons env))
-  (lookupWith interfaceTypeNames conName env)
+  (qualifyLookupResult (qualifyQNameEnv interfaceDataEntries env) . second conEntryType)
+  (lookupWith interfaceConEntries conName env)
 
 -------------------------------------------------------------------------------
 -- Lookup Utility Functions                                                  --
@@ -166,9 +166,9 @@ qualifyConEntry :: Environment a
                 -> ConEntry a
                 -> Maybe (ConEntry a)
 qualifyConEntry env qualInfo conEntry
-  = case ( qualifyQNameEnv interfaceTypeNames env qualInfo
+  = case ( qualifyQNameEnv interfaceConEntries env qualInfo
              (conEntryName conEntry)
-         , qualifyQNameEnv interfaceDataCons env qualInfo
+         , qualifyQNameEnv interfaceDataEntries env qualInfo
              (conEntryType conEntry)
          ) of
     (Just conName, Just typeName) ->
