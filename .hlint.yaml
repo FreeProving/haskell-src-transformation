@@ -34,8 +34,11 @@
       # guard elimination. There is not a good source span for all of them.
     - HST.CoreAlgorithm
     - HST.Feature.GuardElimination
-      # In the environment, we do not have report
+      # In the environment, we do not have report.
     - HST.Environment.LookupOrReport
+      # There are reported messages without source spans in the `InputModule`
+      # effect.
+    - HST.Effect.InputModule
       # When reporting, we have to handle errors that do not have a source span.
     - HST.Effect.Report
       # While parsing, the error message contains the source span so it does not

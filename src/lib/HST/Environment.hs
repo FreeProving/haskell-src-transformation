@@ -47,8 +47,8 @@ data Environment a = Environment
 lookupConEntries
   :: TypeName a -> Environment a -> [(Maybe (S.ModuleName a), [ConEntry a])]
 lookupConEntries typeName env = mapMaybe
-  (\x -> fmap (interfaceModName x, )
-   (fmap dataEntryCons (Map.lookup typeName (interfaceDataEntries x))))
+  (\x -> fmap ((interfaceModName x, ) . dataEntryCons)
+   (Map.lookup typeName (interfaceDataEntries x)))
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
@@ -63,8 +63,8 @@ lookupConEntries typeName env = mapMaybe
 lookupTypeName
   :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
 lookupTypeName conName env = mapMaybe
-  (\x -> fmap (interfaceModName x, )
-   (fmap conEntryName (Map.lookup conName (interfaceConEntries x))))
+  (\x -> fmap ((interfaceModName x, ) . conEntryName)
+   (Map.lookup conName (interfaceConEntries x)))
   (envCurrentModule env
    : envOtherEntries env
    : map snd (envImportedModules env))
