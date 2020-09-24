@@ -169,9 +169,14 @@ instance HasSrcSpan Binds where
   getSrcSpan (BDecls srcSpan _) = srcSpan
 
 -- | A match belonging to a function binding declaration.
-data Match a
-  = Match (SrcSpan a) (Name a) [Pat a] (Rhs a) (Maybe (Binds a))
-  | InfixMatch (SrcSpan a) (Pat a) (Name a) [Pat a] (Rhs a) (Maybe (Binds a))
+data Match a = Match
+  { matchSrcSpan :: SrcSpan a
+  , matchIsInfix :: Bool
+  , matchName    :: Name a
+  , matchPats    :: [Pat a]
+  , matchRhs     :: Rhs a
+  , matchBinds   :: Maybe (Binds a)
+  }
 
 deriving instance EqAST a => Eq (Match a)
 
@@ -179,8 +184,7 @@ deriving instance ShowAST a => Show (Match a)
 
 -- | Gets the source span information of a match of a function declaration.
 instance HasSrcSpan Match where
-  getSrcSpan (Match srcSpan _ _ _ _)        = srcSpan
-  getSrcSpan (InfixMatch srcSpan _ _ _ _ _) = srcSpan
+  getSrcSpan = matchSrcSpan
 
 -- | A right hand side belonging to a 'Match'.
 data Rhs a
@@ -481,7 +485,9 @@ class HasSrcSpan node where
 --
 --   Only the original source span is used when transforming a source span
 --   back, all other data is used for displaying input code excerpts.
-data SrcSpan a = SrcSpan (SrcSpanType a) MsgSrcSpan | NoSrcSpan
+data SrcSpan a
+  = SrcSpan { originalSrcSpan :: SrcSpanType a, actualSrcSpan :: MsgSrcSpan }
+  | NoSrcSpan
 
 deriving instance ShowAST a => Show (SrcSpan a)
 

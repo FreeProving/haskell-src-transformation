@@ -30,9 +30,8 @@ import           HST.Util.Messages   ( Severity(Error, Internal), message )
 --   Reports a fatal internal error if the given right-hand side has a guard.
 expFromUnguardedRhs :: Member Report r => S.Rhs a -> Sem r (S.Exp a)
 expFromUnguardedRhs (S.UnGuardedRhs _ expr) = return expr
-expFromUnguardedRhs (S.GuardedRhss _ _)     = reportFatal
-  $ message Internal S.NoSrcSpan
-  $ "Expected unguarded right-hand side."
+expFromUnguardedRhs (S.GuardedRhss s _)
+  = reportFatal $ message Internal s $ "Expected unguarded right-hand side."
 
 -------------------------------------------------------------------------------
 -- Pattern Names                                                             --
@@ -49,19 +48,19 @@ getPatConName :: Member Report r => S.Pat a -> Sem r (S.QName a)
 getPatConName (S.PApp _ conName _)        = return conName
 getPatConName (S.PInfixApp _ _ conName _) = return conName
 -- Constructor patterns with special syntax.
-getPatConName (S.PList _ pats)
-  | null pats = return $ S.Special S.NoSrcSpan (S.NilCon S.NoSrcSpan)
-  | otherwise = return $ S.Special S.NoSrcSpan (S.ConsCon S.NoSrcSpan)
-getPatConName (S.PTuple _ boxed pats)     = return
-  $ S.Special S.NoSrcSpan (S.TupleCon S.NoSrcSpan boxed (length pats))
+getPatConName (S.PList s pats)
+  | null pats = return $ S.Special s (S.NilCon s)
+  | otherwise = return $ S.Special s (S.ConsCon s)
+getPatConName (S.PTuple s boxed pats)     = return
+  $ S.Special s (S.TupleCon s boxed (length pats))
 -- Look into parentheses recursively.
 getPatConName (S.PParen _ pat)            = getPatConName pat
 -- All other patterns are not constructor patterns.
-getPatConName (S.PVar _ _)                = reportFatal
-  $ message Error S.NoSrcSpan
+getPatConName (S.PVar s _)                = reportFatal
+  $ message Error s
   $ "Expected constructor pattern, got variable pattern."
-getPatConName (S.PWildCard _)             = reportFatal
-  $ message Error S.NoSrcSpan
+getPatConName (S.PWildCard s)             = reportFatal
+  $ message Error s
   $ "Expected constructor pattern, got wildcard pattern."
 
 -- | Like 'getPatConName' but returns @Nothing@ if the given pattern is not
@@ -81,17 +80,17 @@ getPatVarName (S.PWildCard srcSpan)
 -- Look into parentheses recursively.
 getPatVarName (S.PParen _ pat)      = getPatVarName pat
 -- All other patterns are not variable patterns.
-getPatVarName (S.PApp _ _ _)        = reportFatal
-  $ message Error S.NoSrcSpan
+getPatVarName (S.PApp s _ _)        = reportFatal
+  $ message Error s
   $ "Expected variable or wildcard pattern, got constructor pattern."
-getPatVarName (S.PInfixApp _ _ _ _) = reportFatal
-  $ message Error S.NoSrcSpan
+getPatVarName (S.PInfixApp s _ _ _) = reportFatal
+  $ message Error s
   $ "Expected variable or wildcard pattern, got infix constructor pattern."
-getPatVarName (S.PTuple _ _ _)      = reportFatal
-  $ message Error S.NoSrcSpan
+getPatVarName (S.PTuple s _ _)      = reportFatal
+  $ message Error s
   $ "Expected variable or wildcard pattern, got tuple pattern."
-getPatVarName (S.PList _ _)         = reportFatal
-  $ message Error S.NoSrcSpan
+getPatVarName (S.PList s _)         = reportFatal
+  $ message Error s
   $ "Expected variable or wildcard pattern, got list pattern."
 
 -------------------------------------------------------------------------------
@@ -121,15 +120,9 @@ instance HasIdentifiers (S.Decl a) where
 
 -- | Collects all identifiers in a pattern matching rule.
 instance HasIdentifiers (S.Match a) where
-  findIdentifiers (S.Match _ name pats rhs binds)          = Set.unions
+  findIdentifiers (S.Match _ _ name pats rhs binds) = Set.unions
     [ findIdentifiers name
     , findIdentifiers pats
-    , findIdentifiers rhs
-    , findIdentifiers binds
-    ]
-  findIdentifiers (S.InfixMatch _ pat name pats rhs binds) = Set.unions
-    [ findIdentifiers name
-    , findIdentifiers (pat : pats)
     , findIdentifiers rhs
     , findIdentifiers binds
     ]

@@ -1,26 +1,29 @@
 -- | This module contains methods for eliminating guards in modules.
-module HST.Feature.GuardElimination ( applyGEModule, getMatchName ) where
+module HST.Feature.GuardElimination ( applyGEModule ) where
 
-import           Control.Monad       ( replicateM )
+import           Data.List           ( zipWith4 )
 import           Polysemy            ( Member, Sem )
 
 import           HST.CoreAlgorithm   ( defaultErrorExp )
 import           HST.Effect.Fresh
-  ( Fresh, freshName, freshVarPat, genericFreshPrefix )
+  ( Fresh, freshName, freshNameWithSrcSpan, freshVarPat, freshVarPatWithSrcSpan
+  , genericFreshPrefix )
 import qualified HST.Frontend.Syntax as S
 
 -- | A pair of patterns to match and a right-hand side to use when all
 --   patterns match.
-data GExp a = GExp { gExpPats :: [S.Pat a], gExpRhs :: S.Rhs a }
+data GExp a = GExp { gExpSrcSpan :: S.SrcSpan a
+                   , gExpPats    :: [S.Pat a]
+                   , gExpRhs     :: S.Rhs a
+                   }
 
 -- | Converts a rule of a function declaration to a 'GExp'.
 matchToGExp :: S.Match a -> GExp a
-matchToGExp (S.Match _ _ pats rhs _)          = GExp pats rhs
-matchToGExp (S.InfixMatch _ pat _ pats rhs _) = GExp (pat : pats) rhs
+matchToGExp (S.Match s _ _ pats rhs _) = GExp s pats rhs
 
 -- | Converts an alternative of a @case@ expression to a 'GExp'.
 altToGExp :: S.Alt a -> GExp a
-altToGExp (S.Alt _ pat rhs _) = GExp [pat] rhs
+altToGExp (S.Alt s pat rhs _) = GExp s [pat] rhs
 
 -------------------------------------------------------------------------------
 -- @let@ Expressions                                                         --
@@ -39,21 +42,34 @@ generateLet
   -> [GExp a]  -- ^ Patterns to match and the corresponding right-hand sides.
   -> Sem r (S.Exp a)
 generateLet vs err gExps = do
-  varNames <- replicateM (length gExps + 1) (freshName genericFreshPrefix)
-  let startVarExpr : nextVarExprs = map S.var varNames
+  let srcSpans = map gExpSrcSpan gExps
+  varNames' <- mapM (freshNameWithSrcSpan genericFreshPrefix) srcSpans
+  varName <- freshName genericFreshPrefix
+  let varNames                    = varNames' ++ [varName]
+      startVarExpr : nextVarExprs = map S.var varNames
       ifExprs                     = zipWith (rhsToIf . gExpRhs) gExps
         nextVarExprs
   ifExprs' <- mapM applyGEExp ifExprs
   let exprPats  = map (zip vs . gExpPats) gExps
-      caseExprs = zipWith3 generateNestedCases ifExprs' nextVarExprs exprPats
+      caseExprs
+        = zipWith4 generateNestedCases srcSpans ifExprs' nextVarExprs exprPats
       decls     = zipWith makeVarBinding varNames (caseExprs ++ [err])
   return $ S.Let S.NoSrcSpan (S.BDecls S.NoSrcSpan decls) startVarExpr
 
 -- | Creates a function declaration for a @let@ binding that binds a variable
 --   with the given name to the given expression.
 makeVarBinding :: S.Name a -> S.Exp a -> S.Decl a
-makeVarBinding name expr = S.FunBind S.NoSrcSpan
-  [S.Match S.NoSrcSpan name [] (S.UnGuardedRhs S.NoSrcSpan expr) Nothing]
+makeVarBinding name expr
+  = let srcSpan = S.getSrcSpan expr
+    in S.FunBind srcSpan
+       [ S.Match { S.matchSrcSpan = srcSpan
+                 , S.matchIsInfix = False
+                 , S.matchName    = name
+                 , S.matchPats    = []
+                 , S.matchRhs     = S.UnGuardedRhs srcSpan expr
+                 , S.matchBinds   = Nothing
+                 }
+       ]
 
 -------------------------------------------------------------------------------
 -- @case@ Expressions                                                        --
@@ -65,14 +81,16 @@ makeVarBinding name expr = S.FunBind S.NoSrcSpan
 --
 --   > case x₁ of { p₁ -> (… case xₙ of { pₙ -> e ; _ -> f }  …) ; _ -> f }
 generateNestedCases
-  :: S.Exp a              -- ^ Expression to use if all patterns match.
+  :: S.SrcSpan a          -- ^ The source span to use.
+  -> S.Exp a              -- ^ Expression to use if all patterns match.
   -> S.Exp a              -- ^ Expression to use if any pattern does not match.
   -> [(S.Exp a, S.Pat a)] -- ^ Expression/pattern pairs to match.
   -> S.Exp a
-generateNestedCases successExpr failExpr = foldr generateNestedCase successExpr
+generateNestedCases s successExpr failExpr
+  = foldr generateNestedCase successExpr
  where
   {- generateNestedCase :: (S.Exp a, S.Pat a) -> S.Exp a -> S.Exp a -}
-  generateNestedCase (v, p) nestedExpr = S.Case S.NoSrcSpan v
+  generateNestedCase (v, p) nestedExpr = S.Case s v
     $ [S.alt p nestedExpr, S.alt (S.PWildCard S.NoSrcSpan) failExpr]
 
 -------------------------------------------------------------------------------
@@ -104,51 +122,51 @@ rhsToIf (S.GuardedRhss _ grhs) next = foldr guardedRhsToIf next grhs
 --   expression and the expression on the right-hand side is used as
 --   the @then@ branch. The second argument is the @else@ branch.
 guardedRhsToIf :: S.GuardedRhs a -> S.Exp a -> S.Exp a
-guardedRhsToIf (S.GuardedRhs _ e1 e2) = S.If S.NoSrcSpan e1 e2
+guardedRhsToIf (S.GuardedRhs s e1 e2) = S.If s e1 e2
 
 -------------------------------------------------------------------------------
 -- Guard Elimination                                                         --
 -------------------------------------------------------------------------------
 -- | Applies guard elimination on @case@ expressions in the given expression.
 applyGEExp :: Member Fresh r => S.Exp a -> Sem r (S.Exp a)
-applyGEExp (S.InfixApp _ e1 qop e2)       = do
+applyGEExp (S.InfixApp s e1 qop e2)       = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
-  return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-applyGEExp (S.NegApp _ expr)              = do
+  return $ S.InfixApp s e1' qop e2'
+applyGEExp (S.NegApp s expr)              = do
   expr' <- applyGEExp expr
-  return $ S.NegApp S.NoSrcSpan expr'
-applyGEExp (S.App _ e1 e2)                = do
+  return $ S.NegApp s expr'
+applyGEExp (S.App s e1 e2)                = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
-  return $ S.App S.NoSrcSpan e1' e2'
-applyGEExp (S.Lambda _ ps e1)             = do
+  return $ S.App s e1' e2'
+applyGEExp (S.Lambda s ps e1)             = do
   e' <- applyGEExp e1
-  return $ S.Lambda S.NoSrcSpan ps e'
-applyGEExp (S.Let _ bs e1)                = do
+  return $ S.Lambda s ps e'
+applyGEExp (S.Let s bs e1)                = do
   e' <- applyGEExp e1
-  return $ S.Let S.NoSrcSpan bs e'
-applyGEExp (S.If _ e1 e2 e3)              = do
+  return $ S.Let s bs e'
+applyGEExp (S.If s e1 e2 e3)              = do
   e1' <- applyGEExp e1
   e2' <- applyGEExp e2
   e3' <- applyGEExp e3
-  return $ S.If S.NoSrcSpan e1' e2' e3'
-applyGEExp (S.Case _ e1 alts)             = do
+  return $ S.If s e1' e2' e3'
+applyGEExp (S.Case s e1 alts)             = do
   e' <- applyGEExp e1
   alts' <- applyGEAlts alts
-  return $ S.Case S.NoSrcSpan e' alts'
-applyGEExp (S.Tuple _ boxed es)           = do
+  return $ S.Case s e' alts'
+applyGEExp (S.Tuple s boxed es)           = do
   es' <- mapM applyGEExp es
-  return $ S.Tuple S.NoSrcSpan boxed es'
-applyGEExp (S.List _ es)                  = do
+  return $ S.Tuple s boxed es'
+applyGEExp (S.List s es)                  = do
   es' <- mapM applyGEExp es
-  return $ S.List S.NoSrcSpan es'
-applyGEExp (S.Paren _ expr)               = do
+  return $ S.List s es'
+applyGEExp (S.Paren s expr)               = do
   expr' <- applyGEExp expr
-  return $ S.Paren S.NoSrcSpan expr'
-applyGEExp (S.ExpTypeSig _ expr typeExpr) = do
+  return $ S.Paren s expr'
+applyGEExp (S.ExpTypeSig s expr typeExpr) = do
   expr' <- applyGEExp expr
-  return $ S.ExpTypeSig S.NoSrcSpan expr' typeExpr
+  return $ S.ExpTypeSig s expr' typeExpr
 -- Variables, constructors and literals remain unchanged.
 applyGEExp e@(S.Var _ _)                  = return e
 applyGEExp e@(S.Con _ _)                  = return e
@@ -158,10 +176,12 @@ applyGEExp e@(S.Lit _ _)                  = return e
 applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
 applyGEAlts alts
   | any hasGuardsAlt alts = do
-    let gexps = map altToGExp alts
+    let gexps     = map altToGExp alts
+        firstSpan = S.getSrcSpan (head alts)
     newVar' <- freshVarPat genericFreshPrefix
     e <- generateLet [S.patToExp newVar'] defaultErrorExp gexps
-    return [S.Alt S.NoSrcSpan newVar' (S.UnGuardedRhs S.NoSrcSpan e) Nothing]
+    return [ S.Alt firstSpan newVar' (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing
+           ]
   | otherwise = return alts
 
 -- | Applies guard elimination to function declarations in the given module.
@@ -174,9 +194,9 @@ applyGEModule (S.Module s origModuleHead moduleName imports decls) = do
 --
 --   Non-function declarations are returned unchanged.
 applyGEDecl :: Member Fresh r => S.Decl a -> Sem r (S.Decl a)
-applyGEDecl (S.FunBind _ ms)          = do
-  ms' <- applyGEMatches ms
-  return (S.FunBind S.NoSrcSpan ms')
+applyGEDecl (S.FunBind s ms)          = do
+  ms' <- applyGEMatches s ms
+  return (S.FunBind s ms')
 applyGEDecl decl@(S.DataDecl _ _ _ _) = return decl
 applyGEDecl decl@(S.OtherDecl _ _)    = return decl
 
@@ -187,26 +207,27 @@ applyGEDecl decl@(S.OtherDecl _ _)    = return decl
 --
 --   TODO only apply to the parts with guards (not on matches if in case)
 --        not false by semantics
-applyGEMatches :: Member Fresh r => [S.Match a] -> Sem r [S.Match a]
-applyGEMatches ms | any hasGuards ms = return <$> applyGE ms
-                  | otherwise = return ms
+applyGEMatches
+  :: Member Fresh r => S.SrcSpan a -> [S.Match a] -> Sem r [S.Match a]
+applyGEMatches s ms | any hasGuards ms = return <$> applyGE s ms
+                    | otherwise = return ms
 
 -- | Applies guard elimination to the rules of a function declaration.
-applyGE :: Member Fresh r => [S.Match a] -> Sem r (S.Match a)
-applyGE ms = do
-  let name  = getMatchName (head ms)
-      gexps = map matchToGExp ms
-      arity = length (gExpPats (head gexps))
-  varPats <- replicateM arity (freshVarPat genericFreshPrefix)
+applyGE :: Member Fresh r => S.SrcSpan a -> [S.Match a] -> Sem r (S.Match a)
+applyGE s ms = do
+  let name     = S.matchName (head ms)
+      gexps    = map matchToGExp ms
+      srcSpans = map S.getSrcSpan (gExpPats (head gexps))
+  varPats <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
   return
-    $ S.Match S.NoSrcSpan name varPats (S.UnGuardedRhs S.NoSrcSpan expr')
-    Nothing
-
--- | Gets the name of the function that is defined by the given rule.
-getMatchName :: S.Match a -> S.Name a
-getMatchName (S.Match _ name _ _ _)        = name
-getMatchName (S.InfixMatch _ _ name _ _ _) = name
+    $ S.Match { S.matchSrcSpan = s
+              , S.matchIsInfix = False
+              , S.matchName    = name
+              , S.matchPats    = varPats
+              , S.matchRhs     = S.UnGuardedRhs s expr'
+              , S.matchBinds   = Nothing
+              }
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
@@ -214,8 +235,7 @@ getMatchName (S.InfixMatch _ _ name _ _ _) = name
 -- | Tests whether the given rule of a function declaration uses
 --   guards or contains an expression with guards.
 hasGuards :: S.Match a -> Bool
-hasGuards (S.Match _ _ _ rhs _)        = hasGuardsRhs rhs
-hasGuards (S.InfixMatch _ _ _ _ rhs _) = hasGuardsRhs rhs
+hasGuards = hasGuardsRhs . S.matchRhs
 
 -- | Tests whether the given right-hand side of a function rule has a guard
 --   itself or contains an expression that has subexpressions with guarded
