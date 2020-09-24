@@ -20,8 +20,8 @@ import           HST.Effect.Fresh
   ( Fresh, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt            ( GetOpt, getOpt )
 import           HST.Effect.InputModule
-  ( ConEntry(..), InputModule, ModuleInterface(..), TypeName, getInputModule
-  , getInputModuleInterface, getInputModuleInterfaceByName, invertInterfaceEntry )
+  ( ConEntry(..), DataEntry(..), InputModule, ModuleInterface(..), getInputModule
+  , getInputModuleInterface, getInputModuleInterfaceByName, createDataMapEntry , createConMapEntries )
 import           HST.Effect.Report            ( Report, report )
 import           HST.Environment              ( Environment(..) )
 import           HST.Environment.Prelude      ( preludeModuleInterface )
@@ -30,7 +30,7 @@ import           HST.Feature.GuardElimination ( applyGEModule )
 import           HST.Feature.Optimization     ( optimize )
 import qualified HST.Frontend.Syntax          as S
 import           HST.Options                  ( optOptimizeCase )
-import           HST.Util.Messages            ( Severity(Info), message )
+import           HST.Util.Messages            ( Severity(Warning), message )
 import           HST.Util.Predicates          ( isConPat )
 import           HST.Util.PrettyName          ( prettyName )
 import           HST.Util.Selectors           ( expFromUnguardedRhs )
@@ -116,22 +116,20 @@ useAlgo s ms = do
 createModuleInterface :: S.Module a -> ModuleInterface a
 createModuleInterface (S.Module _ _ modName _ decls)
   = let interfaceEntries = mapMaybe createModuleInterfaceEntry decls
-        invertedEntries  = concatMap (map invertInterfaceEntry . snd)
-          interfaceEntries
     in ModuleInterface { interfaceModName   = modName
-                       , interfaceDataCons  = Map.fromList interfaceEntries
-                       , interfaceTypeNames = Map.fromList invertedEntries
+                       , interfaceDataEntries  = Map.fromList (map createDataMapEntry interfaceEntries)
+                       , interfaceConEntries = Map.fromList (concatMap createConMapEntries interfaceEntries)
                        }
 
 -- | Creates a module interface entry for the data type and constructors
 --   declared by the given declaration.
 --
 --   Returns @Nothing@ if the given declaration is not a data type declaration.
-createModuleInterfaceEntry :: S.Decl a -> Maybe (TypeName a, [ConEntry a])
+createModuleInterfaceEntry :: S.Decl a -> Maybe (DataEntry a)
 createModuleInterfaceEntry (S.DataDecl _ _ dataName conDecls)
   = let dataQName  = S.unQual dataName
         conEntries = map (makeConEntry dataQName) conDecls
-    in Just (dataQName, conEntries)
+    in Just (DataEntry dataQName conEntries)
 createModuleInterfaceEntry _ = Nothing
 
 -- | Creates a module interface entry for a constructor declaration.
