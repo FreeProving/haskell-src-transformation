@@ -8,11 +8,12 @@
 module HST.Effect.InputModule
   ( -- * Module Interface
     ModuleInterface(..)
-  , ConEntry(..)
   , DataEntry(..)
+  , ConEntry(..)
   , TypeName
   , ConName
-  , invertInterfaceEntry
+  , createDataMapEntry
+  , createConMapEntries
     -- * Effect
   , InputModule
     -- * Actions
@@ -50,10 +51,10 @@ data ModuleInterface a = ModuleInterface
   { interfaceModName     :: Maybe (S.ModuleName a)
     -- ^ @Just@ the name of the module or @Nothing@, if the module does not
     --   have a name.
-  , interfaceConEntries  :: Map (ConName a) (ConEntry a)
-    -- ^ A map that maps data constructor names to their full entries.
   , interfaceDataEntries :: Map (TypeName a) (DataEntry a)
     -- ^ A map that maps data type names to their full entries.
+  , interfaceConEntries  :: Map (ConName a) (ConEntry a)
+    -- ^ A map that maps data constructor names to their full entries.
   }
 
 -- | An entry of the 'ModuleInterface' for a data type.
@@ -79,13 +80,20 @@ data ConEntry a = ConEntry
 -------------------------------------------------------------------------------
 -- Module Interface Utility Functions                                        --
 -------------------------------------------------------------------------------
+-- | Converts a data type entry to a pair of its name and its full entry.
+--
+--   Can be used to generate the entries for the 'interfaceDataEntries' map of
+--   a 'ModuleInterface'.
+createDataMapEntry :: DataEntry a -> (TypeName a, DataEntry a)
+createDataMapEntry dataEntry = (dataEntryName dataEntry, dataEntry)
+
 -- | Converts a data type entry to a list of pairs of the names and the full
 --   entries of the constructors of this data type.
 --
 --   Can be used to generate the entries for the 'interfaceConEntries' map of a
 --   'ModuleInterface'.
-invertInterfaceEntry :: DataEntry a -> [(ConName a, ConEntry a)]
-invertInterfaceEntry =
+createConMapEntries :: DataEntry a -> [(ConName a, ConEntry a)]
+createConMapEntries =
   map (\conEntry -> (conEntryName conEntry, conEntry)) . dataEntryCons
 
 -------------------------------------------------------------------------------
