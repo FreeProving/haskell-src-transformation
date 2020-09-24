@@ -172,7 +172,7 @@ initializeEnvironment filePath = do
                       -> Sem r (Maybe (S.ImportDecl a, ModuleInterface a))
   reportMissingModule importDecl Nothing                = do
     report
-      $ message Info (S.importSrcSpan importDecl)
+      $ message Warning (S.importSrcSpan importDecl)
       $ "The module `"
       ++ prettyName (S.importModule importDecl)
       ++ "` could not be found and the import is skipped!"
