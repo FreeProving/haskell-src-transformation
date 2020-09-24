@@ -81,10 +81,9 @@ lookupTypeName conName env = map
 -------------------------------------------------------------------------------
 -- | Looks up the given data type or constructor name in the maps gotten when
 --   applying the given function to the module interfaces in the given
---   environment. In addition to the lists of data constructor entries or data
---   type names found, the result includes the import declarations, where
---   available, and the module interfaces of the modules the found values came
---   from.
+--   environment. In addition to the data type entries or constructor entries
+--   found, the result includes the import declarations, where available, and
+--   the module interfaces of the modules the found values came from.
 lookupWith :: (ModuleInterface a -> Map (S.QName a) v)
            -> S.QName a
            -> Environment a

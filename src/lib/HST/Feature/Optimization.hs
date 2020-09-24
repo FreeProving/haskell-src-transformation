@@ -123,7 +123,7 @@ altMatchesPat alt pat = do
   return (patConName `cheatEq` altConName)
 
 -- | Compares the given 'S.QName's ignoring the distinction between 'S.Ident's
---   and 'S.Symbol's, i.e. @S.Ident "+:"@ and @S.Symbol "+:"@ are equal. 
+--   and 'S.Symbol's, i.e. @S.Ident "+:"@ and @S.Symbol "+:"@ are equal.
 cheatEq :: S.QName a -> S.QName a -> Bool
 cheatEq (S.UnQual _ (S.Symbol _ s1)) (S.UnQual _ (S.Ident _ s2)) = s1 == s2
 cheatEq (S.UnQual _ (S.Ident _ s1)) (S.UnQual _ (S.Symbol _ s2)) = s1 == s2
