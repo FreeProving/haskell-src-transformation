@@ -63,7 +63,7 @@ lookupConEntries typeName env = mapMaybe
 lookupTypeName
   :: ConName a -> Environment a -> [(Maybe (S.ModuleName a), TypeName a)]
 lookupTypeName conName env = mapMaybe
-  (\x -> fmap ((interfaceModName x, ) . conEntryName)
+  (\x -> fmap ((interfaceModName x, ) . conEntryType)
    (Map.lookup conName (interfaceConEntries x)))
   (envCurrentModule env
    : envOtherEntries env
