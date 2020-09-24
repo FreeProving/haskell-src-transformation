@@ -8,10 +8,7 @@ module HST.Application
 
 -- TODO too many variables generated
 -- TODO only tuples supported
-<<<<<<< HEAD
-import           Control.Monad                ( replicateM, zipWithM )
-=======
->>>>>>> main
+import           Control.Monad                ( zipWithM )
 import           Control.Monad.Extra          ( ifM )
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe                   ( catMaybes, mapMaybe )
