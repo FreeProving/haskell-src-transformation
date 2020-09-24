@@ -73,8 +73,8 @@ lookupTypeName :: ConName a
                -> Environment a
                -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
 lookupTypeName conName env = map
-  (qualifyLookupResult (qualifyQNameEnv interfaceDataEntries env) . second conEntryType)
-  (lookupWith interfaceConEntries conName env)
+  (qualifyLookupResult (qualifyQNameEnv interfaceDataEntries env)
+   . second conEntryType) (lookupWith interfaceConEntries conName env)
 
 -------------------------------------------------------------------------------
 -- Lookup Utility Functions                                                  --
