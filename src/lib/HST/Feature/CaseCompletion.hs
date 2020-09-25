@@ -11,78 +11,66 @@ import           HST.Effect.Fresh
 import           HST.Effect.GetOpt   ( GetOpt )
 import           HST.Effect.Report   ( Report )
 import qualified HST.Frontend.Syntax as S
-import           HST.Util.Selectors  ( expFromUnguardedRhs )
+import           HST.Util.Selectors  ( expFromUnguardedRhs, getPatVarName )
+import           HST.Util.Subst      ( applySubst, singleSubst )
 
 -- | Takes a given expression and applies the algorithm on it resulting in
 --   completed cases
 completeCase :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-             => Bool
-             -> S.Exp a
+             => S.Exp a
              -> Sem r (S.Exp a)
-completeCase insideLet ce@(S.Case s expr as) = do
-  expr' <- completeCase insideLet expr
+completeCase (S.Case _ expr as)       = do
   v <- freshVarPat genericFreshPrefix
+  expr' <- completeCase expr
   eqs <- mapM getEqFromAlt as
-  eqs' <- mapM (\(p, ex) -> completeCase insideLet ex >>= \e -> return (p, e))
-    eqs
+  eqs' <- mapM (\(p, ex) -> completeCase ex >>= \e -> return (p, e)) eqs
   res <- match [v] eqs' defaultErrorExp
-  if not insideLet then do
-    if isCase res
-      then do
-        let (S.Case _ _ resAs) = res
-        return $ S.Case s expr resAs  -- test to deconstruct the first case
-      else return ce else do
-    let a = S.alt v res
-    return $ S.Case s expr' [a]
- where
-  isCase :: S.Exp a -> Bool
-  isCase (S.Case _ _ _) = True
-  isCase _              = False
-completeCase il (S.InfixApp s e1 qop e2)  = do
-  e1' <- completeCase il e1
-  e2' <- completeCase il e2
+  v' <- getPatVarName v
+  return $ applySubst (singleSubst (S.toQName v') expr') res
+completeCase (S.InfixApp s e1 qop e2) = do
+  e1' <- completeCase e1
+  e2' <- completeCase e2
   return $ S.InfixApp s e1' qop e2'
-completeCase il (S.NegApp s e)            = do
-  e' <- completeCase il e
+completeCase (S.NegApp s e)           = do
+  e' <- completeCase e
   return $ S.NegApp s e'
-completeCase il (S.App s e1 e2)           = do
-  e1' <- completeCase il e1
-  e2' <- completeCase il e2
+completeCase (S.App s e1 e2)          = do
+  e1' <- completeCase e1
+  e2' <- completeCase e2
   return $ S.App s e1' e2'
-completeCase il (S.Lambda s ps e)         = completeLambda s ps e il
-completeCase il (S.Let s binds e)         = do
-  e' <- completeCase il e -- undefined -- TODO
+completeCase (S.Lambda s ps e)        = completeLambda s ps e
+completeCase (S.Let s binds e)        = do
+  e' <- completeCase e -- undefined -- TODO
   binds' <- completeBindRhs binds
   return $ S.Let s binds' e'
-completeCase il (S.If s e1 e2 e3)         = do
-  e1' <- completeCase il e1
-  e2' <- completeCase il e2
-  e3' <- completeCase il e3
+completeCase (S.If s e1 e2 e3)        = do
+  e1' <- completeCase e1
+  e2' <- completeCase e2
+  e3' <- completeCase e3
   return $ S.If s e1' e2' e3'
-completeCase il (S.Tuple s boxed es)      = do
-  es' <- mapM (completeCase il) es  -- complete case für List Expression
+completeCase (S.Tuple s boxed es)     = do
+  es' <- mapM completeCase es  -- complete case für List Expression
   return $ S.Tuple s boxed es'
-completeCase il (S.List s es)             = do
-  es' <- mapM (completeCase il) es
+completeCase (S.List s es)            = do
+  es' <- mapM completeCase es
   return $ S.List s es'
-completeCase il (S.Paren s e)             = do
-  e' <- completeCase il e
+completeCase (S.Paren s e)            = do
+  e' <- completeCase e
   return $ S.Paren s e'
-completeCase il (S.ExpTypeSig s e t)      = do
->>>>>>> main
-  e' <- completeCase il e
+completeCase (S.ExpTypeSig s e t)     = do
+  e' <- completeCase e
   return $ S.ExpTypeSig s e' t
 -- Variables, Constructors and literals contain no expressions to complete
 -- pattern matching in.
-completeCase _ e@(S.Var _ _) = return e
-completeCase _ e@(S.Con _ _) = return e
-completeCase _ e@(S.Lit _ _) = return e
+completeCase e@(S.Var _ _)            = return e
+completeCase e@(S.Con _ _)            = return e
+completeCase e@(S.Lit _ _)            = return e
 
 completeBindRhs :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                 => S.Binds a
                 -> Sem r (S.Binds a)
 completeBindRhs (S.BDecls s decls) = do
-  decls' <- mapM (applyCCDecl True) decls
+  decls' <- mapM applyCCDecl decls
   return $ S.BDecls s decls'
 
 getEqFromAlt :: Member Report r => S.Alt a -> Sem r (Eqs a)
@@ -94,12 +82,11 @@ completeLambda :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
                => S.SrcSpan a
                -> [S.Pat a]
                -> S.Exp a
-               -> Bool
                -> Sem r (S.Exp a)
-completeLambda s ps e insideLet = do
+completeLambda s ps e = do
   let srcSpans = map S.getSrcSpan ps
   xs <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
-  e' <- completeCase insideLet e
+  e' <- completeCase e
   let eq = (ps, e')
   res <- match xs [eq] defaultErrorExp
   return $ S.Lambda s xs res
@@ -108,23 +95,21 @@ applyCCModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
               => S.Module a
               -> Sem r (S.Module a)
 applyCCModule (S.Module s origModuleHead moduleName decls) = do
-  decls' <- mapM (applyCCDecl False) decls
+  decls' <- mapM applyCCDecl decls
   return $ S.Module s origModuleHead moduleName decls'
 
 applyCCDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-            => Bool
-            -> S.Decl a
+            => S.Decl a
             -> Sem r (S.Decl a)
-applyCCDecl insideLet (S.FunBind s ms) = do
-  nms <- applyCCMatches insideLet ms
+applyCCDecl (S.FunBind s ms) = do
+  nms <- applyCCMatches ms
   return (S.FunBind s nms)
-applyCCDecl _ v = return v
+applyCCDecl v                = return v
 
 applyCCMatches :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-               => Bool
-               -> [S.Match a]
+               => [S.Match a]
                -> Sem r [S.Match a]
-applyCCMatches insideLet = mapM applyCCMatch
+applyCCMatches = mapM applyCCMatch
  where
   -- TODO maybe only apply if needed -> isIncomplete?
   applyCCMatch :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
@@ -134,5 +119,5 @@ applyCCMatches insideLet = mapM applyCCMatch
     let rhs     = S.matchRhs m
         srcSpan = S.getSrcSpan rhs
     expr <- expFromUnguardedRhs rhs
-    expr' <- completeCase insideLet expr
+    expr' <- completeCase expr
     return $ m { S.matchRhs = S.UnGuardedRhs srcSpan expr' }
