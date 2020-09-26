@@ -147,8 +147,10 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.Test.Parser
                     , HST.Test.Runner
                     , HST.Util.FreeVarsTests
+                    , HST.Util.MessagesTests
                     , HST.Util.SelectorsTests
                     , HST.Util.SubstTests
+
   build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8
