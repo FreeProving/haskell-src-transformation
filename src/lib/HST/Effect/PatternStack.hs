@@ -18,6 +18,7 @@ module HST.Effect.PatternStack
 
 import           Data.Map.Strict     ( Map )
 import qualified Data.Map.Strict     as Map
+import           Data.List           ( find )
 import           Polysemy            ( Sem, makeSem, reinterpret )
 import           Polysemy.State      ( State, evalState, gets, modify )
 
@@ -50,7 +51,7 @@ runPatternStack = evalState Map.empty . patternStackToState
   patternStackToState = reinterpret \case
     PushPattern name pat -> modify $ Map.alter (maybeCons pat) name
     PeekPattern name     -> gets $ fmap head . Map.lookup name
-    PopPattern name      -> modify $ Map.update maybeTail name
+    PopPattern name      -> modify $ Map.update (find (not . null) . maybeTail) name
 
   -- | Like @(:)@ but returns @Just@ a singleton list if the given tail is
   --   @Nothing@.
