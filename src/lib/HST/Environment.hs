@@ -32,7 +32,10 @@ data Environment a = Environment
     --   and data constructors.
   , envImportedModules :: [([S.ImportDecl a], ModuleInterface a)]
     -- ^ A list of all successfully imported module interfaces including their
-    --   import declarations. 
+    --   lists of import declarations.
+    --
+    --   A list of import declarations instead of a single one is stored
+    --   because multiple import declarations could refer to the same module.
   , envOtherEntries    :: ModuleInterface a
     -- ^ A module interface containing all other data types and data
     --   constructors currently in scope.
