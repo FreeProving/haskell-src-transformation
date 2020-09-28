@@ -37,6 +37,32 @@ setupTestEnvironment currentModule importDecls importModules = do
                      , envOtherEntries    = preludeModuleInterface
                      }
 
+-- | Creates an import declaration based on the given values.
+importDecl :: String -- ^ The name of the imported module.
+           -> Bool   -- ^ @True@ if the import is qualified, @False@ otherwise.
+           -> String -- ^ The alias name of the imported module. An empty
+                     --   string signalizes an import without an alias name.
+           -> S.ImportDecl a
+importDecl mod isQual asMod = S.ImportDecl
+  { S.importSrcSpan = S.NoSrcSpan
+  , S.importModule  = moduleName mod
+  , S.importIsQual  = isQual
+  , S.importAsName  = if null asMod then Nothing else Just (moduleName asMod)
+  }
+
+-- | Creates a possibly qualified name based on the given values.
+qName :: String -- ^ The module name the name is qualified by. An empty string
+                --   signalizes an unqualified name.
+      -> String -- ^ The name without its possible qualification. It is assumed
+                --   that this is a regular identifier and not a symbol.
+      -> S.QName a
+qName "" name = S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan name)
+qName mod name = S.Qual S.NoSrcSpan (moduleName mod) (S.Ident S.NoSrcSpan name)
+
+-- | Creates a module name based on the given name.
+moduleName :: String -> S.ModuleName a
+moduleName = S.ModuleName S.NoSrcSpan
+
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
 -------------------------------------------------------------------------------
