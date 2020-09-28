@@ -12,6 +12,7 @@ module HST.Environment
   ) where
 
 import           Data.Bifunctor         ( first, second )
+import           Data.Containers.ListUtils ( nubOrdOn )
 import           Data.List              ( find )
 import           Data.Map.Strict        ( Map )
 import qualified Data.Map.Strict        as Map
@@ -91,7 +92,7 @@ lookupWith :: (ModuleInterface a -> Map (S.QName a) v)
            -> [((Maybe (S.ImportDecl a), ModuleInterface a), v)]
 lookupWith getMap qName env = mapMaybe
   (\x -> fmap (x, ) (Map.lookup (S.unQualifyQName qName) (getMap (snd x))))
-  (possibleInterfaces qName env)
+  (nubOrdOn (interfaceModName . snd) (possibleInterfaces qName env))
 
 -- | Returns the list of all module interfaces in the given environment with
 --   their import declarations, where available, that the given possibly
