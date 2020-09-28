@@ -32,7 +32,8 @@ import           HST.Feature.GuardElimination ( applyGEModule )
 import           HST.Feature.Optimization     ( optimize )
 import qualified HST.Frontend.Syntax          as S
 import           HST.Options                  ( optOptimizeCase )
-import           HST.Util.Messages            ( Severity(Internal, Warning), message )
+import           HST.Util.Messages
+  ( Severity(Internal, Warning), message )
 import           HST.Util.Predicates          ( isConPat )
 import           HST.Util.PrettyName          ( prettyName )
 import           HST.Util.Selectors           ( expFromUnguardedRhs )
@@ -160,8 +161,8 @@ initializeEnvironment filePath = do
   currentModule <- getInputModuleInterface filePath
   mInterfaces <- mapM (getInputModuleInterfaceByName . S.importModule) imports
   mImportedModules <- zipWithM reportMissingModule imports mInterfaces
-  importedModules <- mapM collectImportDecls $
-    groupSortOn (interfaceModName . snd) (catMaybes mImportedModules)
+  importedModules <- mapM collectImportDecls
+    $ groupSortOn (interfaceModName . snd) (catMaybes mImportedModules)
   return Environment { envCurrentModule   = currentModule
                      , envImportedModules = importedModules
                      , envOtherEntries    = preludeModuleInterface
@@ -194,8 +195,8 @@ initializeEnvironment filePath = do
   collectImportDecls :: Member Report r
                      => [(S.ImportDecl a, ModuleInterface a)]
                      -> Sem r ([S.ImportDecl a], ModuleInterface a)
-  collectImportDecls imports@((_, interface) : _) =
-    return (map fst imports, interface)
-  collectImportDecls [] =
-    reportFatal $ message Internal S.NoSrcSpan $
-      "`collectImportDecls` was called on an empty list!"
+  collectImportDecls imports@((_, interface) : _)
+    = return (map fst imports, interface)
+  collectImportDecls [] = reportFatal
+    $ message Internal S.NoSrcSpan
+    $ "`collectImportDecls` was called on an empty list!"

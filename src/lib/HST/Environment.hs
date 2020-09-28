@@ -11,15 +11,15 @@ module HST.Environment
   , lookupTypeName
   ) where
 
-import           Data.Bifunctor            ( second )
-import           Data.List                 ( find )
-import           Data.Map.Strict           ( Map )
-import qualified Data.Map.Strict           as Map
-import           Data.Maybe                ( fromMaybe, mapMaybe )
+import           Data.Bifunctor         ( second )
+import           Data.List              ( find )
+import           Data.Map.Strict        ( Map )
+import qualified Data.Map.Strict        as Map
+import           Data.Maybe             ( fromMaybe, mapMaybe )
 
 import           HST.Effect.InputModule
   ( ConEntry(..), ConName, DataEntry(..), ModuleInterface(..), TypeName )
-import qualified HST.Frontend.Syntax       as S
+import qualified HST.Frontend.Syntax    as S
 
 -------------------------------------------------------------------------------
 -- Environment                                                               --
@@ -96,15 +96,14 @@ lookupWith getMap qName env = mapMaybe
 -- | Returns the list of all module interfaces in the given environment with
 --   their lists of import declarations, that the given possibly qualified name
 --   could refer to.
-possibleInterfaces :: S.QName a
-                   -> Environment a
-                   -> [([S.ImportDecl a], ModuleInterface a)]
-possibleInterfaces qName env =
-  let defInterfaces    = filter (fitsToInterface qName . snd)
-        [([], envCurrentModule env), ([], envOtherEntries env)]
-      importInterfaces = filter (any (fitsToImport qName) . fst)
-        (envImportedModules env)
-  in defInterfaces ++ importInterfaces
+possibleInterfaces
+  :: S.QName a -> Environment a -> [([S.ImportDecl a], ModuleInterface a)]
+possibleInterfaces qName env
+  = let defInterfaces    = filter (fitsToInterface qName . snd)
+          [([], envCurrentModule env), ([], envOtherEntries env)]
+        importInterfaces = filter (any (fitsToImport qName) . fst)
+          (envImportedModules env)
+    in defInterfaces ++ importInterfaces
  where
   -- | Checks if the given possibly qualified name could refer to an entry of
   --   the given module interface.
@@ -152,9 +151,9 @@ qualifyLookupResult qualify (qualInfo@(_, interface), lookupResult)
   --   returned.
   --   Otherwise, a bool specifying whether identifiers must be qualified and
   --   the module names that could be used as a qualifier are returned.
-  simplifyQualInfo :: ([S.ImportDecl a], ModuleInterface a)
-                   -> Maybe (Bool, [S.ModuleName a])
-  simplifyQualInfo ([], interface') = fmap ((False, ) . (:[]))
+  simplifyQualInfo
+    :: ([S.ImportDecl a], ModuleInterface a) -> Maybe (Bool, [S.ModuleName a])
+  simplifyQualInfo ([], interface') = fmap ((False, ) . (: []))
     (interfaceModName interface')
   simplifyQualInfo (imports, _)
     = Just (all S.importIsQual imports, map getImportQualifier imports)
