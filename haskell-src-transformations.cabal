@@ -91,7 +91,6 @@ library
                     , HST.Effect.GetOpt
                     , HST.Effect.InputFile
                     , HST.Effect.InputModule
-                    , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Effect.WithFrontend
                     , HST.Environment
