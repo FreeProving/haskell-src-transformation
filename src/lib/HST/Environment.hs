@@ -11,16 +11,16 @@ module HST.Environment
   , lookupTypeName
   ) where
 
-import           Data.Bifunctor         ( first, second )
+import           Data.Bifunctor            ( first, second )
 import           Data.Containers.ListUtils ( nubOrdOn )
-import           Data.List              ( find )
-import           Data.Map.Strict        ( Map )
-import qualified Data.Map.Strict        as Map
-import           Data.Maybe             ( fromMaybe, mapMaybe, maybeToList )
+import           Data.List                 ( find )
+import           Data.Map.Strict           ( Map )
+import qualified Data.Map.Strict           as Map
+import           Data.Maybe                ( fromMaybe, mapMaybe, maybeToList )
 
 import           HST.Effect.InputModule
   ( ConEntry(..), ConName, DataEntry(..), ModuleInterface(..), TypeName )
-import qualified HST.Frontend.Syntax    as S
+import qualified HST.Frontend.Syntax       as S
 
 -------------------------------------------------------------------------------
 -- Environment                                                               --
@@ -182,13 +182,13 @@ qualifyQNameEnv :: (ModuleInterface a -> Map (S.QName a) v)
                 -> Maybe (Bool, S.ModuleName a)
                 -> S.QName a
                 -> Maybe (S.QName a)
-qualifyQNameEnv getMap env qualInfo uqName =
-  let mustBeQual          = maybe False fst qualInfo
-      modNames            = maybeToList (snd <$> qualInfo)
-      qNames              = [uqName | not mustBeQual]
-        ++ (qualifyQName uqName <$> modNames)
-      isUnambigious qName = length (lookupWith getMap qName env) == 1
-  in find isUnambigious qNames
+qualifyQNameEnv getMap env qualInfo uqName
+  = let mustBeQual          = maybe False fst qualInfo
+        modNames            = maybeToList (snd <$> qualInfo)
+        qNames              = [uqName | not mustBeQual]
+          ++ (qualifyQName uqName <$> modNames)
+        isUnambigious qName = length (lookupWith getMap qName env) == 1
+    in find isUnambigious qNames
  where
   -- | Qualifies the given unqualified 'S.QName' by the given module name.
   --
