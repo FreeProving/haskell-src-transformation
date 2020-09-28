@@ -27,9 +27,9 @@
     within:
       # In main, we have errors that have no source span.
     - Main
-      # Messages when asking for options do not have a source span so they have
-      # to be annotated with no souce span.
-    - HST.Options
+      # There are reported messages without source spans in the `Application`
+      # module.
+    - HST.Application
       # Many artificial nodes are generated in the core algorithm and during
       # guard elimination. There is not a good source span for all of them.
     - HST.CoreAlgorithm
@@ -61,6 +61,9 @@
     # to the original AST data type.
     - HST.Frontend.GHC.To
     - HST.Frontend.HSE.To
+      # Messages when asking for options do not have a source span so they have
+      # to be annotated with no souce span.
+    - HST.Options
     # In tests, it is necessary to use `NoSrcSpan`.
     - HST.ApplicationTests
     - HST.CoreAlgorithmTests
