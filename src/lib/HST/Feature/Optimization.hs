@@ -3,6 +3,7 @@
 module HST.Feature.Optimization ( optimize ) where
 
 import           Control.Monad.Extra     ( findM )
+import Data.List.Extra (firstJust)
 import           Polysemy                ( Member, Members, Sem )
 
 import           HST.Effect.Fresh        ( Fresh )
@@ -14,6 +15,7 @@ import           HST.Util.Messages       ( Severity(Error), message )
 import           HST.Util.Selectors
   ( expFromUnguardedRhs, getAltConName, getPatConName, getPatVarName )
 import           HST.Util.Subst          ( applySubst, substFromList )
+import           HST.Util.PatternMatching          ( matchAlt )
 
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
@@ -75,15 +77,14 @@ optimizeCase :: Members '[PatternStack a, Fresh, Report] r
              => S.Exp a
              -> [S.Alt a]
              -> Sem r (S.Exp a)
-optimizeCase (S.Var _ varName) alts = do
-  mpat <- peekPattern varName
-  case mpat of
-    Just pat -> renameAndOpt pat alts
-    Nothing  -> addAndOpt varName alts
-optimizeCase e alts                 = do
+optimizeCase e alts = do
   e' <- optimize' e
   alts' <- mapM optimizeAlt alts
-  return $ S.Case S.NoSrcSpan e' alts'
+  case firstJust (flip matchAlt e) alts' of
+    Nothing           -> return $ S.Case S.NoSrcSpan e' alts'
+    Just (subst, rhs) -> do
+      expr <- expFromUnguardedRhs rhs
+      return $ applySubst subst expr
 
 -- TODO generalise
 -- | Gets the right-hand side of the alternative that matches the same
