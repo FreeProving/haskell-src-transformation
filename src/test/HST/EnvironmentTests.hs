@@ -1,19 +1,49 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | This module contains tests for "HST.Environment".
 module HST.EnvironmentTests ( testEnvironment ) where
 
-import           Polysemy                  ( Members, Sem )
+import           Data.Bifunctor            ( second )
+import           Polysemy                  ( Member, Members, Sem )
 import           Test.Hspec                ( Spec, describe, it, shouldBe )
 
 import           HST.Application           ( createModuleInterface )
 import           HST.Effect.Cancel         ( Cancel )
+import           HST.Effect.InputModule    ( ConName, ConEntry(..), TypeName )
 import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation, setExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
-import           HST.Environment           ( Environment(..), lookupTypeName )
+import           HST.Environment           ( Environment(..), lookupConEntries, lookupTypeName )
 import           HST.Environment.Prelude   ( preludeModuleInterface )
 import qualified HST.Frontend.Syntax       as S
 import           HST.Test.Parser           ( parseTestModule )
 import           HST.Test.Runner           ( runTest )
+
+-------------------------------------------------------------------------------
+-- Expectation Setters                                                       --
+-------------------------------------------------------------------------------
+-- | Sets the expectation that the given lists of module and type names are
+--   equal.
+typeNameShouldBe :: (S.ShowAST a, Member SetExpectation r)
+                 => [(Maybe (S.ModuleName a), Maybe (TypeName a))]
+                 -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
+                 -> Sem r ()
+typeNameShouldBe lookupResult expectedResult = setExpectation $
+  lookupResult `shouldBe` expectedResult
+
+-- | Sets the expectation that the given lists of module names and (partial)
+--   constructor entries are equal after unifying their structure.
+conEntriesShouldBe :: (S.ShowAST a, Member SetExpectation r)
+                   => [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
+                   -> [(Maybe (S.ModuleName a), (TypeName a, [ConName a]))]
+                   -> Sem r ()
+conEntriesShouldBe lookupResult expectedResult = setExpectation $
+  map (second (maybe [] (map transformConEntry))) lookupResult `shouldBe`
+    map (second (\(typeName, cons) -> map (, typeName) cons)) expectedResult
+ where
+  -- | Transforms a constructor entry to a pair of its own and its type's name.
+  transformConEntry :: ConEntry a -> (ConName a, TypeName a)
+  transformConEntry conEntry = (conEntryName conEntry, conEntryType conEntry)
 
 -------------------------------------------------------------------------------
 -- Utility Functions                                                         --
@@ -45,9 +75,9 @@ importDecl :: String -- ^ The name of the imported module.
            -> S.ImportDecl a
 importDecl modul isQual asMod = S.ImportDecl
   { S.importSrcSpan = S.NoSrcSpan
-  , S.importModule  = moduleName modul
+  , S.importModule  = S.ModuleName S.NoSrcSpan modul
   , S.importIsQual  = isQual
-  , S.importAsName  = if null asMod then Nothing else Just (moduleName asMod)
+  , S.importAsName  = moduleName asMod
   }
 
 -- | Creates a possibly qualified name based on the given values.
@@ -58,11 +88,12 @@ qName :: String -- ^ The module name the name is qualified by. An empty string
       -> S.QName a
 qName "" name = S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan name)
 qName modul name =
-  S.Qual S.NoSrcSpan (moduleName modul) (S.Ident S.NoSrcSpan name)
+  S.Qual S.NoSrcSpan (S.ModuleName S.NoSrcSpan modul) (S.Ident S.NoSrcSpan name)
 
 -- | Creates a module name based on the given name.
-moduleName :: String -> S.ModuleName a
-moduleName = S.ModuleName S.NoSrcSpan
+moduleName :: String -> Maybe (S.ModuleName a)
+moduleName ""      = Nothing
+moduleName modName = Just $ S.ModuleName S.NoSrcSpan modName
 
 -------------------------------------------------------------------------------
 -- Test Modules                                                              --
@@ -83,5 +114,6 @@ testEnvironment = describe "HST.Environment" $ do
     runTest $ do
       env <- setupTestEnvironment modA [] []
       let query     = lookupTypeName (qName "" "Bar") env
-          expResult = [(Just (moduleName "A"), Just (qName "" "Foo"))]
-      setExpectation $ query `shouldBe` expResult
+          expResult = [(moduleName "A", Just (qName "" "Foo"))]
+      query `typeNameShouldBe` expResult
+ 
