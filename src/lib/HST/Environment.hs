@@ -12,9 +12,10 @@ module HST.Environment
   ) where
 
 import           Data.Bifunctor         ( first, second )
+import           Data.List              ( find )
 import           Data.Map.Strict        ( Map )
 import qualified Data.Map.Strict        as Map
-import           Data.Maybe             ( fromMaybe, mapMaybe )
+import           Data.Maybe             ( fromMaybe, mapMaybe, maybeToList )
 
 import           HST.Effect.InputModule
   ( ConEntry(..), ConName, DataEntry(..), ModuleInterface(..), TypeName )
@@ -164,15 +165,12 @@ qualifyConEntry :: Environment a
                 -> Maybe (Bool, S.ModuleName a)
                 -> ConEntry a
                 -> Maybe (ConEntry a)
-qualifyConEntry env qualInfo conEntry
-  = case ( qualifyQNameEnv interfaceConEntries env qualInfo
-             (conEntryName conEntry)
-         , qualifyQNameEnv interfaceDataEntries env qualInfo
-             (conEntryType conEntry)
-         ) of
-    (Just conName, Just typeName) ->
-      Just conEntry { conEntryName = conName, conEntryType = typeName }
-    _ -> Nothing
+qualifyConEntry env qualInfo conEntry = do
+  conName <- qualifyQNameEnv interfaceConEntries env qualInfo
+    (conEntryName conEntry)
+  typeName <- qualifyQNameEnv interfaceDataEntries env qualInfo
+    (conEntryType conEntry)
+  return conEntry { conEntryName = conName, conEntryType = typeName }
 
 -- | Qualifies the given possibly qualified name based on the given
 --   qualification information so that it is not ambiguous in its namespace of
@@ -183,15 +181,13 @@ qualifyQNameEnv :: (ModuleInterface a -> Map (S.QName a) v)
                 -> Maybe (Bool, S.ModuleName a)
                 -> S.QName a
                 -> Maybe (S.QName a)
-qualifyQNameEnv getMap env Nothing uqName
-  = if length (lookupWith getMap uqName env) == 1 then Just uqName else Nothing
-qualifyQNameEnv getMap env (Just (mustBeQual, modName)) uqName
-  = if not mustBeQual && length (lookupWith getMap uqName env) == 1
-    then Just uqName
-    else let qName = qualifyQName uqName modName
-         in if length (lookupWith getMap qName env) == 1
-              then Just qName
-              else Nothing
+qualifyQNameEnv getMap env qualInfo uqName =
+  let mustBeQual          = maybe False fst qualInfo
+      modNames            = maybeToList (snd <$> qualInfo)
+      qNames              = [uqName | not mustBeQual]
+        ++ (qualifyQName uqName <$> modNames)
+      isUnambigious qName = length (lookupWith getMap qName env) == 1
+  in find isUnambigious qNames
  where
   -- | Qualifies the given unqualified 'S.QName' by the given module name.
   --
