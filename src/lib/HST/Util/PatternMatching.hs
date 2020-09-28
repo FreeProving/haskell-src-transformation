@@ -48,9 +48,10 @@ matchPat' (S.PTuple srcSpan boxed pats) expr
   = let tupleConName = S.special (S.TupleCon srcSpan boxed (length pats))
     in matchPat' (S.PApp srcSpan tupleConName pats) expr
 matchPat' (S.PList srcSpan pats) expr
-  = let nilPat                    = S.PApp srcSpan (S.special (S.NilCon srcSpan)) []
-        mkConsPat headPat tailPat = S.PApp srcSpan (S.special (S.ConsCon srcSpan))
-          [headPat, tailPat]
+  = let nilPat                    = S.PApp srcSpan
+          (S.special (S.NilCon srcSpan)) []
+        mkConsPat headPat tailPat = S.PApp srcSpan
+          (S.special (S.ConsCon srcSpan)) [headPat, tailPat]
     in matchPat' (foldr mkConsPat nilPat pats) expr
 -- Parentheses around the pattern can be ignored.
 matchPat' (S.PParen _ pat) expr = matchPat' pat expr
@@ -73,9 +74,10 @@ unConApp = flip unConApp' []
   -- tupe or list constructors.
   unConApp' (S.Tuple srcSpan boxed exprs) args = return
     (S.special (S.TupleCon srcSpan boxed (length exprs)), exprs ++ args)
-  unConApp' (S.List srcSpan []) args = return (S.special (S.NilCon srcSpan), args)
-  unConApp' (S.List srcSpan (expr : exprs)) args
-    = return (S.special (S.ConsCon srcSpan), expr : S.List srcSpan exprs : args)
+  unConApp' (S.List srcSpan []) args = return
+    (S.special (S.NilCon srcSpan), args)
+  unConApp' (S.List srcSpan (expr : exprs)) args = return
+    (S.special (S.ConsCon srcSpan), expr : S.List srcSpan exprs : args)
   -- Parentheses around expressions and type signatures can be ignored.
   unConApp' (S.Paren _ expr) args = unConApp' expr args
   unConApp' (S.ExpTypeSig _ expr _) args = unConApp' expr args
