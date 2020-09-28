@@ -114,6 +114,7 @@ library
                     , HST.Options
                     , HST.Util.FreeVars
                     , HST.Util.Messages
+                    , HST.Util.PatternMatching
                     , HST.Util.Predicates
                     , HST.Util.PrettyName
                     , HST.Util.Selectors

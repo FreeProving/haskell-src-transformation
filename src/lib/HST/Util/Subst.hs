@@ -12,6 +12,7 @@ module HST.Util.Subst
   , composeSubst
   , composeSubsts
   , extendSubst
+  , combineSubsts
     -- * Application
   , ApplySubst(..)
   ) where
@@ -45,8 +46,8 @@ identitySubst = Subst Map.empty
 
 -- | Creates a substitution that maps variables with the given name to the
 --   given expression.
-singleSubst :: S.QName a -> S.Exp a -> Subst a
-singleSubst = Subst .: Map.singleton
+singleSubst :: S.QNameLike name => name a -> S.Exp a -> Subst a
+singleSubst = Subst .: Map.singleton . S.toQName
 
 -- | Creates a substitution that maps the variables with the given names to the
 --   corresponding expressions.
@@ -92,6 +93,11 @@ composeSubsts = foldl composeSubst identitySubst
 --   If a @xᵢ@ equals an @yⱼ@, the substitution for @yⱼ@ takes precedence.
 extendSubst :: Subst a -> Subst a -> Subst a
 extendSubst (Subst m2) (Subst m1) = Subst (Map.unionWith (const id) m2 m1)
+
+-- | Creates a new substitution that applies all given substitutions without
+--   composing the individual substitutions.
+combineSubsts :: [Subst a] -> Subst a
+combineSubsts = foldl extendSubst identitySubst
 
 -------------------------------------------------------------------------------
 -- Application                                                               --
