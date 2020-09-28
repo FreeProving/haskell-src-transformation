@@ -9,7 +9,7 @@ import           HST.Effect.Cancel         ( Cancel )
 import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation, setExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
-import           HST.Environment           ( Environment(..) )
+import           HST.Environment           ( Environment(..), lookupTypeName )
 import           HST.Environment.Prelude   ( preludeModuleInterface )
 import qualified HST.Frontend.Syntax       as S
 import           HST.Test.Parser           ( parseTestModule )
@@ -43,9 +43,9 @@ importDecl :: String -- ^ The name of the imported module.
            -> String -- ^ The alias name of the imported module. An empty
                      --   string signalizes an import without an alias name.
            -> S.ImportDecl a
-importDecl mod isQual asMod = S.ImportDecl
+importDecl modul isQual asMod = S.ImportDecl
   { S.importSrcSpan = S.NoSrcSpan
-  , S.importModule  = moduleName mod
+  , S.importModule  = moduleName modul
   , S.importIsQual  = isQual
   , S.importAsName  = if null asMod then Nothing else Just (moduleName asMod)
   }
@@ -57,11 +57,21 @@ qName :: String -- ^ The module name the name is qualified by. An empty string
                 --   that this is a regular identifier and not a symbol.
       -> S.QName a
 qName "" name = S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan name)
-qName mod name = S.Qual S.NoSrcSpan (moduleName mod) (S.Ident S.NoSrcSpan name)
+qName modul name =
+  S.Qual S.NoSrcSpan (moduleName modul) (S.Ident S.NoSrcSpan name)
 
 -- | Creates a module name based on the given name.
 moduleName :: String -> S.ModuleName a
 moduleName = S.ModuleName S.NoSrcSpan
+
+-------------------------------------------------------------------------------
+-- Test Modules                                                              --
+-------------------------------------------------------------------------------
+-- | Lines of the test module @modA@.
+modA :: [String]
+modA = [ "module A where"
+       , "data Foo = Bar | Baz"
+       ]
 
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
@@ -69,7 +79,9 @@ moduleName = S.ModuleName S.NoSrcSpan
 -- | Test group for "HST.Environment".
 testEnvironment :: Spec
 testEnvironment = describe "HST.Environment" $ do
-  it "" $
+  it "finds a type name in the current module" $
     runTest $ do
-      _ <- setupTestEnvironment [] [] []
-      setExpectation (() `shouldBe` ())
+      env <- setupTestEnvironment modA [] []
+      let query     = lookupTypeName (qName "" "Bar") env
+          expResult = [(Just (moduleName "A"), Just (qName "" "Foo"))]
+      setExpectation $ query `shouldBe` expResult
