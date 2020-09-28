@@ -21,12 +21,12 @@ import           HST.Test.Runner           ( runTest )
 -- | Parses the given modules, creates module interfaces for them and sets up
 --   an environment containing the the interface of the current module, the
 --   interfaces of the imported modules combined with the given import
---   declarations and the module interface for built-in data types.
+--   declaration lists and the module interface for built-in data types.
 setupTestEnvironment
   :: (Members '[Cancel, Report, SetExpectation, WithFrontend f] r)
-  => [String]         -- ^ The lines of the current module.
-  -> [S.ImportDecl f] -- ^ The import declarations.
-  -> [[String]]       -- ^ The lines of the imported modules.
+  => [String]           -- ^ The lines of the current module.
+  -> [[S.ImportDecl f]] -- ^ The import declaration lists.
+  -> [[String]]         -- ^ The lines of the imported modules.
   -> Sem r (Environment f)
 setupTestEnvironment currentModule importDecls importModules = do
   currentInterface <- createModuleInterface <$> parseTestModule currentModule
