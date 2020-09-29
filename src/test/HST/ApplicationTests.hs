@@ -46,6 +46,9 @@ shouldTransformTo input expectedOutput = do
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule `prettyModuleShouldBe` expectedOutputModule
 
+  -- | Parses the given modules, initializes the environment for the the input
+  --   module at the head of the given list, processes it with 'processModule'
+  --   and sets the expectation that the given output module is produced.
 shouldTransformModulesTo
   :: ( S.EqAST f
      , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
@@ -56,8 +59,8 @@ shouldTransformModulesTo
 shouldTransformModulesTo inputs expectedOutput = do
   inputModules <- mapM parseTestModule inputs
   let n               = length inputs
-      fileNames       = zipWith (\ s n' -> "<" ++ s ++ show n' ++ ">")
-        (zip (replicate n "test-input") [1 .. n])
+      fileNames       = zipWith (\s n' -> "<" ++ s ++ show n' ++ ">")
+        (replicate n "test-input") [1 .. n]
       inputModuleList = zip fileNames
         (map (\m -> (m, createModuleInterface m)) inputModules)
   env <- runInputModule inputModuleList (initializeEnvironment (head fileNames))
