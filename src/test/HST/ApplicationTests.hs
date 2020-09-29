@@ -56,14 +56,14 @@ shouldTransformModulesTo
 shouldTransformModulesTo inputs expectedOutput = do
   inputModules <- mapM parseTestModule inputs
   let n               = length inputs
-      fileNames       = map (\(s, n') -> "<" ++ s ++ show n' ++ ">")
+      fileNames       = zipWith (\ s n' -> "<" ++ s ++ show n' ++ ">")
         (zip (replicate n "test-input") [1 .. n])
       inputModuleList = zip fileNames
         (map (\m -> (m, createModuleInterface m)) inputModules)
-  env <- runInputModule inputModuleList (initializeEnvironment (fileNames !! 0))
+  env <- runInputModule inputModuleList (initializeEnvironment (head fileNames))
   outputModule <- runWithEnv env
-    . runFresh (findIdentifiers (inputModules !! 0))
-    $ processModule (inputModules !! 0)
+    . runFresh (findIdentifiers (head inputModules))
+    $ processModule (head inputModules)
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule `prettyModuleShouldBe` expectedOutputModule
 
