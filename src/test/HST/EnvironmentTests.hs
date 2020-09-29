@@ -5,15 +5,17 @@ module HST.EnvironmentTests ( testEnvironment ) where
 
 import           Data.Bifunctor            ( second )
 import           Polysemy                  ( Member, Members, Sem )
-import           Test.Hspec                ( Spec, context, describe, it, shouldBe )
+import           Test.Hspec
+  ( Spec, context, describe, it, shouldBe )
 
 import           HST.Application           ( createModuleInterface )
 import           HST.Effect.Cancel         ( Cancel )
-import           HST.Effect.InputModule    ( ConName, ConEntry(..), TypeName )
+import           HST.Effect.InputModule    ( ConEntry(..), ConName, TypeName )
 import           HST.Effect.Report         ( Report )
 import           HST.Effect.SetExpectation ( SetExpectation, setExpectation )
 import           HST.Effect.WithFrontend   ( WithFrontend )
-import           HST.Environment           ( Environment(..), lookupConEntries, lookupTypeName )
+import           HST.Environment
+  ( Environment(..), lookupConEntries, lookupTypeName )
 import           HST.Environment.Prelude   ( preludeModuleInterface )
 import qualified HST.Frontend.Syntax       as S
 import           HST.Test.Parser           ( parseTestModule )
@@ -28,8 +30,8 @@ typeNameShouldBe :: (S.ShowAST a, Member SetExpectation r)
                  => [(Maybe (S.ModuleName a), Maybe (TypeName a))]
                  -> [(Maybe (S.ModuleName a), Maybe (TypeName a))]
                  -> Sem r ()
-typeNameShouldBe lookupResult expectedResult = setExpectation $
-  lookupResult `shouldBe` expectedResult
+typeNameShouldBe lookupResult expectedResult
+  = setExpectation $ lookupResult `shouldBe` expectedResult
 
 -- | Sets the expectation that the given lists of module names and (partial)
 --   constructor entries are equal after unifying their structure.
@@ -37,9 +39,10 @@ conEntriesShouldBe :: (S.ShowAST a, Member SetExpectation r)
                    => [(Maybe (S.ModuleName a), Maybe [ConEntry a])]
                    -> [(Maybe (S.ModuleName a), (TypeName a, [ConName a]))]
                    -> Sem r ()
-conEntriesShouldBe lookupResult expectedResult = setExpectation $
-  map (second (maybe [] (map transformConEntry))) lookupResult `shouldBe`
-    map (second (\(typeName, cons) -> map (, typeName) cons)) expectedResult
+conEntriesShouldBe lookupResult expectedResult = setExpectation
+  $ map (second (maybe [] (map transformConEntry))) lookupResult
+  `shouldBe` map (second (\(typeName, cons) -> map (, typeName) cons))
+  expectedResult
  where
   -- | Transforms a constructor entry to a pair of its own and its type's name.
   transformConEntry :: ConEntry a -> (ConName a, TypeName a)
@@ -86,9 +89,9 @@ qName :: String -- ^ The module name the name is qualified by. An empty string
       -> String -- ^ The name without its possible qualification. It is assumed
                 --   that this is a regular identifier and not a symbol.
       -> S.QName a
-qName "" name = S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan name)
-qName modul name =
-  S.Qual S.NoSrcSpan (S.ModuleName S.NoSrcSpan modul) (S.Ident S.NoSrcSpan name)
+qName "" name    = S.UnQual S.NoSrcSpan (S.Ident S.NoSrcSpan name)
+qName modul name = S.Qual S.NoSrcSpan (S.ModuleName S.NoSrcSpan modul)
+  (S.Ident S.NoSrcSpan name)
 
 -- | Creates a module name based on the given name.
 moduleName :: String -> Maybe (S.ModuleName a)
@@ -100,27 +103,19 @@ moduleName modName = Just $ S.ModuleName S.NoSrcSpan modName
 -------------------------------------------------------------------------------
 -- | Lines of the test module @modA@.
 modA :: [String]
-modA = [ "module A where"
-       , "data Foo = Bar | Baz"
-       ]
+modA = ["module A where", "data Foo = Bar | Baz"]
 
 -- | Lines of the test module @modB@.
 modB :: [String]
-modB = [ "module B where"
-       , "data FooB = BarB | Baz"
-       ]
+modB = ["module B where", "data FooB = BarB | Baz"]
 
 -- | Lines of the test module @modC@.
 modC :: [String]
-modC = [ "module C where"
-       , "data Foo = Bar | BazC"
-       ]
+modC = ["module C where", "data Foo = Bar | BazC"]
 
 -- | Lines of the test module @modD@.
 modD :: [String]
-modD = [ "module D where"
-       , "data Bar = Foo | Baz"
-       ]
+modD = ["module D where", "data Bar = Foo | Baz"]
 
 -- | Lines of the test module @modUnnamed@.
 modUnnamed :: [String]
@@ -132,159 +127,176 @@ modUnnamed = ["data Foo = BarUnnamed"]
 -- | Test group for "HST.Environment".
 testEnvironment :: Spec
 testEnvironment = describe "HST.Environment" $ do
- context "with unqualified lookups" $ do
-  it "finds a type name in the current module" $
-    runTest $ do
+  context "with unqualified lookups" $ do
+    it "finds a type name in the current module" $ runTest $ do
       env <- setupTestEnvironment modA [] []
       let query     = lookupTypeName (qName "" "Bar") env
           expResult = [(moduleName "A", Just (qName "" "Foo"))]
       query `typeNameShouldBe` expResult
-  it "finds constructor entries in an imported module" $
-    runTest $ do
+    it "finds constructor entries in an imported module" $ runTest $ do
       env <- setupTestEnvironment [""] [[importDecl "A" False ""]] [modA]
       let query     = lookupConEntries (qName "" "Foo") env
-          expResult = [(moduleName "A",
-                       (qName "" "Foo", [qName "" "Bar", qName "" "Baz"]))]
+          expResult = [ ( moduleName "A"
+                          , (qName "" "Foo", [qName "" "Bar", qName "" "Baz"])
+                          )
+                      ]
       query `conEntriesShouldBe` expResult
-  it "finds type names for built-in types" $
-    runTest $ do
+    it "finds type names for built-in types" $ runTest $ do
       env <- setupTestEnvironment modA [] []
       let unitCon   = S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan)
           query     = lookupTypeName unitCon env
           expResult = [(moduleName "Prelude", Just unitCon)]
       query `typeNameShouldBe` expResult
-  it "does not search in type names when supposedly given a constructor name" $
-    runTest $ do
-      env <- setupTestEnvironment modA [] []
-      let query     = lookupTypeName (qName "" "Foo") env
-          expResult = []
-      query `typeNameShouldBe` expResult
-  it "does not search in constructor names when supposedly given a type name" $
-    runTest $ do
-      env <- setupTestEnvironment modA [] []
-      let query     = lookupConEntries (qName "" "Bar") env
-          expResult = []
-      query `conEntriesShouldBe` expResult
-  it "does not search for unqualified identifiers in qualified imports" $
-    runTest $ do
-      env <- setupTestEnvironment [""] [[importDecl "A" True ""]] [modA]
-      let query     = lookupTypeName (qName "" "Bar") env
-          expResult = []
-      query `typeNameShouldBe` expResult
-
- context "with qualified lookups" $ do
-  it "searches for qualified identifiers only in the respective modules" $
-    runTest $ do
-      env <- setupTestEnvironment [""]
-        [[importDecl "A" False ""], [importDecl "B" False ""]] [modA, modB]
-      let query     = lookupTypeName (qName "B" "Baz") env
-          expResult = [(moduleName "B", Just (qName "" "FooB"))]
-      query `typeNameShouldBe` expResult
-  it "searches in the current module for identifiers qualified with its name" $
-    runTest $ do
-      env <- setupTestEnvironment modA [[importDecl "B" False ""]] [modB]
-      let query     = lookupTypeName (qName "A" "Baz") env
-          expResult = [(moduleName "A", Just (qName "" "Foo"))]
-      query `typeNameShouldBe` expResult
-  it "does search in aliased imports by their alias name" $
-    runTest $ do
+    it "does not search in type names when supposedly given a constructor name"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [] []
+        let query     = lookupTypeName (qName "" "Foo") env
+            expResult = []
+        query `typeNameShouldBe` expResult
+    it "does not search in constructor names when supposedly given a type name"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [] []
+        let query     = lookupConEntries (qName "" "Bar") env
+            expResult = []
+        query `conEntriesShouldBe` expResult
+    it "does not search for unqualified identifiers in qualified imports"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment [""] [[importDecl "A" True ""]] [modA]
+        let query     = lookupTypeName (qName "" "Bar") env
+            expResult = []
+        query `typeNameShouldBe` expResult
+  context "with qualified lookups" $ do
+    it "searches for qualified identifiers only in the respective modules"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment [""]
+          [[importDecl "A" False ""], [importDecl "B" False ""]] [modA, modB]
+        let query     = lookupTypeName (qName "B" "Baz") env
+            expResult = [(moduleName "B", Just (qName "" "FooB"))]
+        query `typeNameShouldBe` expResult
+    it "searches in the current module for identifiers qualified with its name"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [[importDecl "B" False ""]] [modB]
+        let query     = lookupTypeName (qName "A" "Baz") env
+            expResult = [(moduleName "A", Just (qName "" "Foo"))]
+        query `typeNameShouldBe` expResult
+    it "does search in aliased imports by their alias name" $ runTest $ do
       env <- setupTestEnvironment [""] [[importDecl "A" False "C"]] [modA]
       let query     = lookupTypeName (qName "C" "Bar") env
           expResult = [(moduleName "A", Just (qName "" "Foo"))]
       query `typeNameShouldBe` expResult
-  it "does not search in aliased imports by their original name" $
-    runTest $ do
+    it "does not search in aliased imports by their original name" $ runTest $ do
       env <- setupTestEnvironment [""] [[importDecl "A" False "C"]] [modA]
       let query     = lookupTypeName (qName "A" "Bar") env
           expResult = []
       query `typeNameShouldBe` expResult
-  it "qualifies lookup results coming from qualified imports" $
-    runTest $ do
+    it "qualifies lookup results coming from qualified imports" $ runTest $ do
       env <- setupTestEnvironment [""] [[importDecl "A" True ""]] [modA]
       let query     = lookupTypeName (qName "A" "Bar") env
           expResult = [(moduleName "A", Just (qName "A" "Foo"))]
       query `typeNameShouldBe` expResult
-
- context "with ambiguous lookups or multiple qualification options" $ do
-  it "returns multiple results for ambiguous identifiers" $
-    runTest $ do
+  context "with ambiguous lookups or multiple qualification options" $ do
+    it "returns multiple results for ambiguous identifiers" $ runTest $ do
       env <- setupTestEnvironment [""]
         [[importDecl "A" False ""], [importDecl "B" False ""]] [modA, modB]
       let query     = lookupTypeName (qName "" "Baz") env
-          expResult = [(moduleName "A", Just (qName "" "Foo")),
-                       (moduleName "B", Just (qName "" "FooB"))]
+          expResult = [ (moduleName "A", Just (qName "" "Foo"))
+                      , (moduleName "B", Just (qName "" "FooB"))
+                      ]
       query `typeNameShouldBe` expResult
-  it "qualifies a result with an imported module's name if necessary" $
-    runTest $ do
-      env <- setupTestEnvironment [""]
-        [[importDecl "A" False ""], [importDecl "C" False ""]] [modA, modC]
-      let query     = lookupTypeName (qName "" "BazC") env
-          expResult = [(moduleName "C", Just (qName "C" "Foo"))]
-      query `typeNameShouldBe` expResult
-  it "qualifies a result with the current module's name if necessary" $
-    runTest $ do
-      env <- setupTestEnvironment modA [[importDecl "C" False ""]] [modC]
-      let query     = lookupTypeName (qName "" "Baz") env
-          expResult = [(moduleName "A", Just (qName "A" "Foo"))]
-      query `typeNameShouldBe` expResult
-  it "does not try to qualify a result by an unnamed module" $
-    runTest $ do
+    it "qualifies a result with an imported module's name if necessary"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment [""]
+          [[importDecl "A" False ""], [importDecl "C" False ""]] [modA, modC]
+        let query     = lookupTypeName (qName "" "BazC") env
+            expResult = [(moduleName "C", Just (qName "C" "Foo"))]
+        query `typeNameShouldBe` expResult
+    it "qualifies a result with the current module's name if necessary"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [[importDecl "C" False ""]] [modC]
+        let query     = lookupTypeName (qName "" "Baz") env
+            expResult = [(moduleName "A", Just (qName "A" "Foo"))]
+        query `typeNameShouldBe` expResult
+    it "does not try to qualify a result by an unnamed module" $ runTest $ do
       env <- setupTestEnvironment modUnnamed [[importDecl "A" False ""]] [modA]
       let query     = lookupTypeName (qName "" "BarUnnamed") env
           expResult = [(moduleName "", Nothing)]
       query `typeNameShouldBe` expResult
-  it "returns an unqualified identifier if necessary" $
-    runTest $ do
+    it "returns an unqualified identifier if necessary" $ runTest $ do
       env <- setupTestEnvironment modA [[importDecl "C" True "A"]] [modC]
       let query     = lookupTypeName (qName "A" "Baz") env
           expResult = [(moduleName "A", Just (qName "" "Foo"))]
       query `typeNameShouldBe` expResult
-  it "only qualifies the parts of the result that need qualification" $
-    runTest $ do
-      env <- setupTestEnvironment modA [[importDecl "C" False ""]] [modC]
-      let query     = lookupConEntries (qName "A" "Foo") env
-          expResult = [(moduleName "A",
-                       (qName "A" "Foo", [qName "A" "Bar", qName "" "Baz"]))]
-      query `conEntriesShouldBe` expResult
-  it ("does not return any constructors if a single one cannot be "
-    ++ "identified unambiguously") $
-    runTest $ do
-      env <- setupTestEnvironment modA [[importDecl "B" False "A"]] [modB]
-      let query     = lookupConEntries (qName "" "Foo") env
-          expResult = [(moduleName "A", (qName "" "", []))]
-      query `conEntriesShouldBe` expResult
-  it "ignores name clashes between data type and constructor names" $
-    runTest $ do
-      env <- setupTestEnvironment modA [[importDecl "D" False ""]] [modD]
-      let query     = lookupConEntries (qName "" "Bar") env
-          expResult = [(moduleName "D",
-                       (qName "" "Bar", [qName "" "Foo", qName "D" "Baz"]))]
-      query `conEntriesShouldBe` expResult
-
- context "with multiple import declarations for the same modules" $ do
-  it ("does not consider identifiers fitting to multiple import "
-    ++ "declarations ambiguous if they all refer to the same module") $
-    runTest $ do
-      env <- setupTestEnvironment [""]
-        [[importDecl "A" False "", importDecl "A" False "B"]] [modA]
-      let query     = lookupTypeName (qName "" "Bar") env
-          expResult = [(moduleName "A", Just (qName "" "Foo"))]
-      query `typeNameShouldBe` expResult
-  it "tries using no qualifier if a single import declaration is unqualified" $
-    runTest $ do
-      env <- setupTestEnvironment [""]
-        [[importDecl "A" True "", importDecl "A" False "B"]] [modA]
-      let query     = lookupTypeName (qName "A" "Bar") env
-          expResult = [(moduleName "A", Just (qName "" "Foo"))]
-      query `typeNameShouldBe` expResult
-  it ("tries using the alias names of all import declarations for "
-    ++ "unambiguous identification") $
-    runTest $ do
-      env <- setupTestEnvironment [""]
-        [ [importDecl "A" True "", importDecl "A" True "B", importDecl "A" True "C"]
-        , [importDecl "B" True "", importDecl "B" True "A"]
-        , [importDecl "C" True "", importDecl "C" True "A"]] [modA, modB, modC]
-      let query     = lookupConEntries (qName "B" "Foo") env
-          expResult = [(moduleName "A",
-                       (qName "B" "Foo", [qName "B" "Bar", qName "C" "Baz"]))]
-      query `conEntriesShouldBe` expResult
+    it "only qualifies the parts of the result that need qualification"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [[importDecl "C" False ""]] [modC]
+        let query     = lookupConEntries (qName "A" "Foo") env
+            expResult
+              = [ ( moduleName "A"
+                    , (qName "A" "Foo", [qName "A" "Bar", qName "" "Baz"])
+                    )
+                ]
+        query `conEntriesShouldBe` expResult
+    it ("does not return any constructors if a single one cannot be "
+        ++ "identified unambiguously")
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [[importDecl "B" False "A"]] [modB]
+        let query     = lookupConEntries (qName "" "Foo") env
+            expResult = [(moduleName "A", (qName "" "", []))]
+        query `conEntriesShouldBe` expResult
+    it "ignores name clashes between data type and constructor names"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment modA [[importDecl "D" False ""]] [modD]
+        let query     = lookupConEntries (qName "" "Bar") env
+            expResult
+              = [ ( moduleName "D"
+                    , (qName "" "Bar", [qName "" "Foo", qName "D" "Baz"])
+                    )
+                ]
+        query `conEntriesShouldBe` expResult
+  context "with multiple import declarations for the same modules" $ do
+    it ("does not consider identifiers fitting to multiple import "
+        ++ "declarations ambiguous if they all refer to the same module")
+      $ runTest
+      $ do
+        env <- setupTestEnvironment [""]
+          [[importDecl "A" False "", importDecl "A" False "B"]] [modA]
+        let query     = lookupTypeName (qName "" "Bar") env
+            expResult = [(moduleName "A", Just (qName "" "Foo"))]
+        query `typeNameShouldBe` expResult
+    it "tries using no qualifier if a single import declaration is unqualified"
+      $ runTest
+      $ do
+        env <- setupTestEnvironment [""]
+          [[importDecl "A" True "", importDecl "A" False "B"]] [modA]
+        let query     = lookupTypeName (qName "A" "Bar") env
+            expResult = [(moduleName "A", Just (qName "" "Foo"))]
+        query `typeNameShouldBe` expResult
+    it ("tries using the alias names of all import declarations for "
+        ++ "unambiguous identification")
+      $ runTest
+      $ do
+        env <- setupTestEnvironment [""]
+          [ [ importDecl "A" True ""
+              , importDecl "A" True "B"
+              , importDecl "A" True "C"
+              ]
+          , [importDecl "B" True "", importDecl "B" True "A"]
+          , [importDecl "C" True "", importDecl "C" True "A"]
+          ] [modA, modB, modC]
+        let query     = lookupConEntries (qName "B" "Foo") env
+            expResult
+              = [ ( moduleName "A"
+                    , (qName "B" "Foo", [qName "B" "Bar", qName "C" "Baz"])
+                    )
+                ]
+        query `conEntriesShouldBe` expResult
