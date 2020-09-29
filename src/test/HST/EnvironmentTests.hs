@@ -5,7 +5,7 @@ module HST.EnvironmentTests ( testEnvironment ) where
 
 import           Data.Bifunctor            ( second )
 import           Polysemy                  ( Member, Members, Sem )
-import           Test.Hspec                ( Spec, describe, it, shouldBe )
+import           Test.Hspec                ( Spec, context, describe, it, shouldBe )
 
 import           HST.Application           ( createModuleInterface )
 import           HST.Effect.Cancel         ( Cancel )
@@ -104,16 +104,70 @@ modA = [ "module A where"
        , "data Foo = Bar | Baz"
        ]
 
+-- | Lines of the test module @modB@.
+modB :: [String]
+modB = [ "module B where"
+       , "data FooB = BarB | Baz"
+       ]
+
+-- | Lines of the test module @modC@.
+modC :: [String]
+modC = [ "module C where"
+       , "data Foo = Bar | BazC"
+       ]
+
+-- | Lines of the test module @modD@.
+modD :: [String]
+modD = [ "module D where"
+       , "data Bar = Foo | Baz"
+       ]
+
+-- | Lines of the test module @modUnnamed@.
+modUnnamed :: [String]
+modUnnamed = ["data Foo = BarUnnamed"]
+
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
 -------------------------------------------------------------------------------
 -- | Test group for "HST.Environment".
 testEnvironment :: Spec
 testEnvironment = describe "HST.Environment" $ do
+ context "with unqualified lookups" $ do
   it "finds a type name in the current module" $
     runTest $ do
       env <- setupTestEnvironment modA [] []
       let query     = lookupTypeName (qName "" "Bar") env
           expResult = [(moduleName "A", Just (qName "" "Foo"))]
       query `typeNameShouldBe` expResult
- 
+  it "finds constructor entries in an imported module" $
+    runTest $ do
+      env <- setupTestEnvironment [""] [[importDecl "A" False ""]] [modA]
+      let query     = lookupConEntries (qName "" "Foo") env
+          expResult = [(moduleName "A",
+                       (qName "" "Foo", [qName "" "Bar", qName "" "Baz"]))]
+      query `conEntriesShouldBe` expResult
+  it "finds type names for built-in types" $
+    runTest $ do
+      env <- setupTestEnvironment modA [] []
+      let unitCon   = S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan)
+          query     = lookupTypeName unitCon env
+          expResult = [(moduleName "Prelude", Just unitCon)]
+      query `typeNameShouldBe` expResult
+  it "does not search in type names when supposedly given a constructor name" $
+    runTest $ do
+      env <- setupTestEnvironment modA [] []
+      let query     = lookupTypeName (qName "" "Foo") env
+          expResult = []
+      query `typeNameShouldBe` expResult
+  it "does not search in constructor names when supposedly given a type name" $
+    runTest $ do
+      env <- setupTestEnvironment modA [] []
+      let query     = lookupConEntries (qName "" "Bar") env
+          expResult = []
+      query `conEntriesShouldBe` expResult
+  it "does not search for unqualified identifiers in qualified imports" $
+    runTest $ do
+      env <- setupTestEnvironment [""] [[importDecl "A" True ""]] [modA]
+      let query     = lookupTypeName (qName "" "Bar") env
+          expResult = []
+      query `typeNameShouldBe` expResult
