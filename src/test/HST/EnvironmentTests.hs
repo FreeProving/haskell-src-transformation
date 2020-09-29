@@ -171,3 +171,36 @@ testEnvironment = describe "HST.Environment" $ do
       let query     = lookupTypeName (qName "" "Bar") env
           expResult = []
       query `typeNameShouldBe` expResult
+
+ context "with qualified lookups" $ do
+  it "searches for qualified identifiers only in the respective modules" $
+    runTest $ do
+      env <- setupTestEnvironment [""]
+        [[importDecl "A" False ""], [importDecl "B" False ""]] [modA, modB]
+      let query     = lookupTypeName (qName "B" "Baz") env
+          expResult = [(moduleName "B", Just (qName "" "FooB"))]
+      query `typeNameShouldBe` expResult
+  it "searches in the current module for identifiers qualified with its name" $
+    runTest $ do
+      env <- setupTestEnvironment modA [[importDecl "B" False ""]] [modB]
+      let query     = lookupTypeName (qName "A" "Baz") env
+          expResult = [(moduleName "A", Just (qName "" "Foo"))]
+      query `typeNameShouldBe` expResult
+  it "does search in aliased imports by their alias name" $
+    runTest $ do
+      env <- setupTestEnvironment [""] [[importDecl "A" False "C"]] [modA]
+      let query     = lookupTypeName (qName "C" "Bar") env
+          expResult = [(moduleName "A", Just (qName "" "Foo"))]
+      query `typeNameShouldBe` expResult
+  it "does not search in aliased imports by their original name" $
+    runTest $ do
+      env <- setupTestEnvironment [""] [[importDecl "A" False "C"]] [modA]
+      let query     = lookupTypeName (qName "A" "Bar") env
+          expResult = []
+      query `typeNameShouldBe` expResult
+  it "qualifies lookup results coming from qualified imports" $
+    runTest $ do
+      env <- setupTestEnvironment [""] [[importDecl "A" True ""]] [modA]
+      let query     = lookupTypeName (qName "A" "Bar") env
+          expResult = [(moduleName "A", Just (qName "A" "Foo"))]
+      query `typeNameShouldBe` expResult
