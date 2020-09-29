@@ -46,6 +46,31 @@ shouldTransformTo input expectedOutput = do
   expectedOutputModule <- parseTestModule expectedOutput
   outputModule `prettyModuleShouldBe` expectedOutputModule
 
+-- | Parses the given modules, initializes the environment for the input module
+--   at the head of the given list, processes it with 'processModule' and sets
+--   the expectation that the given output module is produced.
+shouldTransformModulesTo
+  :: ( S.EqAST f
+     , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
+     )
+  => [[String]]
+  -> [String]
+  -> Sem r ()
+shouldTransformModulesTo inputs expectedOutput = do
+  inputModules <- mapM parseTestModule inputs
+  let n               = length inputs
+      fileNames       = zipWith (\s n' -> "<" ++ s ++ show n' ++ ">")
+        (replicate n "test-input") [1 .. n]
+      inputModuleList = zip fileNames
+        (map (\m -> (m, createModuleInterface m)) inputModules)
+  env <- runInputModule inputModuleList
+    $ initializeEnvironment (head fileNames)
+  outputModule <- runWithEnv env
+    . runFresh (findIdentifiers (head inputModules))
+    $ processModule (head inputModules)
+  expectedOutputModule <- parseTestModule expectedOutput
+  outputModule `prettyModuleShouldBe` expectedOutputModule
+
 -------------------------------------------------------------------------------
 -- Tests                                                                     --
 -------------------------------------------------------------------------------
@@ -113,6 +138,40 @@ testProcessModule = context "processModule" $ do
     , "      a4 = undefined"
     , "  in  a3"
     ]
+  it "should transform a module which uses a data type from a different module"
+    $ runTest
+    $ let ms = [ [ "module B where"
+                   , "import A"
+                   , "mapTree f (Leaf x) = Leaf (f x)"
+                   , "mapTree f (Branch l r) = Branch (mapTree f l) (mapTree f r)"
+                   ]
+               , [ "module A where"
+                   , "data Tree a = Leaf a | Branch (Tree a) (Tree a)"
+                   ]
+               ]
+          m  = [ "module B where"
+               , "import A"
+               , "mapTree a0 a1 = case a1 of"
+               , "  Leaf a2      -> Leaf (a0 a2)"
+               , "  Branch a4 a5 -> Branch (mapTree a0 a4) (mapTree a0 a5)"
+               ]
+      in shouldTransformModulesTo ms m
+  it "should not change the name of a function defined in another module"
+    $ runTest
+    $ let ms = [ [ "module B where"
+                   , "import A"
+                   , "incList [] = []"
+                   , "incList (n:ns) = inc n : incList ns"
+                   ]
+               , ["module A where", "inc n = n + 1"]
+               ]
+          m  = [ "module B where"
+               , "import A"
+               , "incList a0 = case a0 of"
+               , "  [] -> []"
+               , "  a1:a2 -> inc a1 : incList a2"
+               ]
+      in shouldTransformModulesTo ms m
   context "substitution in modules" $ do
     it "avoids capture of variables shadowed in let expressions"
       $ runTest
