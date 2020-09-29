@@ -63,7 +63,8 @@ shouldTransformModulesTo inputs expectedOutput = do
         (replicate n "test-input") [1 .. n]
       inputModuleList = zip fileNames
         (map (\m -> (m, createModuleInterface m)) inputModules)
-  env <- runInputModule inputModuleList $ initializeEnvironment (head fileNames)
+  env <- runInputModule inputModuleList
+    $ initializeEnvironment (head fileNames)
   outputModule <- runWithEnv env
     . runFresh (findIdentifiers (head inputModules))
     $ processModule (head inputModules)
