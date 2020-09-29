@@ -53,25 +53,25 @@
       # `NoSrcSpan` such that users of the effect are forced to discard
       # location information explicitly.
     - HST.Effect.Fresh
-    # During the transformation, given source spans have to be converted to
-    # HST syntax
+      # During the transformation, given source spans have to be converted to
+      # HST syntax.
     - HST.Frontend.HSE.From
     - HST.Frontend.GHC.From
-    # During the back-transformation, missing source spans have to be converted
-    # to the original AST data type.
+      # During the back-transformation, missing source spans have to be converted
+      # to the original AST data type.
     - HST.Frontend.GHC.To
     - HST.Frontend.HSE.To
       # Messages when asking for options do not have a source span so they have
-      # to be annotated with no souce span.
+      # to be annotated with no source span.
     - HST.Options
-    # In tests, it is necessary to use `NoSrcSpan`.
+      # In tests, it is necessary to use `NoSrcSpan`.
     - HST.ApplicationTests
     - HST.CoreAlgorithmTests
-    - HST.EnvironmentTests
     - HST.Effect.CancelTests
     - HST.Effect.FreshTests
     - HST.Effect.ReportTests
     - HST.Effect.SetExpectation
+    - HST.EnvironmentTests
     - HST.Test.Expectation
     - HST.Test.Parser
     - HST.Test.Runner
@@ -81,9 +81,9 @@
 
 # Aliases for qualified imports.
 - modules:
+  - {name: [ Data.Map.Strict ], as: Map}
   - {name: [ Data.Set ], as: Set}
   - {name: [ Data.Set.Ordered ], as: OSet}
-  - {name: [ Data.Map.Strict ], as: Map}
   - {name: [ HST.Frontend.GHC.From ], as: FromGHC}
   - {name: [ HST.Frontend.GHC.To ], as: ToGHC}
   - {name: [ HST.Frontend.HSE.From ], as: FromHSE}
