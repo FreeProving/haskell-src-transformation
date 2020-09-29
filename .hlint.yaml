@@ -67,6 +67,7 @@
     # In tests, it is necessary to use `NoSrcSpan`.
     - HST.ApplicationTests
     - HST.CoreAlgorithmTests
+    - HST.EnvironmentTests
     - HST.Effect.CancelTests
     - HST.Effect.FreshTests
     - HST.Effect.ReportTests
