@@ -260,3 +260,31 @@ testEnvironment = describe "HST.Environment" $ do
           expResult = [(moduleName "D",
                        (qName "" "Bar", [qName "" "Foo", qName "D" "Baz"]))]
       query `conEntriesShouldBe` expResult
+
+ context "with multiple import declarations for the same modules" $ do
+  it ("does not consider identifiers fitting to multiple import "
+    ++ "declarations ambiguous if they all refer to the same module") $
+    runTest $ do
+      env <- setupTestEnvironment [""]
+        [[importDecl "A" False "", importDecl "A" False "B"]] [modA]
+      let query     = lookupTypeName (qName "" "Bar") env
+          expResult = [(moduleName "A", Just (qName "" "Foo"))]
+      query `typeNameShouldBe` expResult
+  it "tries using no qualifier if a single import declaration is unqualified" $
+    runTest $ do
+      env <- setupTestEnvironment [""]
+        [[importDecl "A" True "", importDecl "A" False "B"]] [modA]
+      let query     = lookupTypeName (qName "A" "Bar") env
+          expResult = [(moduleName "A", Just (qName "" "Foo"))]
+      query `typeNameShouldBe` expResult
+  it ("tries using the alias names of all import declarations for "
+    ++ "unambiguous identification") $
+    runTest $ do
+      env <- setupTestEnvironment [""]
+        [ [importDecl "A" True "", importDecl "A" True "B", importDecl "A" True "C"]
+        , [importDecl "B" True "", importDecl "B" True "A"]
+        , [importDecl "C" True "", importDecl "C" True "A"]] [modA, modB, modC]
+      let query     = lookupConEntries (qName "B" "Foo") env
+          expResult = [(moduleName "A",
+                       (qName "B" "Foo", [qName "B" "Bar", qName "C" "Baz"]))]
+      query `conEntriesShouldBe` expResult
