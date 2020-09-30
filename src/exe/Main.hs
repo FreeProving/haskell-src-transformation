@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | This module contains the command line interface for the
 --   @haskell-src-transformations@ package.
@@ -30,8 +29,7 @@ import           HST.Effect.InputModule
 import           HST.Effect.Report
   ( Report, exceptionToReport, filterReportedMessages, reportToHandleOrCancel )
 import           HST.Effect.WithFrontend
-  ( WithFrontend, parseModule, prettyPrintModule, runWithFrontend
-  , transformModule, unTransformModule )
+  ( WithFrontend, parseModule, prettyPrintModule, runWithFrontend )
 import qualified HST.Frontend.Syntax     as S
 import           HST.Options
   ( optEnableDebug, optFrontend, optInputFiles, optOutputDir, optShowHelp
@@ -115,9 +113,8 @@ performTransformation
   -> Sem r (S.Module f, ModuleInterface f)
 performTransformation inputFilename = do
   input <- getInputFile inputFilename
-  parsedModule <- parseModule inputFilename input
-  transformedModule <- transformModule parsedModule
-  return (transformedModule, createModuleInterface transformedModule)
+  inputModule <- parseModule inputFilename input
+  return (inputModule, createModuleInterface inputModule)
 
 -- | Initializes the environment for the module at the given file path, applies
 --   the pattern matching compilation to it and writes a pretty printed version
@@ -136,13 +133,12 @@ processInputModule
   => FilePath
   -> Sem r ()
 processInputModule inputFilename = do
-  modul <- getInputModule inputFilename
+  inputModule <- getInputModule inputFilename
   env <- initializeEnvironment inputFilename
-  outputModule <- runWithEnv env . runFresh (findIdentifiers modul) $ do
-    intermediateModule' <- processModule modul
-    unTransformModule @f intermediateModule'
+  outputModule <- runWithEnv env . runFresh (findIdentifiers inputModule)
+    $ processModule inputModule
   output <- prettyPrintModule outputModule
-  let moduleName = getModuleName modul
+  let moduleName = getModuleName inputModule
   maybeOutputDir <- getOpt optOutputDir
   case maybeOutputDir of
     Just outputDir -> do

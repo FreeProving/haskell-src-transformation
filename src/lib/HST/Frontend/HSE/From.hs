@@ -21,8 +21,9 @@ import           HST.Util.Messages                 ( Severity(Error), message )
 -------------------------------------------------------------------------------
 -- | Transforms the @haskell-src-exts@ representation of a Haskell module into
 --   the @haskell-src-transformations@ representation of a Haskell module.
-transformModule
-  :: Member Report r => HSE.Module HSE.SrcSpanInfo -> Sem r (S.Module HSE)
+transformModule :: (Member Report r, TransformSrcSpan srcSpan)
+                => HSE.Module srcSpan
+                -> Sem r (S.Module (HSE srcSpan))
 transformModule (HSE.Module s moduleHead pragmas imports decls) = S.Module
   (transformSrcSpan s) (OriginalModuleHead moduleHead pragmas imports)
   <$> mapM transformModuleHead moduleHead
@@ -34,9 +35,9 @@ transformModule (HSE.XmlHybrid s _ _ _ _ _ _ _ _)               = notSupported
   "XML Modules" (transformSrcSpan s)
 
 -- | Extracts the name of a module from a module head.
-transformModuleHead :: Member Report r
-                    => HSE.ModuleHead HSE.SrcSpanInfo
-                    -> Sem r (S.ModuleName HSE)
+transformModuleHead :: (Member Report r, TransformSrcSpan srcSpan)
+                    => HSE.ModuleHead srcSpan
+                    -> Sem r (S.ModuleName (HSE srcSpan))
 transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 
 -------------------------------------------------------------------------------
@@ -46,9 +47,9 @@ transformModuleHead (HSE.ModuleHead _ name _ _) = transformModuleName name
 --
 --   Unsupported declarations are preserved by wrapping them in the
 --   'S.OtherDecl' constructor.
-transformDecl :: Member Report r
-              => HSE.Decl HSE.SrcSpanInfo -- ^ The declaration to transform.
-              -> Sem r (S.Decl HSE)
+transformDecl :: (Member Report r, TransformSrcSpan srcSpan)
+              => HSE.Decl srcSpan -- ^ The declaration to transform.
+              -> Sem r (S.Decl (HSE srcSpan))
 
 -- Data type and newtype declarations are supported.
 transformDecl decl@(HSE.DataDecl s _ _ dHead qcds _) = do
@@ -159,9 +160,9 @@ transformDecl decl@(HSE.ForExp s _ _ _ _) = return
 --
 --   Unsupported import declarations are skipped and the user is informed
 --   about them as missing imports could lead to further errors.
-transformImportDecl :: Member Report r
-                    => HSE.ImportDecl HSE.SrcSpanInfo
-                    -> Sem r (Maybe (S.ImportDecl HSE))
+transformImportDecl :: (Member Report r, TransformSrcSpan srcSpan)
+                    => HSE.ImportDecl srcSpan
+                    -> Sem r (Maybe (S.ImportDecl (HSE srcSpan)))
 transformImportDecl HSE.ImportDecl { HSE.importSrc = True, HSE.importAnn = s }
   = skipNotSupported "{-# SOURCE #-} imports" (transformSrcSpan s)
   >> return Nothing
@@ -189,7 +190,9 @@ transformImportDecl importDecl = do
 -- Data Type Declarations                                                    --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE declaration head into an HST declaration head.
-transformDeclHead :: HSE.DeclHead HSE.SrcSpanInfo -> Sem r (S.Name HSE)
+transformDeclHead :: TransformSrcSpan srcSpan
+                  => HSE.DeclHead srcSpan
+                  -> Sem r (S.Name (HSE srcSpan))
 transformDeclHead (HSE.DHead _ dName)     = transformName dName
 transformDeclHead (HSE.DHInfix _ _ dName) = transformName dName
 transformDeclHead (HSE.DHParen _ dHead)   = transformDeclHead dHead
@@ -197,15 +200,16 @@ transformDeclHead (HSE.DHApp _ dHead _)   = transformDeclHead dHead
 
 -- | Transforms an HSE qualified constructor declaration into an HST
 --   constructor declaration.
-transformQualConDecl :: Member Report r
-                     => HSE.QualConDecl HSE.SrcSpanInfo
-                     -> Sem r (S.ConDecl HSE)
+transformQualConDecl :: (Member Report r, TransformSrcSpan srcSpan)
+                     => HSE.QualConDecl srcSpan
+                     -> Sem r (S.ConDecl (HSE srcSpan))
 transformQualConDecl (HSE.QualConDecl _ _ _ conDecl) = transformConDecl conDecl
 
 -- | Transforms an HSE constructor declaration into an HST constructor
 --   declaration.
-transformConDecl
-  :: Member Report r => HSE.ConDecl HSE.SrcSpanInfo -> Sem r (S.ConDecl HSE)
+transformConDecl :: (Member Report r, TransformSrcSpan srcSpan)
+                 => HSE.ConDecl srcSpan
+                 -> Sem r (S.ConDecl (HSE srcSpan))
 transformConDecl (HSE.ConDecl s cName types)    = do
   name' <- transformName cName
   return S.ConDecl { S.conDeclSrcSpan = transformSrcSpan s
@@ -227,16 +231,18 @@ transformConDecl (HSE.RecDecl s _ _)            = notSupported "Records"
 -- Function Declarations                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE binding group into an HST binding group.
-transformBinds
-  :: Member Report r => HSE.Binds HSE.SrcSpanInfo -> Sem r (S.Binds HSE)
+transformBinds :: (Member Report r, TransformSrcSpan srcSpan)
+               => HSE.Binds srcSpan
+               -> Sem r (S.Binds (HSE srcSpan))
 transformBinds (HSE.BDecls s decls) = S.BDecls (transformSrcSpan s)
   <$> mapM transformDecl decls
 transformBinds (HSE.IPBinds s _)    = notSupported "Implicit-parameters"
   (transformSrcSpan s)
 
 -- | Transforms an HSE match into an HST match.
-transformMatch
-  :: Member Report r => HSE.Match HSE.SrcSpanInfo -> Sem r (S.Match HSE)
+transformMatch :: (Member Report r, TransformSrcSpan srcSpan)
+               => HSE.Match srcSpan
+               -> Sem r (S.Match (HSE srcSpan))
 transformMatch (HSE.Match s name pats rhs mBinds)
   = S.Match (transformSrcSpan s) False <$> transformName name
   <*> mapM transformPat pats
@@ -249,7 +255,9 @@ transformMatch (HSE.InfixMatch s pat name pats rhs mBinds)
   <*> mapM transformBinds mBinds
 
 -- | Transforms an HSE right hand side into an HST right hand side.
-transformRhs :: Member Report r => HSE.Rhs HSE.SrcSpanInfo -> Sem r (S.Rhs HSE)
+transformRhs :: (Member Report r, TransformSrcSpan srcSpan)
+             => HSE.Rhs srcSpan
+             -> Sem r (S.Rhs (HSE srcSpan))
 transformRhs (HSE.UnGuardedRhs s e)    = S.UnGuardedRhs (transformSrcSpan s)
   <$> transformExp e
 transformRhs (HSE.GuardedRhss s grhss) = S.GuardedRhss (transformSrcSpan s)
@@ -257,9 +265,9 @@ transformRhs (HSE.GuardedRhss s grhss) = S.GuardedRhss (transformSrcSpan s)
 
 -- | Transforms an HSE guarded right hand side into an HST guarded right hand
 --   side.
-transformGuardedRhs :: Member Report r
-                    => HSE.GuardedRhs HSE.SrcSpanInfo
-                    -> Sem r (S.GuardedRhs HSE)
+transformGuardedRhs :: (Member Report r, TransformSrcSpan srcSpan)
+                    => HSE.GuardedRhs srcSpan
+                    -> Sem r (S.GuardedRhs (HSE srcSpan))
 transformGuardedRhs (HSE.GuardedRhs s [HSE.Qualifier _ ge] e)
   = S.GuardedRhs (transformSrcSpan s) <$> transformExp ge <*> transformExp e
 transformGuardedRhs (HSE.GuardedRhs s _ _)                    = notSupported
@@ -274,7 +282,9 @@ transformBoxed HSE.Boxed   = return S.Boxed
 transformBoxed HSE.Unboxed = return S.Unboxed
 
 -- | Transforms an HSE expression into an HST expression.
-transformExp :: Member Report r => HSE.Exp HSE.SrcSpanInfo -> Sem r (S.Exp HSE)
+transformExp :: (Member Report r, TransformSrcSpan srcSpan)
+             => HSE.Exp srcSpan
+             -> Sem r (S.Exp (HSE srcSpan))
 transformExp (HSE.Var s qName)                = S.Var (transformSrcSpan s)
   <$> transformQName qName
 transformExp (HSE.Con s qName)                = S.Con (transformSrcSpan s)
@@ -395,7 +405,9 @@ transformExp (HSE.LCase s _)                  = notSupported
   "Lambda case expressions" (transformSrcSpan s)
 
 -- | Transforms an HSE case alternative into an HST case alternative.
-transformAlt :: Member Report r => HSE.Alt HSE.SrcSpanInfo -> Sem r (S.Alt HSE)
+transformAlt :: (Member Report r, TransformSrcSpan srcSpan)
+             => HSE.Alt srcSpan
+             -> Sem r (S.Alt (HSE srcSpan))
 transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
   <$> transformPat pat
   <*> transformRhs rhs
@@ -405,7 +417,9 @@ transformAlt (HSE.Alt s pat rhs mBinds) = S.Alt (transformSrcSpan s)
 -- Patterns                                                                  --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE pattern into an HST pattern.
-transformPat :: Member Report r => HSE.Pat HSE.SrcSpanInfo -> Sem r (S.Pat HSE)
+transformPat :: (Member Report r, TransformSrcSpan srcSpan)
+             => HSE.Pat srcSpan
+             -> Sem r (S.Pat (HSE srcSpan))
 transformPat (HSE.PVar s name)                 = S.PVar (transformSrcSpan s)
   <$> transformName name
 transformPat (HSE.PInfixApp s pat1 qName pat2)
@@ -464,14 +478,16 @@ transformPat (HSE.PBangPat s _)                = notSupported "Bang patterns"
 -- Names                                                                     --
 -------------------------------------------------------------------------------
 -- | Transforms an HSE module name into an HST module name.
-transformModuleName
-  :: HSE.ModuleName HSE.SrcSpanInfo -> Sem r (S.ModuleName HSE)
+transformModuleName :: TransformSrcSpan srcSpan
+                    => HSE.ModuleName srcSpan
+                    -> Sem r (S.ModuleName (HSE srcSpan))
 transformModuleName (HSE.ModuleName s name) = return
   $ S.ModuleName (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified name into an HST qualified name.
-transformQName
-  :: Member Report r => HSE.QName HSE.SrcSpanInfo -> Sem r (S.QName HSE)
+transformQName :: (Member Report r, TransformSrcSpan srcSpan)
+               => HSE.QName srcSpan
+               -> Sem r (S.QName (HSE srcSpan))
 transformQName (HSE.Qual s modName name) = S.Qual (transformSrcSpan s)
   <$> transformModuleName modName
   <*> transformName name
@@ -481,21 +497,25 @@ transformQName (HSE.Special s spCon)     = S.Special (transformSrcSpan s)
   <$> transformSpecialCon spCon
 
 -- | Transforms an HSE name into an HST name.
-transformName :: HSE.Name HSE.SrcSpanInfo -> Sem r (S.Name HSE)
+transformName :: TransformSrcSpan srcSpan
+              => HSE.Name srcSpan
+              -> Sem r (S.Name (HSE srcSpan))
 transformName (HSE.Ident s name)  = return $ S.Ident (transformSrcSpan s) name
 transformName (HSE.Symbol s name) = return $ S.Symbol (transformSrcSpan s) name
 
 -- | Transforms an HSE qualified operator into an HST qualified operator.
-transformQOp :: Member Report r => HSE.QOp HSE.SrcSpanInfo -> Sem r (S.QOp HSE)
+transformQOp :: (Member Report r, TransformSrcSpan srcSpan)
+             => HSE.QOp srcSpan
+             -> Sem r (S.QOp (HSE srcSpan))
 transformQOp (HSE.QVarOp s qName) = S.QVarOp (transformSrcSpan s)
   <$> transformQName qName
 transformQOp (HSE.QConOp s qName) = S.QConOp (transformSrcSpan s)
   <$> transformQName qName
 
 -- | Transforms an HSE special constructor into an HST special constructor.
-transformSpecialCon :: Member Report r
-                    => HSE.SpecialCon HSE.SrcSpanInfo
-                    -> Sem r (S.SpecialCon HSE)
+transformSpecialCon :: (Member Report r, TransformSrcSpan srcSpan)
+                    => HSE.SpecialCon srcSpan
+                    -> Sem r (S.SpecialCon (HSE srcSpan))
 transformSpecialCon (HSE.UnitCon s)          = return
   $ S.UnitCon (transformSrcSpan s)
 transformSpecialCon (HSE.UnboxedSingleCon s) = return
@@ -514,16 +534,22 @@ transformSpecialCon (HSE.FunCon s)           = reportFatal
 -------------------------------------------------------------------------------
 -- Source Spans                                                              --
 -------------------------------------------------------------------------------
+-- | Type class for annotation types that can be used as a source span of
+--   the @haskell-src-exts@ AST.
+class TransformSrcSpan srcSpan where
+  transformSrcSpan :: srcSpan -> S.SrcSpan (HSE srcSpan)
+
 -- | Wraps an HSE source span into the HST type for source spans.
-transformSrcSpan :: HSE.SrcSpanInfo -> S.SrcSpan HSE
-transformSrcSpan srcSpanInfo
-  = let srcSpan = HSE.srcInfoSpan srcSpanInfo
-    in if HSE.isNullSpan srcSpan
-         then S.NoSrcSpan
-         else S.SrcSpan srcSpanInfo S.MsgSrcSpan
-           { S.msgSrcSpanFilePath    = HSE.srcSpanFilename srcSpan
-           , S.msgSrcSpanStartLine   = HSE.srcSpanStartLine srcSpan
-           , S.msgSrcSpanStartColumn = HSE.srcSpanStartColumn srcSpan
-           , S.msgSrcSpanEndLine     = HSE.srcSpanEndLine srcSpan
-           , S.msgSrcSpanEndColumn   = HSE.srcSpanEndColumn srcSpan
-           }
+instance TransformSrcSpan HSE.SrcSpanInfo where
+  transformSrcSpan srcSpanInfo
+    | HSE.isNullSpan srcSpan = S.NoSrcSpan
+    | otherwise = S.SrcSpan srcSpanInfo S.MsgSrcSpan
+      { S.msgSrcSpanFilePath    = HSE.srcSpanFilename srcSpan
+      , S.msgSrcSpanStartLine   = HSE.srcSpanStartLine srcSpan
+      , S.msgSrcSpanStartColumn = HSE.srcSpanStartColumn srcSpan
+      , S.msgSrcSpanEndLine     = HSE.srcSpanEndLine srcSpan
+      , S.msgSrcSpanEndColumn   = HSE.srcSpanEndColumn srcSpan
+      }
+   where
+    srcSpan :: HSE.SrcSpan
+    srcSpan = HSE.srcInfoSpan srcSpanInfo

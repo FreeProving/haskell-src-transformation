@@ -15,7 +15,7 @@ module HST.Effect.InputModule
   , createDataMapEntry
   , createConMapEntries
     -- * Effect
-  , InputModule
+  , InputModule(..)
     -- * Actions
   , getInputModule
   , getInputModuleInterface

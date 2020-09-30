@@ -23,29 +23,36 @@ import qualified HST.Frontend.Syntax   as S
 --   declarations with the concrete types from @haskell-src-exts@ or wrappers
 --   for these types. Also adds instances for 'S.EqAST' and 'S.ShowAST' to
 --   allow the usage of @==@ and @show@ for all AST components.
-data HSE
+--
+--   The front end is parameterized over the type of the source spans since
+--   the AST of @haskell-src-exts@ is a functor that allows arbitrary
+--   annotations and not just the source span data type provided by
+--   @haskell-src-exts@ itself. Third-party programs that use the pattern
+--   matching compiler as a library (such as the Free Compiler) can thus
+--   use their own source spans.
+data HSE (srcSpan :: *)
 
-type instance S.SrcSpanType HSE = HSE.SrcSpanInfo
+type instance S.SrcSpanType (HSE srcSpan) = srcSpan
 
-type instance S.Literal HSE = HSE.Literal HSE.SrcSpanInfo
+type instance S.Literal (HSE srcSpan) = HSE.Literal srcSpan
 
-type instance S.TypeExp HSE = HSE.Type HSE.SrcSpanInfo
+type instance S.TypeExp (HSE srcSpan) = HSE.Type srcSpan
 
-type instance S.OriginalModuleHead HSE = OriginalModuleHead
+type instance S.OriginalModuleHead (HSE srcSpan) = OriginalModuleHead srcSpan
 
-type instance S.OriginalDecl HSE = HSE.Decl HSE.SrcSpanInfo
+type instance S.OriginalDecl (HSE srcSpan) = HSE.Decl srcSpan
 
-instance S.EqAST HSE
+instance Eq srcSpan => S.EqAST (HSE srcSpan)
 
-instance S.ShowAST HSE
+instance Show srcSpan => S.ShowAST (HSE srcSpan)
 
 -------------------------------------------------------------------------------
 -- Wrappers for @haskell-src-exts@ Types                                     --
 -------------------------------------------------------------------------------
 -- | Wrapper for the fields of modules that are not supported.
-data OriginalModuleHead = OriginalModuleHead
-  { originalModuleHead    :: Maybe (HSE.ModuleHead HSE.SrcSpanInfo)
-  , originalModulePragmas :: [HSE.ModulePragma HSE.SrcSpanInfo]
-  , originalModuleImports :: [HSE.ImportDecl HSE.SrcSpanInfo]
+data OriginalModuleHead srcSpan = OriginalModuleHead
+  { originalModuleHead    :: Maybe (HSE.ModuleHead srcSpan)
+  , originalModulePragmas :: [HSE.ModulePragma srcSpan]
+  , originalModuleImports :: [HSE.ImportDecl srcSpan]
   }
  deriving ( Eq, Show )

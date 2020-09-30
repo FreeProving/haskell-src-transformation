@@ -7,7 +7,7 @@
 --   variables.
 module HST.Effect.Fresh
   ( -- * Effect
-    Fresh
+    Fresh(..)
     -- * Actions
   , freshIdent
   , freshName

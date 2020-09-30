@@ -18,6 +18,9 @@ fixities = [
     "infixr 5 </>",
     "infixr 7 <.>",
 
+    # Infix operators from `Data.Composition`.
+    "infixr 8 .:",
+
     # Custom infix operators from `Data.List`.
     'infix 5 \\'
   ]

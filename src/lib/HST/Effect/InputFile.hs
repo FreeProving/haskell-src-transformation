@@ -7,7 +7,7 @@
 --   path and the contents of multiple input files.
 module HST.Effect.InputFile
   ( -- * Effect
-    InputFile
+    InputFile(..)
     -- * Actions
   , getInputFile
     -- * Interpretations

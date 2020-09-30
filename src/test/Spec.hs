@@ -19,8 +19,8 @@ main = hspec $ do
   testCancelEffect
   testCoreAlgorithm
   testEnvironment
-  testFreshEffect
   testFreeVars
+  testFreshEffect
   testMessages
   testReportEffect
   testSelectors

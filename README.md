@@ -99,7 +99,7 @@ In order to use the Haskell code transformations in your own project, add the fo
 source-repository-package
   type: git
   location: git://github.com/FreeProving/haskell-src-transformations.git
-  tag: v0.1.1.0
+  tag: v0.2.0.0
 ```
 
 ## Usage

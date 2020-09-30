@@ -11,6 +11,7 @@
   "fixities": [
     "infixr 5 </>",
     "infixr 7 <.>",
+    "infixr 8 .:",
     "infix 5 \\\\"
   ],
   "formatting": {
