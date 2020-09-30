@@ -35,16 +35,7 @@ shouldTransformTo
   => [String]
   -> [String]
   -> Sem r ()
-shouldTransformTo input expectedOutput = do
-  inputModule <- parseTestModule input
-  let testFileName = "<test-input>"
-  env <- runInputModule
-    [(testFileName, (inputModule, createModuleInterface inputModule))]
-    $ initializeEnvironment testFileName
-  outputModule <- runWithEnv env . runFresh (findIdentifiers inputModule)
-    $ processModule inputModule
-  expectedOutputModule <- parseTestModule expectedOutput
-  outputModule `prettyModuleShouldBe` expectedOutputModule
+shouldTransformTo input = shouldTransformModulesTo [input]
 
 -- | Parses the given modules, initializes the environment for the the input
 --   module at the head of the given list, processes it with 'processModule'
