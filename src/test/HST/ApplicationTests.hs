@@ -161,7 +161,7 @@ testProcessModule = context "processModule" $ do
                , "  a1:a2 -> inc a1 : incList a2"
                ]
       in shouldTransformModulesTo ms m
-  it "should translate qualified imports correctly"
+  it "should transform modules with qualified imports correctly"
     $ runTest
     $ let ms = [ [ "module B where"
                    , "import qualified A"
@@ -179,7 +179,7 @@ testProcessModule = context "processModule" $ do
                , "  A.Branch a3 a4 -> flatten a3 ++ flatten a4"
                ]
       in shouldTransformModulesTo ms m
-  it "should translate aliased imports correctly"
+  it "should transform modules with aliased imports correctly"
     $ runTest
     $ let ms = [ [ "module B where"
                    , "import A as C"
@@ -197,7 +197,7 @@ testProcessModule = context "processModule" $ do
                , "  C.Branch a3 a4 -> flatten a3 ++ flatten a4"
                ]
       in shouldTransformModulesTo ms m
-  it "should translate modules with multiple imports correctly"
+  it "should transform modules with multiple imports correctly"
     $ runTest
     $ let ms = [ [ "module C where"
                    , "import A"
