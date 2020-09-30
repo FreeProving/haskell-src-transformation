@@ -36,6 +36,7 @@ data Message = Message { msgSeverity :: Severity
 message :: Severity -> S.SrcSpan a -> String -> Message
 message severity srcSpan = Message severity (S.toMsgSrcSpan srcSpan)
 
+-- | Like 'message' but for messages without source span.
 messageWithoutSrcSpan :: Severity -> String -> Message
 messageWithoutSrcSpan severity = Message severity Nothing
 
