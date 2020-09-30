@@ -37,9 +37,9 @@ shouldTransformTo
   -> Sem r ()
 shouldTransformTo input = shouldTransformModulesTo [input]
 
--- | Parses the given modules, initializes the environment for the the input
---   module at the head of the given list, processes it with 'processModule'
---   and sets the expectation that the given output module is produced.
+-- | Parses the given modules, initializes the environment for the input module
+--   at the head of the given list, processes it with 'processModule' and sets
+--   the expectation that the given output module is produced.
 shouldTransformModulesTo
   :: ( S.EqAST f
      , Members '[GetOpt, Cancel, Report, SetExpectation, WithFrontend f] r
@@ -54,7 +54,8 @@ shouldTransformModulesTo inputs expectedOutput = do
         (replicate n "test-input") [1 .. n]
       inputModuleList = zip fileNames
         (map (\m -> (m, createModuleInterface m)) inputModules)
-  env <- runInputModule inputModuleList (initializeEnvironment (head fileNames))
+  env <- runInputModule inputModuleList
+    $ initializeEnvironment (head fileNames)
   outputModule <- runWithEnv env
     . runFresh (findIdentifiers (head inputModules))
     $ processModule (head inputModules)

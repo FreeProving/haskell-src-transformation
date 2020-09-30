@@ -10,6 +10,7 @@ module HST.Application
 -- TODO only tuples supported
 import           Control.Monad                ( zipWithM )
 import           Control.Monad.Extra          ( ifM )
+import           Data.List.Extra              ( groupSortOn )
 import qualified Data.Map.Strict              as Map
 import           Data.Maybe                   ( catMaybes, mapMaybe )
 import           Polysemy                     ( Member, Members, Sem )
@@ -23,7 +24,7 @@ import           HST.Effect.InputModule
   ( ConEntry(..), DataEntry(..), InputModule, ModuleInterface(..)
   , createConMapEntries, createDataMapEntry, getInputModule
   , getInputModuleInterface, getInputModuleInterfaceByName )
-import           HST.Effect.Report            ( Report, report )
+import           HST.Effect.Report            ( Report, report, reportFatal )
 import           HST.Environment              ( Environment(..) )
 import           HST.Environment.Prelude      ( preludeModuleInterface )
 import           HST.Feature.CaseCompletion   ( applyCCModule )
@@ -31,7 +32,8 @@ import           HST.Feature.GuardElimination ( applyGEModule )
 import           HST.Feature.Optimization     ( optimize )
 import qualified HST.Frontend.Syntax          as S
 import           HST.Options                  ( optOptimizeCase )
-import           HST.Util.Messages            ( Severity(Warning), message )
+import           HST.Util.Messages
+  ( Severity(Internal, Warning), message )
 import           HST.Util.Predicates          ( isConPat )
 import           HST.Util.PrettyName          ( prettyName )
 import           HST.Util.Selectors           ( expFromUnguardedRhs )
@@ -159,8 +161,10 @@ initializeEnvironment filePath = do
   currentModule <- getInputModuleInterface filePath
   mInterfaces <- mapM (getInputModuleInterfaceByName . S.importModule) imports
   mImportedModules <- zipWithM reportMissingModule imports mInterfaces
+  importedModules <- mapM collectImportDecls
+    $ groupSortOn (interfaceModName . snd) (catMaybes mImportedModules)
   return Environment { envCurrentModule   = currentModule
-                     , envImportedModules = catMaybes mImportedModules
+                     , envImportedModules = importedModules
                      , envOtherEntries    = preludeModuleInterface
                      }
  where
@@ -180,3 +184,19 @@ initializeEnvironment filePath = do
     return Nothing
   reportMissingModule importDecl (Just moduleInterface)
     = return $ Just (importDecl, moduleInterface)
+
+  -- | Collects all import declarations in the given list of pairs of import
+  --   declarations and module interfaces and returns a single pair with these
+  --   import declarations and the module interface of the first entry of the
+  --   given list.
+  --
+  --   This function is meant to collect multiple import declarations referring
+  --   to the same module.
+  collectImportDecls :: Member Report r
+                     => [(S.ImportDecl a, ModuleInterface a)]
+                     -> Sem r ([S.ImportDecl a], ModuleInterface a)
+  collectImportDecls imports@((_, interface) : _)
+    = return (map fst imports, interface)
+  collectImportDecls [] = reportFatal
+    $ message Internal S.NoSrcSpan
+    $ "`collectImportDecls` was called on an empty list!"

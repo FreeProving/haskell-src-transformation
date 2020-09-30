@@ -30,7 +30,7 @@ import           HST.Util.Messages ( showPrettyMessage )
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
 -------------------------------------------------------------------------------
--- | Effect cabable of setting 'Expectation's in computations.
+-- | Effect capable of setting 'Expectation's in computations.
 data SetExpectation m a where
   SetExpectation :: Expectation -> SetExpectation m ()
   AssertFailure :: String -> SetExpectation m a
