@@ -183,8 +183,7 @@ testProcessModule = context "processModule" $ do
     $ runTest
     $ let ms = [ [ "module B where"
                    , "import A as C"
-                   , "flatten (C.Leaf x) = [x]"
-                   , "flatten (C.Branch l r) = flatten l ++ flatten r"
+                   , "leftBranch (C.Branch l r) = l"
                    ]
                , [ "module A where"
                    , "data Tree a = Leaf a | Branch (Tree a) (Tree a)"
@@ -192,9 +191,9 @@ testProcessModule = context "processModule" $ do
                ]
           m  = [ "module B where"
                , "import A as C"
-               , "flatten a0 = case a0 of"
-               , "  C.Leaf a1 -> [a1]"
-               , "  C.Branch a3 a4 -> flatten a3 ++ flatten a4"
+               , "leftBranch a0 = case a0 of"
+               , "  C.Branch a1 a2 -> a1"
+               , "  Leaf a5 -> undefined"
                ]
       in shouldTransformModulesTo ms m
   it "should transform modules with multiple imports correctly"
