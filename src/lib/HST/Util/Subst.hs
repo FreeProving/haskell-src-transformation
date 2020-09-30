@@ -200,21 +200,13 @@ instance ApplySubst S.Decl where
 
 -- | Substitutions can be applied to matches of function declarations.
 instance ApplySubst S.Match where
-  applySubst subst match@(S.Match srcSpan name args rhs mBinds)
+  applySubst subst match@(S.Match srcSpan isInfix name args rhs mBinds)
     = let fvs = subst `substFreeVarSetIn` match
           (renaming, args', mBinds') = renamePatternsAndBinds fvs args mBinds
           subst' = subst `extendSubst` renaming
           rhs' = applySubst subst' rhs
           mBinds'' = fmap (applySubst subst') mBinds'
-      in S.Match srcSpan name args' rhs' mBinds''
-  applySubst subst match@(S.InfixMatch srcSpan arg name args rhs mBinds)
-    = let fvs = subst `substFreeVarSetIn` match
-          (renaming, arg' : args', mBinds') = renamePatternsAndBinds fvs
-            (arg : args) mBinds
-          subst' = subst `extendSubst` renaming
-          rhs' = applySubst subst' rhs
-          mBinds'' = fmap (applySubst subst') mBinds'
-      in S.InfixMatch srcSpan arg' name args' rhs' mBinds''
+      in S.Match srcSpan isInfix name args' rhs' mBinds''
 
 -- | Substitutions can be applied to the right-hand sides of function
 --   declarations and @case@ expressions.

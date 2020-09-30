@@ -59,12 +59,12 @@ transformBinds (S.BDecls s decls) = HSE.BDecls (transformSrcSpan s)
 -- | Transforms an HST match into an HSE match.
 transformMatch
   :: TransformSrcSpan srcSpan => S.Match (HSE srcSpan) -> HSE.Match srcSpan
-transformMatch (S.Match s name pats rhs mBinds)          = HSE.Match
-  (transformSrcSpan s) (transformName name) (map transformPat pats)
-  (transformRhs rhs) (fmap transformBinds mBinds)
-transformMatch (S.InfixMatch s pat name pats rhs mBinds) = HSE.InfixMatch
-  (transformSrcSpan s) (transformPat pat) (transformName name)
-  (map transformPat pats) (transformRhs rhs) (fmap transformBinds mBinds)
+transformMatch (S.Match s isInfix name pats rhs mBinds)
+  | not isInfix = HSE.Match (transformSrcSpan s) (transformName name)
+    (map transformPat pats) (transformRhs rhs) (fmap transformBinds mBinds)
+  | otherwise = HSE.InfixMatch (transformSrcSpan s) (transformPat (head pats))
+    (transformName name) (map transformPat (tail pats)) (transformRhs rhs)
+    (fmap transformBinds mBinds)
 
 -- | Transforms an HST right hand side into an HSE right hand side.
 transformRhs

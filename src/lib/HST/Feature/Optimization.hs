@@ -15,41 +15,41 @@ import           HST.Util.Subst           ( applySubst )
 -- | Removes all case expressions that are nested inside another case
 --   expression for the same variable.
 optimize :: Members '[Fresh, Report] r => S.Exp a -> Sem r (S.Exp a)
-optimize (S.InfixApp _ e1 qop e2) = do
+optimize (S.InfixApp s e1 qop e2) = do
   e1' <- optimize e1
   e2' <- optimize e2
-  return $ S.InfixApp S.NoSrcSpan e1' qop e2'
-optimize (S.NegApp _ e)           = do
+  return $ S.InfixApp s e1' qop e2'
+optimize (S.NegApp s e)           = do
   e' <- optimize e
-  return $ S.NegApp S.NoSrcSpan e'
-optimize (S.App _ e1 e2)          = do
+  return $ S.NegApp s e'
+optimize (S.App s e1 e2)          = do
   e1' <- optimize e1
   e2' <- optimize e2
-  return $ S.App S.NoSrcSpan e1' e2'
-optimize (S.Lambda _ ps e)        = do
+  return $ S.App s e1' e2'
+optimize (S.Lambda s ps e)        = do
   e' <- optimize e
-  return $ S.Lambda S.NoSrcSpan ps e'
-optimize (S.Let _ b e)            = do
+  return $ S.Lambda s ps e'
+optimize (S.Let s b e)            = do
   e' <- optimize e
-  return $ S.Let S.NoSrcSpan b e'
-optimize (S.If _ e1 e2 e3)        = do
+  return $ S.Let s b e'
+optimize (S.If s e1 e2 e3)        = do
   e1' <- optimize e1
   e2' <- optimize e2
   e3' <- optimize e3
-  return $ S.If S.NoSrcSpan e1' e2' e3'
-optimize (S.Case _ e alts)        = optimizeCase e alts
-optimize (S.Tuple _ bxd es)       = do
+  return $ S.If s e1' e2' e3'
+optimize (S.Case s e alts)        = optimizeCase s e alts
+optimize (S.Tuple s bxd es)       = do
   es' <- mapM optimize es
-  return $ S.Tuple S.NoSrcSpan bxd es'
-optimize (S.List _ es)            = do
+  return $ S.Tuple s bxd es'
+optimize (S.List s es)            = do
   es' <- mapM optimize es
-  return $ S.List S.NoSrcSpan es'
-optimize (S.Paren _ e)            = do
+  return $ S.List s es'
+optimize (S.Paren s e)            = do
   e' <- optimize e
-  return $ S.Paren S.NoSrcSpan e'
-optimize (S.ExpTypeSig _ e t)     = do
+  return $ S.Paren s e'
+optimize (S.ExpTypeSig s e t)     = do
   e' <- optimize e
-  return $ S.ExpTypeSig S.NoSrcSpan e' t
+  return $ S.ExpTypeSig s e' t
 -- Variables, constructors and literals don't contain expressions to optimize.
 optimize e@(S.Var _ _)            = return e
 optimize e@(S.Con _ _)            = return e
@@ -62,19 +62,19 @@ optimize e@(S.Lit _ _)            = return e
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
 optimizeCase
-  :: Members '[Fresh, Report] r => S.Exp a -> [S.Alt a] -> Sem r (S.Exp a)
-optimizeCase e alts = do
+  :: Members '[Fresh, Report] r => S.SrcSpan a -> S.Exp a -> [S.Alt a] -> Sem r (S.Exp a)
+optimizeCase s e alts = do
   e' <- optimize e
   alts' <- mapM optimizeAlt alts
   case firstJust (flip matchAlt e) alts' of
-    Nothing           -> return $ S.Case S.NoSrcSpan e' alts'
+    Nothing           -> return $ S.Case s e' alts'
     Just (subst, rhs) -> do
       expr <- expFromUnguardedRhs rhs
       return $ applySubst subst expr
 
 -- | Optimizes the right-hand side of the given @case@ expression alternative.
 optimizeAlt :: Members '[Fresh, Report] r => S.Alt a -> Sem r (S.Alt a)
-optimizeAlt (S.Alt _ p rhs _) = do
+optimizeAlt (S.Alt s p rhs _) = do
   e <- expFromUnguardedRhs rhs
   e' <- optimize e
-  return $ S.Alt S.NoSrcSpan p (S.UnGuardedRhs S.NoSrcSpan e') Nothing
+  return $ S.Alt s p (S.UnGuardedRhs (S.getSrcSpan e') e') Nothing

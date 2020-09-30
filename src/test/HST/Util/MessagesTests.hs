@@ -34,13 +34,6 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
       in str `shouldBe` "The source span 1:4-1:3 of `"
          ++ exampleFilePath
          ++ "` cannot be fully displayed!"
-  it "should display an error message if end line < start line"
-    $ let str = run . runInputFileNoIO exampleMap
-            $ displayCodeExcerpt
-            $ Just invalidSrcSpan2
-      in str `shouldBe` "The source span 2:4-1:5 of `"
-         ++ exampleFilePath
-         ++ "` cannot be fully displayed!"
   it "should correctly display a one-line excerpt"
     $ let str = run . runInputFileNoIO exampleMap
             $ displayCodeExcerpt
@@ -50,6 +43,18 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
                             , "1 | module ExampleQueue1 where"
                             , "           ^^^^^^^^^^^^^"
                             ]
+  it "should correctly display a multi-line SrcSpan with start column < end column"
+    $ let str = run . runInputFileNoIO exampleMap
+            $ displayCodeExcerpt
+            $ Just multiLineSrcSpan1
+      in str
+         `shouldBe` unlines
+         [ exampleFilePath ++ ":5:1-6:11:"
+         , "    vvvvvvvvvvvvvvvv"
+         , "5 | empty :: Queue a"
+         , "6 | empty = []"
+         , "    ^^^^^^^^^^"
+         ]
   it "should correctly display a multi-line SrcSpan with end column < start column"
     $ let str = run . runInputFileNoIO exampleMap
             $ displayCodeExcerpt
@@ -62,17 +67,20 @@ testDisplayCodeExcerpt = context "displayCodeExcerpt" $ do
          , "6 | empty = []"
          , "    ^^^^^"
          ]
-  it "should correctly display a multi-line SrcSpan with start column < end column"
+  it "should display a shortened excerpt correctly"
     $ let str = run . runInputFileNoIO exampleMap
             $ displayCodeExcerpt
-            $ Just multiLineSrcSpan1
+            $ Just longSrcSpan
       in str
          `shouldBe` unlines
-         [ exampleFilePath ++ ":5:1-6:11:"
-         , "    vvvvvvvvvvvvvvvv"
-         , "5 | empty :: Queue a"
-         , "6 | empty = []"
-         , "    ^^^^^^^^^^"
+         [ exampleFilePath ++ ":3:1-9:19:"
+         , "    vvvvvvvvvvvvvvvvvvvvvvvvvv"
+         , "3 | type Queue a = [a]"
+         , "4 | "
+         , ":"
+         , "8 | isEmpty :: Queue a -> Bool"
+         , "9 | isEmpty q = null q"
+         , "    ^^^^^^^^^^^^^^^^^^"
          ]
 
 -- | A 'S.SrcSpan' whose end column is smaller than its start column.
@@ -92,10 +100,13 @@ oneLineSrcSpan = S.MsgSrcSpan exampleFilePath 1 8 1 21
 multiLineSrcSpan1 :: S.MsgSrcSpan
 multiLineSrcSpan1 = S.MsgSrcSpan exampleFilePath 5 1 6 11
 
--- | A 'S.SrcSpan' spanning multiple lines and whose end column is smaller than
---   the start column.
+-- | A 'S.SrcSpan' spanning multiple lines whose end column is smaller than the
+--   start column.
 multiLineSrcSpan2 :: S.MsgSrcSpan
 multiLineSrcSpan2 = S.MsgSrcSpan exampleFilePath 5 10 6 6
+
+longSrcSpan :: S.MsgSrcSpan
+longSrcSpan = S.MsgSrcSpan exampleFilePath 3 1 9 19
 
 -- | The path to the file used for testing.
 exampleFilePath :: FilePath
@@ -121,6 +132,6 @@ exampleContent = unlines
   , "add x q = q ++ [x]"
   ]
 
--- | The map to use for the handler of `HST.Effect.InputFile`.
+-- | The map to use for the handler of 'HST.Effect.InputFile'.
 exampleMap :: Map FilePath String
 exampleMap = Map.singleton exampleFilePath exampleContent

@@ -7,6 +7,7 @@ import           HST.CoreAlgorithmTests  ( testCoreAlgorithm )
 import           HST.Effect.CancelTests  ( testCancelEffect )
 import           HST.Effect.FreshTests   ( testFreshEffect )
 import           HST.Effect.ReportTests  ( testReportEffect )
+import           HST.EnvironmentTests    ( testEnvironment )
 import           HST.Util.FreeVarsTests  ( testFreeVars )
 import           HST.Util.MessagesTests  ( testMessages )
 import           HST.Util.SelectorsTests ( testSelectors )
@@ -17,6 +18,7 @@ main = hspec $ do
   testApplication
   testCancelEffect
   testCoreAlgorithm
+  testEnvironment
   testFreeVars
   testFreshEffect
   testMessages

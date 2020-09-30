@@ -15,7 +15,7 @@ import           Polysemy                       ( Members, Sem )
 
 import           HST.Effect.Env                 ( Env )
 import           HST.Effect.Fresh
-  ( Fresh, freshVarPat, genericFreshPrefix )
+  ( Fresh, freshVarPat, freshVarPatWithSrcSpan, genericFreshPrefix )
 import           HST.Effect.GetOpt              ( GetOpt, getOpt )
 import           HST.Effect.InputModule         ( ConEntry(..), ConName )
 import           HST.Effect.Report
@@ -171,7 +171,9 @@ identifyMissingCons []   = reportFatal
 identifyMissingCons alts = do
   matchedConNames <- mapM getAltConName alts
   conEntries <- findConEntries (head matchedConNames)
-  return $ filter (flip all matchedConNames . (/=) . conEntryName) conEntries
+  return
+    $ filter (not . flip any matchedConNames . S.eqUnQual . conEntryName)
+    conEntries
 
 -- | Looks up the data constructor entries of the data type that the given data
 --   constructor name belongs to in the current environment.
@@ -200,10 +202,10 @@ createAltsForMissingCons x cs er = mapM (createAltForMissingCon x er) cs
     conPatArgs <- replicateM (conEntryArity conEntry)
       (freshVarPat genericFreshPrefix)
     varName <- getPatVarName varPat
-    let conPat  | conEntryIsInfix conEntry = S.PInfixApp S.NoSrcSpan
+    let conPat  | conEntryIsInfix conEntry = S.PInfixApp (S.getSrcSpan varPat)
                   (head conPatArgs) (conEntryName conEntry) (conPatArgs !! 1)
-                | otherwise = S.PApp S.NoSrcSpan (conEntryName conEntry)
-                  conPatArgs
+                | otherwise = S.PApp (S.getSrcSpan varPat)
+                  (conEntryName conEntry) conPatArgs
         conExpr = S.patToExp conPat
         subst   = singleSubst (S.unQual varName) conExpr
         e'      = applySubst subst e
@@ -319,30 +321,31 @@ computeAlt _ _ _ [] = reportFatal
 decomposeConPat :: Members '[Fresh, Report] r
                 => S.Pat a
                 -> Sem r (S.Pat a, [S.Pat a], [S.Pat a])
-decomposeConPat (S.PApp _ qname ps)         = do
-  nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
-  return (S.PApp S.NoSrcSpan qname nvars, nvars, ps)
-decomposeConPat (S.PInfixApp _ p1 qname p2) = failToReport $ do
-  nvars@[nv1, nv2] <- replicateM 2 (freshVarPat genericFreshPrefix)
+decomposeConPat (S.PApp s qname ps)         = do
+  let srcSpans = map S.getSrcSpan ps
+  nvars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
+  return (S.PApp s qname nvars, nvars, ps)
+decomposeConPat (S.PInfixApp s p1 qname p2) = failToReport $ do
+  let spans = [S.getSrcSpan p1, S.getSrcSpan p2]
+  nvars@[nv1, nv2] <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) spans
   let ps = [p1, p2]
-  return (S.PInfixApp S.NoSrcSpan nv1 qname nv2, nvars, ps)
+  return (S.PInfixApp s nv1 qname nv2, nvars, ps)
 -- Decompose patterns with special syntax.
-decomposeConPat (S.PList _ ps)
-  | null ps = return (S.PList S.NoSrcSpan [], [], [])
+decomposeConPat (S.PList s ps)
+  | null ps = return (S.PList s [], [], [])
   | otherwise = do
     let (n : nv) = ps
-        listCon  = S.Special S.NoSrcSpan $ S.ConsCon S.NoSrcSpan
-    decomposeConPat (S.PInfixApp S.NoSrcSpan n listCon (S.PList S.NoSrcSpan nv))
-decomposeConPat (S.PTuple _ bxd ps)         = do
-  nvars <- replicateM (length ps) (freshVarPat genericFreshPrefix)
-  return (S.PTuple S.NoSrcSpan bxd nvars, nvars, ps)
+        listCon  = S.Special s $ S.ConsCon s
+    decomposeConPat (S.PInfixApp s n listCon (S.PList s nv))
+decomposeConPat (S.PTuple s bxd ps)         = do
+  let srcSpans = map S.getSrcSpan ps
+  nvars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
+  return (S.PTuple s bxd nvars, nvars, ps)
 -- Decompose patterns with parentheses recursively.
 decomposeConPat (S.PParen _ p)              = decomposeConPat p
 -- Variable and wildcard patterns don't contain child patterns.
-decomposeConPat (S.PWildCard _)
-  = return (S.PWildCard S.NoSrcSpan, [], [])
-decomposeConPat (S.PVar _ name)
-  = return (S.PVar S.NoSrcSpan name, [], [])
+decomposeConPat (S.PWildCard s)             = return (S.PWildCard s, [], [])
+decomposeConPat (S.PVar s name)             = return (S.PVar s name, [], [])
 
 -------------------------------------------------------------------------------
 -- Predicates                                                                --
