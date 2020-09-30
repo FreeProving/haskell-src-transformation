@@ -35,16 +35,7 @@ shouldTransformTo
   => [String]
   -> [String]
   -> Sem r ()
-shouldTransformTo input expectedOutput = do
-  inputModule <- parseTestModule input
-  let testFileName = "<test-input>"
-  env <- runInputModule
-    [(testFileName, (inputModule, createModuleInterface inputModule))]
-    $ initializeEnvironment testFileName
-  outputModule <- runWithEnv env . runFresh (findIdentifiers inputModule)
-    $ processModule inputModule
-  expectedOutputModule <- parseTestModule expectedOutput
-  outputModule `prettyModuleShouldBe` expectedOutputModule
+shouldTransformTo input = shouldTransformModulesTo [input]
 
 -- | Parses the given modules, initializes the environment for the input module
 --   at the head of the given list, processes it with 'processModule' and sets
@@ -170,6 +161,85 @@ testProcessModule = context "processModule" $ do
                , "incList a0 = case a0 of"
                , "  [] -> []"
                , "  a1:a2 -> inc a1 : incList a2"
+               ]
+      in shouldTransformModulesTo ms m
+  it "should translate qualified imports correctly"
+    $ runTest
+    $ let ms = [ [ "module B where"
+                   , "import qualified A"
+                   , "flatten (A.Leaf x) = [x]"
+                   , "flatten (A.Branch l r) = flatten l ++ flatten r"
+                   ]
+               , [ "module A where"
+                   , "data Tree a = Leaf a | Branch (Tree a) (Tree a)"
+                   ]
+               ]
+          m  = [ "module B where"
+               , "import qualified A"
+               , "flatten a0 = case a0 of"
+               , "  A.Leaf a1 -> [a1]"
+               , "  A.Branch a3 a4 -> flatten a3 ++ flatten a4"
+               ]
+      in shouldTransformModulesTo ms m
+  it "should translate aliased imports correctly"
+    $ runTest
+    $ let ms = [ [ "module B where"
+                   , "import A as C"
+                   , "flatten (C.Leaf x) = [x]"
+                   , "flatten (C.Branch l r) = flatten l ++ flatten r"
+                   ]
+               , [ "module A where"
+                   , "data Tree a = Leaf a | Branch (Tree a) (Tree a)"
+                   ]
+               ]
+          m  = [ "module B where"
+               , "import A as C"
+               , "flatten a0 = case a0 of"
+               , "  C.Leaf a1 -> [a1]"
+               , "  C.Branch a3 a4 -> flatten a3 ++ flatten a4"
+               ]
+      in shouldTransformModulesTo ms m
+  it "should translate modules with multiple imports correctly"
+    $ runTest
+    $ let ms = [ [ "module C where"
+                   , "import A"
+                   , "import B"
+                   , "tree2tree (A.Leaf x) = B.Node B.Empty (Just x) B.Empty"
+                   , "tree2tree (A.Branch l r) = B.Node (tree2tree l) Nothing (tree2tree r)"
+                   ]
+               , [ "module B where"
+                   , "data Tree a = Empty | Node (Tree a) a (Tree a)"
+                   ]
+               , [ "module A where"
+                   , "data Tree a = Leaf a | Branch (Tree a) (Tree a)"
+                   ]
+               ]
+          m  = [ "module C where"
+               , "import A"
+               , "import B"
+               , "tree2tree a0 = case a0 of"
+               , "  A.Leaf a1 -> B.Node B.Empty (Just a1) B.Empty"
+               , "  A.Branch a3 a4 -> B.Node (tree2tree a3) Nothing (tree2tree a4)"
+               ]
+      in shouldTransformModulesTo ms m
+  it "handles multiple imports for the same module correctly"
+    $ runTest
+    $ let ms = [ [ "module B where"
+                   , "import A"
+                   , "import qualified A as C"
+                   , "flatten (Leaf x) = [x]"
+                   , "flatten (C.Branch l r) = flatten l ++ flatten r"
+                   ]
+               , [ "module A where"
+                   , "data Tree a = Leaf a | Branch (Tree a) (Tree a)"
+                   ]
+               ]
+          m  = [ "module B where"
+               , "import A"
+               , "import qualified A as C"
+               , "flatten a0 = case a0 of"
+               , "  Leaf a1 -> [a1]"
+               , "  C.Branch a3 a4 -> flatten a3 ++ flatten a4"
                ]
       in shouldTransformModulesTo ms m
   context "substitution in modules" $ do
