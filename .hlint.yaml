@@ -25,25 +25,10 @@
       Avoid `NoSrcSpan`. Try to annotate all source spans explicitly or
       add an exception to the `.hlint.yaml` file for this module.
     within:
-      # In main, we have errors that have no source span.
-    - Main
-      # There are reported messages without source spans in the `Application`
-      # module.
-    - HST.Application
       # Many artificial nodes are generated in the core algorithm and during
       # guard elimination. There is not a good source span for all of them.
     - HST.CoreAlgorithm
     - HST.Feature.GuardElimination
-      # In the environment, we do not have report.
-    - HST.Environment.LookupOrReport
-      # There are reported messages without source spans in the `InputModule`
-      # effect.
-    - HST.Effect.InputModule
-      # When reporting, we have to handle errors that do not have a source span.
-    - HST.Effect.Report
-      # While parsing, the error message contains the source span so it does not
-      # have to be displayed.
-    - HST.Frontend.Parser
       # The `NoSrcSpan` constructor is allowed in its definition.
     - HST.Frontend.Syntax
       # Entries for predefined data types and their constructors don't have
@@ -61,9 +46,6 @@
       # to the original AST data type.
     - HST.Frontend.GHC.To
     - HST.Frontend.HSE.To
-      # Messages when asking for options do not have a source span so they have
-      # to be annotated with no source span.
-    - HST.Options
       # In tests, it is necessary to use `NoSrcSpan`.
     - HST.ApplicationTests
     - HST.CoreAlgorithmTests

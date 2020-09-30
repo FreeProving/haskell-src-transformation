@@ -19,12 +19,12 @@ import           HST.Util.Subst      ( applySubst, singleSubst )
 completeCase :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
              => S.Exp a
              -> Sem r (S.Exp a)
-completeCase (S.Case _ expr as)       = do
+completeCase (S.Case s expr as)       = do
   v <- freshVarPat genericFreshPrefix
   expr' <- completeCase expr
   eqs <- mapM getEqFromAlt as
   eqs' <- mapM (\(p, ex) -> completeCase ex >>= \e -> return (p, e)) eqs
-  res <- match [v] eqs' defaultErrorExp
+  res <- match s [v] eqs' defaultErrorExp
   v' <- getPatVarName v
   return $ applySubst (singleSubst (S.toQName v') expr') res
 completeCase (S.InfixApp s e1 qop e2) = do
@@ -88,7 +88,7 @@ completeLambda s ps e = do
   xs <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
   e' <- completeCase e
   let eq = (ps, e')
-  res <- match xs [eq] defaultErrorExp
+  res <- match s xs [eq] defaultErrorExp
   return $ S.Lambda s xs res
 
 applyCCModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)

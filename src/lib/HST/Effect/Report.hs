@@ -43,9 +43,9 @@ import           System.IO            ( Handle, hPutStrLn )
 
 import           HST.Effect.Cancel    ( Cancel, cancel, runCancel )
 import           HST.Effect.InputFile ( InputFile )
-import qualified HST.Frontend.Syntax  as S
 import           HST.Util.Messages
-  ( Message, Severity(Internal), message, showPrettyMessageWithExcerpt )
+  ( Message, Severity(Internal), messageWithoutSrcSpan
+  , showPrettyMessageWithExcerpt )
 
 -------------------------------------------------------------------------------
 -- Effect and Actions                                                        --
@@ -154,4 +154,4 @@ exceptionToReport exceptionToMessage
 --   >   …
 failToReport :: Member Report r => Sem (Fail ': r) a -> Sem r a
 failToReport = runFail
-  >=> either (reportFatal . message Internal S.NoSrcSpan) return
+  >=> either (reportFatal . messageWithoutSrcSpan Internal) return

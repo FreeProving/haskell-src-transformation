@@ -99,7 +99,7 @@ useAlgo s ms = do
       srcSpans = map S.getSrcSpan . S.matchPats . head $ ms
       isInfix  = all S.matchIsInfix ms
   nVars <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
-  nExp <- match nVars eqs defaultErrorExp
+  nExp <- match s nVars eqs defaultErrorExp
   nExp' <- ifM (getOpt optOptimizeCase) (optimize nExp) (return nExp)
   return $ S.Match s isInfix name nVars (S.UnGuardedRhs s nExp') Nothing
  where
@@ -157,11 +157,11 @@ makeConEntry dataQName conDecl = ConEntry
 initializeEnvironment
   :: Members '[InputModule a, Report] r => FilePath -> Sem r (Environment a)
 initializeEnvironment filePath = do
-  S.Module _ _ _ imports _ <- getInputModule filePath
+  S.Module s _ _ imports _ <- getInputModule filePath
   currentModule <- getInputModuleInterface filePath
   mInterfaces <- mapM (getInputModuleInterfaceByName . S.importModule) imports
   mImportedModules <- zipWithM reportMissingModule imports mInterfaces
-  importedModules <- mapM collectImportDecls
+  importedModules <- mapM (collectImportDecls s)
     $ groupSortOn (interfaceModName . snd) (catMaybes mImportedModules)
   return Environment { envCurrentModule   = currentModule
                      , envImportedModules = importedModules
@@ -193,10 +193,11 @@ initializeEnvironment filePath = do
   --   This function is meant to collect multiple import declarations referring
   --   to the same module.
   collectImportDecls :: Member Report r
-                     => [(S.ImportDecl a, ModuleInterface a)]
+                     => S.SrcSpan a
+                     -> [(S.ImportDecl a, ModuleInterface a)]
                      -> Sem r ([S.ImportDecl a], ModuleInterface a)
-  collectImportDecls imports@((_, interface) : _)
+  collectImportDecls _ imports@((_, interface) : _)
     = return (map fst imports, interface)
-  collectImportDecls [] = reportFatal
-    $ message Internal S.NoSrcSpan
+  collectImportDecls s [] = reportFatal
+    $ message Internal s
     $ "`collectImportDecls` was called on an empty list!"
