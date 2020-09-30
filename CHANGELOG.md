@@ -2,9 +2,6 @@
 
 ## 0.2.0.0 / 2020-09-30
 
-- **Added a run script**
-  - Usage instructions are included in the readme.
-
 - **Added GHC-lib front end and command line option for front end selection**
   - A front end can be specified with `--frontend=FRONTEND ` or `-f FRONTEND`.
   - Allowed values are: `haskell-src-exts`, `ghc-lib.`
@@ -21,8 +18,6 @@
 
 - **Source spans are now largely retained during the compilation**
   - This does not affect the output of the pattern matching compiler, but can be useful when using the compiler as a library.
-
-- **Various changes in the internal structure**
 
 - **Various bug fixes**
 
