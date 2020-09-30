@@ -128,10 +128,10 @@ createRekMatch s vars er = foldr (\eqs mrhs -> mrhs >>= match s vars eqs)
 --   bound by the given variable pattern.
 makeRhs :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
         => S.SrcSpan a -- ^ The source span of the corresponding definition.
-        -> S.Pat a   -- ^ The fresh variable pattern to match.
-        -> [S.Pat a] -- ^ The remaing fresh variable patterns.
-        -> [Eqs a]   -- ^ The equations.
-        -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+        -> S.Pat a     -- ^ The fresh variable pattern to match.
+        -> [S.Pat a]   -- ^ The remaining fresh variable patterns.
+        -> [Eqs a]     -- ^ The equations.
+        -> S.Exp a     -- ^ The error expression for pattern-matching failures.
         -> Sem r (S.Exp a)
 makeRhs s x xs eqs er = do
   alts <- computeAlts s x xs eqs er
@@ -147,7 +147,7 @@ computeAlts
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.SrcSpan a -- ^ The source span of the corresponding definition.
   -> S.Pat a     -- ^ The variable pattern that binds the matched variable.
-  -> [S.Pat a]   -- ^ The remaing fresh variable patterns.
+  -> [S.Pat a]   -- ^ The remaining fresh variable patterns.
   -> [Eqs a]     -- ^ The equations to generate alternatives for.
   -> S.Exp a     -- ^ The error expression for pattern-matching failures.
   -> Sem r [S.Alt a]
@@ -295,10 +295,10 @@ compareCons = (==) `on` getMaybePatConName
 computeAlt
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
   => S.SrcSpan a -- ^ The source span of the corresponding definition.
-  -> S.Pat a   -- ^ The variable pattern that binds the matched variable.
-  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
-  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
-  -> [Eqs a]   -- ^ A group of equations (see 'groupByCons').
+  -> S.Pat a     -- ^ The variable pattern that binds the matched variable.
+  -> [S.Pat a]   -- ^ The remaining fresh variable patterns.
+  -> S.Exp a     -- ^ The error expression for pattern-matching failures.
+  -> [Eqs a]     -- ^ A group of equations (see 'groupByCons').
   -> Sem r (S.Alt a)
 computeAlt s pat pats er prps@(p : _) = do
   -- oldpats need to be computed for each pattern
