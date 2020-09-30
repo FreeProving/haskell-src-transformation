@@ -28,8 +28,8 @@ import qualified HST.Frontend.HSE.From   as FromHSE
 import qualified HST.Frontend.HSE.To     as ToHSE
 import qualified HST.Frontend.Syntax     as S
 
--- | Type class for "HST.Frontend.Syntax" configurations whose 'ParsedModule's
---   and 'ParsedExp's can be transformed to and from the intermediate
+-- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
+--   and 'S.Exp'ressions can be transformed to and from the intermediate
 --   syntax.
 class Transformable a where
   -- | Type family for the argument and return type of 'transformModule'
