@@ -69,7 +69,7 @@ optimizeCase :: Members '[Fresh, Report] r
 optimizeCase s e alts = do
   e' <- optimize e
   alts' <- mapM optimizeAlt alts
-  case firstJust (flip matchAlt e) alts' of
+  case firstJust (`matchAlt` e) alts' of
     Nothing           -> return $ S.Case s e' alts'
     Just (subst, rhs) -> do
       expr <- expFromUnguardedRhs rhs
