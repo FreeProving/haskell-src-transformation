@@ -23,7 +23,7 @@ import           System.Console.GetOpt
 
 import           HST.Effect.Report     ( Report, report, reportFatal )
 import qualified HST.Frontend.Syntax   as S
-import           HST.Util.Messages     ( Severity(Error), message )
+import           HST.Util.Messages     ( Severity(Error), message, messageWithoutSrcSpan )
 
 -- | A data type for all front ends that can be used for parsing the given input
 --   program in @haskell-src-transformations@.
@@ -48,7 +48,7 @@ frontendMap
 parseFrontend :: Member Report r => String -> Sem r Frontend
 parseFrontend s = case Map.lookup s frontendMap of
   Nothing -> reportFatal
-    $ message Error S.NoSrcSpan
+    $ messageWithoutSrcSpan Error
     $ "Unavailable front end.\n" ++ "Use '--help' for allowed values."
   Just f  -> return f
 
@@ -128,9 +128,9 @@ parseArgs args
     let opts = foldr ($) defaultOptions optSetters
     return opts { optInputFiles = nonOpts }
   | otherwise = do
-    mapM_ (report . message Error S.NoSrcSpan) errors
+    mapM_ (report . messageWithoutSrcSpan Error) errors
     reportFatal
-      $ message Error S.NoSrcSpan
+      $ messageWithoutSrcSpan Error
       $ "Failed to parse command line arguments.\n"
       ++ "Use '--help' for usage information."
  where
