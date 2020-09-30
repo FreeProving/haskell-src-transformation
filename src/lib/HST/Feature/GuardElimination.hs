@@ -36,12 +36,14 @@ altToGExp (S.Alt s pat rhs _) = GExp s [pat] rhs
 --   binding as an error expression.
 generateLet
   :: Member Fresh r
-  => [S.Exp a] -- ^ Variables to match.
-  -> S.Exp a   -- ^ Expression to use if patterns don't match or the guard is
-               --   not satisfied.
-  -> [GExp a]  -- ^ Patterns to match and the corresponding right-hand sides.
+  => S.SrcSpan a -- ^ The source span of the case expression or function
+                 --   definition that is guard-eliminated.
+  -> [S.Exp a]   -- ^ Variables to match.
+  -> S.Exp a     -- ^ Expression to use if patterns don't match or the guard is
+                 --   not satisfied.
+  -> [GExp a]    -- ^ Patterns to match and the corresponding right-hand sides.
   -> Sem r (S.Exp a)
-generateLet vs err gExps = do
+generateLet s vs err gExps = do
   let srcSpans = map gExpSrcSpan gExps
   varNames' <- mapM (freshNameWithSrcSpan genericFreshPrefix) srcSpans
   varName <- freshName genericFreshPrefix
@@ -54,7 +56,7 @@ generateLet vs err gExps = do
       caseExprs
         = zipWith4 generateNestedCases srcSpans ifExprs' nextVarExprs exprPats
       decls     = zipWith makeVarBinding varNames (caseExprs ++ [err])
-  return $ S.Let S.NoSrcSpan (S.BDecls S.NoSrcSpan decls) startVarExpr
+  return $ S.Let s (S.BDecls s decls) startVarExpr
 
 -- | Creates a function declaration for a @let@ binding that binds a variable
 --   with the given name to the given expression.
@@ -153,7 +155,7 @@ applyGEExp (S.If s e1 e2 e3)              = do
   return $ S.If s e1' e2' e3'
 applyGEExp (S.Case s e1 alts)             = do
   e' <- applyGEExp e1
-  alts' <- applyGEAlts alts
+  alts' <- applyGEAlts s alts
   return $ S.Case s e' alts'
 applyGEExp (S.Tuple s boxed es)           = do
   es' <- mapM applyGEExp es
@@ -173,15 +175,13 @@ applyGEExp e@(S.Con _ _)                  = return e
 applyGEExp e@(S.Lit _ _)                  = return e
 
 -- | Applies guard elimination on @case@ expression alternatives.
-applyGEAlts :: Member Fresh r => [S.Alt a] -> Sem r [S.Alt a]
-applyGEAlts alts
+applyGEAlts :: Member Fresh r => S.SrcSpan a -> [S.Alt a] -> Sem r [S.Alt a]
+applyGEAlts s alts
   | any hasGuardsAlt alts = do
-    let gexps     = map altToGExp alts
-        firstSpan = S.getSrcSpan (head alts)
+    let gexps = map altToGExp alts
     newVar' <- freshVarPat genericFreshPrefix
-    e <- generateLet [S.patToExp newVar'] defaultErrorExp gexps
-    return [ S.Alt firstSpan newVar' (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing
-           ]
+    e <- generateLet s [S.patToExp newVar'] defaultErrorExp gexps
+    return [S.Alt s newVar' (S.UnGuardedRhs (S.getSrcSpan e) e) Nothing]
   | otherwise = return alts
 
 -- | Applies guard elimination to function declarations in the given module.
@@ -219,7 +219,7 @@ applyGE s ms = do
       gexps    = map matchToGExp ms
       srcSpans = map S.getSrcSpan (gExpPats (head gexps))
   varPats <- mapM (freshVarPatWithSrcSpan genericFreshPrefix) srcSpans
-  expr' <- generateLet (map S.patToExp varPats) defaultErrorExp gexps
+  expr' <- generateLet s (map S.patToExp varPats) defaultErrorExp gexps
   return
     $ S.Match { S.matchSrcSpan = s
               , S.matchIsInfix = False

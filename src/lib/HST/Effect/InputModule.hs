@@ -31,7 +31,7 @@ import           Polysemy            ( Member, Sem, interpret, makeSem )
 
 import           HST.Effect.Report   ( Report, reportFatal )
 import qualified HST.Frontend.Syntax as S
-import           HST.Util.Messages   ( Severity(Error), message )
+import           HST.Util.Messages   ( Severity(Error), messageWithoutSrcSpan )
 
 -------------------------------------------------------------------------------
 -- Aliases for Names in Module Interfaces                                    --
@@ -148,7 +148,7 @@ runInputModule moduleList
   getInputEntry filePath moduleMap = case Map.lookup filePath moduleMap of
     Just (modul, interface) -> return (modul, interface)
     Nothing                 -> reportFatal
-      $ message Error S.NoSrcSpan
+      $ messageWithoutSrcSpan Error
       $ "No input module was found for " ++ filePath ++ "!"
 
   -- | Creates an entry of a map which maps module names to file paths by

@@ -22,8 +22,8 @@ import           System.Console.GetOpt
   ( ArgDescr(NoArg, ReqArg), ArgOrder(Permute), OptDescr(Option), getOpt )
 
 import           HST.Effect.Report     ( Report, report, reportFatal )
-import qualified HST.Frontend.Syntax   as S
-import           HST.Util.Messages     ( Severity(Error), message, messageWithoutSrcSpan )
+import           HST.Util.Messages
+  ( Severity(Error), messageWithoutSrcSpan )
 
 -- | A data type for all front ends that can be used for parsing the given input
 --   program in @haskell-src-transformations@.
