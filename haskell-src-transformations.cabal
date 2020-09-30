@@ -145,6 +145,7 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.Effect.FreshTests
                     , HST.Effect.ReportTests
                     , HST.Effect.SetExpectation
+                    , HST.EnvironmentTests
                     , HST.Test.Expectation
                     , HST.Test.Parser
                     , HST.Test.Runner

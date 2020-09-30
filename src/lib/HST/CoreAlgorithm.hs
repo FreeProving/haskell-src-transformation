@@ -171,7 +171,9 @@ identifyMissingCons []   = reportFatal
 identifyMissingCons alts = do
   matchedConNames <- mapM getAltConName alts
   conEntries <- findConEntries (head matchedConNames)
-  return $ filter (flip all matchedConNames . (/=) . conEntryName) conEntries
+  return
+    $ filter (not . flip any matchedConNames . S.eqUnQual . conEntryName)
+    conEntries
 
 -- | Looks up the data constructor entries of the data type that the given data
 --   constructor name belongs to in the current environment.

@@ -402,6 +402,18 @@ instance HasSrcSpan QName where
 instance QNameLike QName where
   toQName = id
 
+-- | Compares the given 'QName's ignoring their possible qualification.
+eqUnQual :: QName a -> QName a -> Bool
+eqUnQual qName1 qName2 = unQualifyQName qName1 == unQualifyQName qName2
+
+-- | Removes the possible qualification of the given 'QName'.
+--
+--   Other 'QName's, including special names for built-in data
+--   constructors, are returned as given.
+unQualifyQName :: QName a -> QName a
+unQualifyQName (Qual s _ name) = UnQual s name
+unQualifyQName uqName          = uqName
+
 -- | An unqualified name.
 data Name a = Ident (SrcSpan a) String | Symbol (SrcSpan a) String
  deriving ( Eq, Ord )
