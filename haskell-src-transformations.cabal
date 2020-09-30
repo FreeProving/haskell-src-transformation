@@ -64,6 +64,7 @@ common deps
                      , ScopedTypeVariables
                      , StandaloneDeriving
                      , TemplateHaskell
+                     , TupleSections
                      , TypeApplications
                      , TypeFamilies
   ghc-options:         -Wall
@@ -89,6 +90,7 @@ library
                     , HST.Effect.Fresh
                     , HST.Effect.GetOpt
                     , HST.Effect.InputFile
+                    , HST.Effect.InputModule
                     , HST.Effect.PatternStack
                     , HST.Effect.Report
                     , HST.Effect.WithFrontend
@@ -143,12 +145,15 @@ test-suite haskell-src-transformations-unit-tests
                     , HST.Effect.FreshTests
                     , HST.Effect.ReportTests
                     , HST.Effect.SetExpectation
+                    , HST.EnvironmentTests
                     , HST.Test.Expectation
                     , HST.Test.Parser
                     , HST.Test.Runner
                     , HST.Util.FreeVarsTests
+                    , HST.Util.MessagesTests
                     , HST.Util.SelectorsTests
                     , HST.Util.SubstTests
+
   build-depends:      haskell-src-transformations
                     , HUnit             >= 1.6  && < 1.7
                     , hspec             >= 2.7  && < 2.8

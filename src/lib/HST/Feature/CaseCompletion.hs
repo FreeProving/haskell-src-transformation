@@ -94,9 +94,9 @@ completeLambda s ps e = do
 applyCCModule :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
               => S.Module a
               -> Sem r (S.Module a)
-applyCCModule (S.Module s origModuleHead moduleName decls) = do
+applyCCModule (S.Module s origModuleHead moduleName imports decls) = do
   decls' <- mapM applyCCDecl decls
-  return $ S.Module s origModuleHead moduleName decls'
+  return $ S.Module s origModuleHead moduleName imports decls'
 
 applyCCDecl :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
             => S.Decl a
