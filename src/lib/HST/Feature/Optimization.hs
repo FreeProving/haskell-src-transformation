@@ -61,8 +61,11 @@ optimize e@(S.Lit _ _)            = return e
 --   If the scrutinee is a variable that has been matched already, the
 --   current @case@ expression is redundant and the appropriate alternative
 --   can be selected directly.
-optimizeCase
-  :: Members '[Fresh, Report] r => S.SrcSpan a -> S.Exp a -> [S.Alt a] -> Sem r (S.Exp a)
+optimizeCase :: Members '[Fresh, Report] r
+             => S.SrcSpan a
+             -> S.Exp a
+             -> [S.Alt a]
+             -> Sem r (S.Exp a)
 optimizeCase s e alts = do
   e' <- optimize e
   alts' <- mapM optimizeAlt alts
