@@ -30,7 +30,7 @@ matchPat = fmap combineSubsts .: matchPat'
 -- | Like 'matchPat' but returns a list of single substitutions.
 matchPat' :: S.Pat a -> S.Exp a -> Maybe [Subst a]
 
--- Variable pattern match any expression and bind the variable accordingly.
+-- Variable patterns match any expression and bind the variable accordingly.
 matchPat' (S.PVar _ name) expr = return [singleSubst name expr]
 -- Wildcard patterns match any expression but don't bind a variable.
 matchPat' (S.PWildCard _) _ = return []
