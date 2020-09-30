@@ -110,7 +110,7 @@ To transform a Haskell module, install the command line interface as described a
 haskell-src-transformations -I [InputFile]
 ```
 
-The generated code is printed to the console. If you want to specify the output directory, use the `-o` flag.
+Regular, qualified and aliased imports between the input modules are supported. The generated code is printed to the console. If you want to specify the output directory, use the `-o` flag.
 
 For more information on the different flags you can use the `-h` flag.
 
