@@ -37,7 +37,7 @@ import           HST.Options
   ( optEnableDebug, optFrontend, optInputFiles, optOutputDir, optShowHelp
   , optionDescriptors, parseFrontend )
 import           HST.Util.Messages
-  ( Message, Severity(Debug, Internal), message, msgSeverity )
+  ( Message, Severity(Debug, Internal), messageWithoutSrcSpan, msgSeverity )
 import           HST.Util.PrettyName     ( prettyName )
 import           HST.Util.Selectors      ( findIdentifiers )
 
@@ -78,7 +78,7 @@ main = runFinal
   $ application
  where
   exceptionToMessage :: SomeException -> Message
-  exceptionToMessage e = message Internal S.NoSrcSpan (displayException e)
+  exceptionToMessage e = messageWithoutSrcSpan Internal (displayException e)
 
 -- | The main computation of the command line interface.
 --

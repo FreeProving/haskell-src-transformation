@@ -59,21 +59,22 @@ defaultErrorExp = S.Var S.NoSrcSpan
 --   All equations must have the same number of patterns as the given list
 --   of fresh variable patterns.
 match :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-      => [S.Pat a] -- ^ Fresh variable patterns.
-      -> [Eqs a]   -- ^ The equations of the function declaration.
-      -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+      => S.SrcSpan a -- ^ The source span of the declaration that is matched.
+      -> [S.Pat a]   -- ^ Fresh variable patterns.
+      -> [Eqs a]     -- ^ The equations of the function declaration.
+      -> S.Exp a     -- ^ The error expression for pattern-matching failures.
       -> Sem r (S.Exp a)
-match [] (([], e) : _) _   = return e  -- Rule 3a: All patterns matched.
-match [] [] er             = return er -- Rule 3b: Pattern-matching failure.
-match vars@(x : xs) eqs er
+match _ [] (([], e) : _) _   = return e  -- Rule 3a: All patterns matched.
+match _ [] [] er             = return er -- Rule 3b: Pattern-matching failure.
+match s vars@(x : xs) eqs er
   |
     -- Rule 1: Pattern list of all equations starts with a variable pattern.
     allVarPats eqs = do
-      eqs' <- mapM (substVars x) eqs
-      match xs eqs' er
+      eqs' <- mapM (substVars s x) eqs
+      match s xs eqs' er
   |
     -- Rule 2: Pattern lists of all equations starts with a constructor pattern.
-    allConPats eqs = makeRhs x xs eqs er
+    allConPats eqs = makeRhs s x xs eqs er
   |
     -- Rule 4: Pattern lists of some equations start with a variable pattern
     -- and others start with a constructor pattern.
@@ -85,50 +86,56 @@ match vars@(x : xs) eqs er
     otherwise = let groups = groupByFirstPatType eqs
                 in if length groups == 1
                      then reportFatal
-                       $ message Internal S.NoSrcSpan
+                       $ message Internal s
                        $ "Failed to group equations by pattern type. "
                        ++ "All patterns are in the same group."
-                     else createRekMatch vars er groups
-match [] _ _               = reportFatal
-  $ message Error S.NoSrcSpan
+                     else createRekMatch s vars er groups
+match s [] _ _               = reportFatal
+  $ message Error s
   $ "Equations have different number of arguments."
 
 -- | Substitutes all occurrences of the variable bound by the first pattern
 --   (must be a variable or wildcard pattern) of the given equation by the
 --   fresh variable bound by the given variable pattern on the right-hand side
 --   of the equation.
-substVars :: Members '[Fresh, Report] r => S.Pat a -> Eqs a -> Sem r (Eqs a)
-substVars varPat' (p : ps, e) = do
+substVars :: Members '[Fresh, Report] r
+          => S.SrcSpan a
+          -> S.Pat a
+          -> Eqs a
+          -> Sem r (Eqs a)
+substVars _ varPat' (p : ps, e) = do
   varName <- getPatVarName p
   let varExp' = S.patToExp varPat'
       subst   = singleSubst (S.unQual varName) varExp'
   return (ps, applySubst subst e)
-substVars _ ([], _)           = reportFatal
-  $ message Internal S.NoSrcSpan
+substVars s _ ([], _)           = reportFatal
+  $ message Internal s
   $ "Expected equation with at least one pattern."
 
 -- | Applies 'match' to every group of equations where the error expression
 --   is the 'match' result of the next group.
 createRekMatch
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-  => [S.Pat a] -- ^ Fresh variable patterns.
-  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
-  -> [[Eqs a]] -- ^ Groups of equations (see 'groupByFirstPatType').
+  => S.SrcSpan a -- ^ The source span of the corresponding function definition.
+  -> [S.Pat a]   -- ^ Fresh variable patterns.
+  -> S.Exp a     -- ^ The error expression for pattern-matching failures.
+  -> [[Eqs a]]   -- ^ Groups of equations (see 'groupByFirstPatType').
   -> Sem r (S.Exp a)
-createRekMatch vars er = foldr (\eqs mrhs -> mrhs >>= match vars eqs)
+createRekMatch s vars er = foldr (\eqs mrhs -> mrhs >>= match s vars eqs)
   (return er)
 
 -- | Creates a case expression that performs pattern matching on the variable
 --   bound by the given variable pattern.
 makeRhs :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-        => S.Pat a   -- ^ The fresh variable pattern to match.
-        -> [S.Pat a] -- ^ The remaing fresh variable patterns.
-        -> [Eqs a]   -- ^ The equations.
-        -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+        => S.SrcSpan a -- ^ The source span of the corresponding definition.
+        -> S.Pat a     -- ^ The fresh variable pattern to match.
+        -> [S.Pat a]   -- ^ The remaining fresh variable patterns.
+        -> [Eqs a]     -- ^ The equations.
+        -> S.Exp a     -- ^ The error expression for pattern-matching failures.
         -> Sem r (S.Exp a)
-makeRhs x xs eqs er = do
-  alts <- computeAlts x xs eqs er
-  return (S.Case S.NoSrcSpan (S.patToExp x) alts)
+makeRhs s x xs eqs er = do
+  alts <- computeAlts s x xs eqs er
+  return (S.Case s (S.patToExp x) alts)
 
 -- | Generates @case@ expression alternatives for the given equations.
 --
@@ -138,14 +145,15 @@ makeRhs x xs eqs er = do
 --   every missing constructor.
 computeAlts
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-  => S.Pat a   -- ^ The variable pattern that binds the matched variable.
-  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
-  -> [Eqs a]   -- ^ The equations to generate alternatives for.
-  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
+  => S.SrcSpan a -- ^ The source span of the corresponding definition.
+  -> S.Pat a     -- ^ The variable pattern that binds the matched variable.
+  -> [S.Pat a]   -- ^ The remaining fresh variable patterns.
+  -> [Eqs a]     -- ^ The equations to generate alternatives for.
+  -> S.Exp a     -- ^ The error expression for pattern-matching failures.
   -> Sem r [S.Alt a]
-computeAlts x xs eqs er = do
-  alts <- mapM (computeAlt x xs er) (groupByCons eqs)
-  missingCons <- identifyMissingCons alts
+computeAlts s x xs eqs er = do
+  alts <- mapM (computeAlt s x xs er) (groupByCons eqs)
+  missingCons <- identifyMissingCons s alts
   if null missingCons then return alts else do
     b <- getOpt optTrivialCase
     if b
@@ -162,13 +170,15 @@ computeAlts x xs eqs er = do
 -------------------------------------------------------------------------------
 -- | Looks up the constructors of the data type that is matched by the given
 --   @case@ expression alternatives for which there are no alternatives already.
-identifyMissingCons
-  :: Members '[Env a, Report] r => [S.Alt a] -> Sem r [ConEntry a]
-identifyMissingCons []   = reportFatal
-  $ message Error S.NoSrcSpan
+identifyMissingCons :: Members '[Env a, Report] r
+                    => S.SrcSpan a
+                    -> [S.Alt a]
+                    -> Sem r [ConEntry a]
+identifyMissingCons s []   = reportFatal
+  $ message Error s
   $ "Could not identify missing constructors: "
   ++ "Empty case expressions are not supported."
-identifyMissingCons alts = do
+identifyMissingCons _ alts = do
   matchedConNames <- mapM getAltConName alts
   conEntries <- findConEntries (head matchedConNames)
   return
@@ -284,12 +294,13 @@ compareCons = (==) `on` getMaybePatConName
 --   once sharing is implemented.
 computeAlt
   :: (Members '[Env a, Fresh, GetOpt, Report] r, S.EqAST a)
-  => S.Pat a   -- ^ The variable pattern that binds the matched variable.
-  -> [S.Pat a] -- ^ The remaing fresh variable patterns.
-  -> S.Exp a   -- ^ The error expression for pattern-matching failures.
-  -> [Eqs a]   -- ^ A group of equations (see 'groupByCons').
+  => S.SrcSpan a -- ^ The source span of the corresponding definition.
+  -> S.Pat a     -- ^ The variable pattern that binds the matched variable.
+  -> [S.Pat a]   -- ^ The remaining fresh variable patterns.
+  -> S.Exp a     -- ^ The error expression for pattern-matching failures.
+  -> [Eqs a]     -- ^ A group of equations (see 'groupByCons').
   -> Sem r (S.Alt a)
-computeAlt pat pats er prps@(p : _) = do
+computeAlt s pat pats er prps@(p : _) = do
   -- oldpats need to be computed for each pattern
   (capp, nvars, _) <- decomposeConPat (firstPat p)
   nprps <- mapM f prps
@@ -299,7 +310,7 @@ computeAlt pat pats er prps@(p : _) = do
       -- expression separately when the substitution is applied to the entire
       -- result anyway?
       er'   = applySubst subst er
-  res <- match (nvars ++ pats) nprps er'
+  res <- match s (nvars ++ pats) nprps er'
   let res' = applySubst subst res
   return (S.alt capp res')
  where
@@ -308,8 +319,8 @@ computeAlt pat pats er prps@(p : _) = do
   f (v : vs, r) = do
     (_, _, oldpats) <- decomposeConPat v
     return (oldpats ++ vs, r)
-computeAlt _ _ _ [] = reportFatal
-  $ message Internal S.NoSrcSpan
+computeAlt s _ _ _ [] = reportFatal
+  $ message Internal s
   $ "Expected at least one pattern in group."
 
 -- TODO refactor into 2 functions. one for the capp and nvars and one for the

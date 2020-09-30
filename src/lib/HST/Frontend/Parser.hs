@@ -31,9 +31,8 @@ import           HST.Effect.Report
 import           HST.Frontend.GHC.Config
   ( GHC, defaultDynFlags )
 import           HST.Frontend.HSE.Config                    ( HSE )
-import qualified HST.Frontend.Syntax                        as S
 import           HST.Util.Messages
-  ( Severity(Error, Warning), message )
+  ( Severity(Error, Warning), messageWithoutSrcSpan )
 
 -- | Type class for "HST.Frontend.Syntax" configurations for which 'S.Module's
 --   and 'S.Exp'ressions can be parsed.
@@ -82,7 +81,7 @@ instance Parsable HSE where
 handleParseResultHSE :: Member Report r => HSE.ParseResult a -> Sem r a
 handleParseResultHSE (HSE.ParseOk astNode)        = return astNode
 handleParseResultHSE (HSE.ParseFailed srcLoc msg) = reportFatal
-  $ message Error S.NoSrcSpan
+  $ messageWithoutSrcSpan Error
   $ msg
   ++ " in "
   ++ HSE.srcFilename srcLoc
@@ -137,7 +136,7 @@ handleParseResultGHC parseResult = case parseResult of
   -- | Reports an error message or warning from @ghc-lib-parser@.
   reportErrMsg :: Member Report r => Severity -> GHC.ErrMsg -> Sem r ()
   reportErrMsg severity msg = report
-    $ message severity S.NoSrcSpan
+    $ messageWithoutSrcSpan severity
     $ intercalate "\n • "
     $ map (GHC.showSDoc defaultDynFlags)
     $ GHC.errDocImportant

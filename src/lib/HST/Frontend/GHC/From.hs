@@ -257,7 +257,7 @@ transformLocalBinds :: Member Report r
                     => GHC.LHsLocalBinds GHC.GhcPs
                     -> Sem r (Maybe (S.Binds GHC))
 transformLocalBinds (GHC.L s (GHC.HsValBinds _ binds)) = do
-  binds' <- transformValBinds binds
+  binds' <- transformValBinds (transformSrcSpan s) binds
   return $ Just (S.BDecls (transformSrcSpan s) binds')
 transformLocalBinds (GHC.L _ (GHC.EmptyLocalBinds _))  = return Nothing
 transformLocalBinds (GHC.L s (GHC.HsIPBinds _ _))      = notSupported
@@ -265,14 +265,16 @@ transformLocalBinds (GHC.L s (GHC.HsIPBinds _ _))      = notSupported
 transformLocalBinds (GHC.L _ (GHC.XHsLocalBindsLR x))  = GHC.noExtCon x
 
 -- | Transforms GHC value bindings into HST declarations.
-transformValBinds
-  :: Member Report r => GHC.HsValBinds GHC.GhcPs -> Sem r [S.Decl GHC]
-transformValBinds (GHC.ValBinds _ binds sigs) = mapM transformDecl
+transformValBinds :: Member Report r
+                  => S.SrcSpan a
+                  -> GHC.HsValBinds GHC.GhcPs
+                  -> Sem r [S.Decl GHC]
+transformValBinds _ (GHC.ValBinds _ binds sigs) = mapM transformDecl
   (map (\(GHC.L s bind) -> GHC.L s (GHC.ValD GHC.NoExtField bind))
    (GHC.bagToList binds)
    ++ map (\(GHC.L s sig) -> GHC.L s (GHC.SigD GHC.NoExtField sig)) sigs)
-transformValBinds (GHC.XValBindsLR _)
-  = notSupported "Value bindings extensions" S.NoSrcSpan
+transformValBinds s (GHC.XValBindsLR _)
+  = notSupported "Value bindings extensions" s
 
 -- | Transforms a GHC match group into HST matches without transforming the
 --   match context.

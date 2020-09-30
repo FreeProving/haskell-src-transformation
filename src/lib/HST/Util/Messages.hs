@@ -6,6 +6,7 @@ module HST.Util.Messages
   , Message(..)
   , displayCodeExcerpt
   , message
+  , messageWithoutSrcSpan
   , showPrettyMessage
   , showPrettyMessageWithExcerpt
   ) where
@@ -34,6 +35,10 @@ data Message = Message { msgSeverity :: Severity
 --   instead of a @Maybe@ 'S.MsgSrcSpan' and does the conversion.
 message :: Severity -> S.SrcSpan a -> String -> Message
 message severity srcSpan = Message severity (S.toMsgSrcSpan srcSpan)
+
+-- | Like 'message' but for messages without source span.
+messageWithoutSrcSpan :: Severity -> String -> Message
+messageWithoutSrcSpan severity = Message severity Nothing
 
 -- TODO Add @Pretty@ instance for messages.
 -- | Pretty-prints a message without a code excerpt.
