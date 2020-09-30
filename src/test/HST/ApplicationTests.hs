@@ -49,13 +49,11 @@ shouldTransformModulesTo
   -> Sem r ()
 shouldTransformModulesTo inputs expectedOutput = do
   inputModules <- mapM parseTestModule inputs
-  let n               = length inputs
-      fileNames       = zipWith (\s n' -> "<" ++ s ++ show n' ++ ">")
-        (replicate n "test-input") [1 .. n]
-      inputModuleList = zip fileNames
-        (map (\m -> (m, createModuleInterface m)) inputModules)
-  env <- runInputModule inputModuleList
-    $ initializeEnvironment (head fileNames)
+  let fileNames
+        = ["<test-input" ++ show n ++ ">" | n <- [1 .. length inputs]]
+      inputModules' = zipWith (\f m -> (f, (m, createModuleInterface m)))
+        fileNames inputModules
+  env <- runInputModule inputModules' $ initializeEnvironment (head fileNames)
   outputModule <- runWithEnv env
     . runFresh (findIdentifiers (head inputModules))
     $ processModule (head inputModules)
