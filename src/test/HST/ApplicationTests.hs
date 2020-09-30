@@ -110,17 +110,6 @@ testProcessModule = context "processModule" $ do
                        , "  (a1, a2) -> let x = a2 in x"
                        ]
         in m `shouldTransformTo` expected
-    --TODO The following test should be used instead of the replacement that
-    --    is not commented out, after the corresponding issue has been fixed.
-    it "avoids capture of variables shadowed in case expressions"
-      $ runTest
-      $ let m        = [ "module A where"
-                       , "f (x, y) = case x of"
-                       , "             y -> (x, y)"
-                       ]
-            expected
-              = ["module A where", "f a1 = case a1 of (a2, a3) -> (a2, a2)"]
-        in m `shouldTransformTo` expected ---}
     it "avoids capture of variables shadowed in case expressions"
       $ runTest
       $ let m        = [ "module A where"
