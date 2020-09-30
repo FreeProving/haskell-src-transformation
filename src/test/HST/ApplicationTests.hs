@@ -113,13 +113,11 @@ testProcessModule = context "processModule" $ do
     it "avoids capture of variables shadowed in case expressions"
       $ runTest
       $ let m        = [ "module A where"
-                       , "f (x, y) ="
-                       , "  let r = case x of"
-                       , "            y -> (x, y)"
-                       , "  in  r"
+                       , "f (x, y) = case x of"
+                       , "             y -> (x, y)"
                        ]
             expected = [ "module A where"
                        , "f a1 = case a1 of"
-                       , "  (a2, a3) -> let r = (a2, a2) in  r"
+                       , "  (a2, a3) -> (a2, a2)"
                        ]
         in m `shouldTransformTo` expected
