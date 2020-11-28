@@ -300,3 +300,14 @@ testEnvironment = describe "HST.Environment" $ do
                     )
                 ]
         query `conEntriesShouldBe` expResult
+    it "allows the Prelude to be imported explicitly" $ runTest $ do
+      env <- setupTestEnvironment [""] [] []
+      let env'      = env
+            { envImportedModules
+                = ([importDecl "Prelude" False ""], preludeModuleInterface)
+                : envImportedModules env
+            }
+          unit      = S.Special S.NoSrcSpan (S.UnitCon S.NoSrcSpan)
+          query     = lookupTypeName unit env'
+          expResult = [(moduleName "Prelude", Just unit)]
+      query `typeNameShouldBe` expResult
