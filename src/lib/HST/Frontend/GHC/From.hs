@@ -28,7 +28,7 @@ import           HST.Frontend.GHC.Config
 import           HST.Frontend.GHC.Util.AnyMatch    ( AnyMatch(..) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupported, skipNotSupported )
+  ( notSupported, skipNotSupported, skipNotSupported' )
 import           HST.Util.Messages                 ( Severity(Error), message )
 
 -------------------------------------------------------------------------------
@@ -177,16 +177,18 @@ transformImportDecl (GHC.L s GHC.ImportDecl { GHC.ideclImplicit = True })
   = skipNotSupported "Implicit imports" (transformSrcSpan s) >> return Nothing
 transformImportDecl (GHC.L s GHC.ImportDecl { GHC.ideclPkgQual = Just _ })
   = skipNotSupported "Package imports" (transformSrcSpan s) >> return Nothing
-transformImportDecl (GHC.L s GHC.ImportDecl { GHC.ideclHiding = Just _ })
-  = skipNotSupported "Import specifications" (transformSrcSpan s)
-  >> return Nothing
-transformImportDecl (GHC.L s importDecl) = return
-  $ Just S.ImportDecl
-  { S.importSrcSpan = transformSrcSpan s
-  , S.importModule  = transformModuleName (GHC.ideclName importDecl)
-  , S.importIsQual  = GHC.ideclQualified importDecl /= GHC.NotQualified
-  , S.importAsName  = fmap transformModuleName (GHC.ideclAs importDecl)
-  }
+transformImportDecl (GHC.L s importDecl) = do
+  case GHC.ideclHiding importDecl of
+    Nothing              -> return ()
+    Just (_, GHC.L s' _) -> skipNotSupported' "Import specifications"
+      "everything will be imported" (transformSrcSpan s')
+  return
+    $ Just S.ImportDecl
+    { S.importSrcSpan = transformSrcSpan s
+    , S.importModule  = transformModuleName (GHC.ideclName importDecl)
+    , S.importIsQual  = GHC.ideclQualified importDecl /= GHC.NotQualified
+    , S.importAsName  = fmap transformModuleName (GHC.ideclAs importDecl)
+    }
 
 -------------------------------------------------------------------------------
 -- Data Type Declarations                                                    --

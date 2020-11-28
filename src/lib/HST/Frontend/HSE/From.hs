@@ -13,7 +13,7 @@ import           HST.Frontend.HSE.Config
   ( HSE, OriginalModuleHead(OriginalModuleHead) )
 import qualified HST.Frontend.Syntax               as S
 import           HST.Frontend.Transformer.Messages
-  ( notSupported, skipNotSupported )
+  ( notSupported, skipNotSupported, skipNotSupported' )
 import           HST.Util.Messages                 ( Severity(Error), message )
 
 -------------------------------------------------------------------------------
@@ -172,9 +172,10 @@ transformImportDecl
   HSE.ImportDecl { HSE.importPkg = Just _, HSE.importAnn = s }
   = skipNotSupported "Package imports" (transformSrcSpan s) >> return Nothing
 transformImportDecl
-  HSE.ImportDecl { HSE.importSpecs = Just _, HSE.importAnn = s }
-  = skipNotSupported "Import specifications" (transformSrcSpan s)
-  >> return Nothing
+  importDecl@HSE.ImportDecl { HSE.importSpecs = Just importSpecs }
+  = skipNotSupported' "Import specifications" "everything will be imported"
+  (transformSrcSpan (HSE.ann importSpecs))
+  >> transformImportDecl importDecl { HSE.importSpecs = Nothing }
 transformImportDecl importDecl = do
   importModule <- transformModuleName (HSE.importModule importDecl)
   aliasName <- traverse transformModuleName (HSE.importAs importDecl)

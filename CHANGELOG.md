@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+ - **Fixed import specifications**.
+   + Import declarations with import specifications are not skipped entirely anymore.
+     Only the import specification is ignored but the module is imported anyway.
+
 ## 0.2.0.0 / 2020-09-30
 
 - **Added GHC-lib front end and command line option for front end selection**
